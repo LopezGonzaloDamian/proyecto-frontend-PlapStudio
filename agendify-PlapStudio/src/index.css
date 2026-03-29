@@ -1,23 +1,62 @@
 @import "tailwindcss";
 
+/* ============================================================
+   DESIGN TOKENS — define custom semantic colors for Tailwind v4
+   Use as: bg-primario, text-primario-hover, border-borde, etc.
+   ============================================================ */
+@theme {
+  /* Primary — Modern Violet */
+  --color-primario:            #7c3aed;
+  --color-primario-hover:      #6d28d9;
+  --color-primario-suave:      #ede9fe;
+  --color-primario-suave-hover:#ddd6fe;
+  --color-primario-claro:      #f5f3ff;
+  --color-primario-oscuro:     #5b21b6;
+
+  /* Accent — Purple (gradient partner) */
+  --color-acento:              #a855f7;
+  --color-acento-hover:        #9333ea;
+
+  /* Semantic states */
+  --color-confirmacion:        #10b981;
+  --color-confirmacion-hover:  #059669;
+  --color-peligro:             #ef4444;
+  --color-peligro-hover:       #dc2626;
+  --color-peligro-suave:       #fee2e2;
+  --color-advertencia:         #f59e0b;
+
+  /* Surfaces */
+  --color-fondo:               #fafafa;
+  --color-fondo-violeta:       #f5f3ff;
+  --color-borde:               #e5e7eb;
+  --color-borde-suave:         #f3f4f6;
+
+  /* Text */
+  --color-texto-principal:     #1e1b4b;
+  --color-texto-secundario:    #6b7280;
+  --color-texto-suave:         #9ca3af;
+}
+
+/* ============================================================
+   CSS VARIABLES — runtime theming (dark mode compatible)
+   ============================================================ */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
+  --text:         #6b7280;
+  --text-h:       #1e1b4b;
+  --bg:           #fff;
+  --border:       #e5e7eb;
+  --accent:       #7c3aed;
+  --accent-bg:    rgba(124, 58, 237, 0.08);
+  --accent-border:rgba(124, 58, 237, 0.3);
   --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    rgba(0, 0, 0, 0.1)  0 10px 15px -3px,
+    rgba(0, 0, 0, 0.05) 0  4px  6px -2px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans:    system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --mono:    ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
+  font: 16px/160% var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);
@@ -26,88 +65,50 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
+    --text:         #9ca3af;
+    --text-h:       #f3f4f6;
+    --bg:           #0f0e17;
+    --border:       #2e303a;
+    --accent:       #a78bfa;
+    --accent-bg:    rgba(167, 139, 250, 0.12);
+    --accent-border:rgba(167, 139, 250, 0.4);
     --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+      rgba(0, 0, 0, 0.5) 0 10px 15px -3px,
+      rgba(0, 0, 0, 0.3) 0  4px  6px -2px;
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
+/* ============================================================
+   GLOBAL LAYOUT
+   ============================================================ */
 body {
   margin: 0;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+/* ============================================================
+   TYPOGRAPHY BASE
+   ============================================================ */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--heading);
+  color: var(--text-h);
+  margin: 0;
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
+
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+button {
+  cursor: pointer;
 }
