@@ -54,8 +54,8 @@ npm run build
 
 ## Equipo
 
-- Gonzalo Damian Lopez
-- Johnatan Gomez Ciranna
-- Nahuel Garcia
+- Gonzalo Lopez
+- Jonathan Gomez Ciranna
+- Nahuel García
 - Rodrigo Casco
 - Santiago Zolla
