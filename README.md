@@ -7,31 +7,33 @@ Este repositorio contiene la aplicación frontend, desarrollada con React y Type
 🔗 **Repositorio del frontend:** [proyecto-frontend-PlapStudio](https://github.com/LopezGonzaloDamian/proyecto-frontend-PlapStudio)
 
 
-## ▶️ Cómo correr el proyecto
+## Cómo correr el proyecto
 
 La aplicación se ejecuta en entorno local y consume la API del backend.
 
 
-### 🔹 Requisitos previos
+### Requisitos previos
 
 - [Node.js](https://nodejs.org/en/)  
 - npm  
 
 
-### 🔹 Ejecución
+
+### Ejecución
 
 ```bash
 npm install
 npm run dev
-
+```
 La aplicación estará disponible en:
 
 http://localhost:5173
 
 
-🧪 Tests
+## Tests
 ```bash
 npm run test
+```
 
-📖 Wiki
+## 📖 Wiki
 Para información detallada consultá la [Wiki de este repositorio.](https://github.com/LopezGonzaloDamian/proyecto-frontend-PlapStudio/wiki)
