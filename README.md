@@ -1,61 +1,40 @@
-# Agendify — Frontend
+# 💻 Agendify — Frontend
 
-Aplicacion web para la gestion de turnos online, orientada a negocios como barbershops, peluquerias, spas y salones de belleza. Permite a los clientes buscar negocios y reservar turnos de forma rapida, y a los comercios gestionar su agenda.
+Agendify es una plataforma SaaS de gestión de turnos orientada a profesionales, diseñada para automatizar la agenda, centralizar la gestión de clientes y simplificar el proceso de reservas, notificaciones y cobros.
 
-Proyecto de la materia **Proyectos de Software** — UNSAM.
+Este repositorio contiene la aplicación frontend, desarrollada con React y TypeScript.
 
----
-
-## Stack tecnologico
-
-- **React 19** con TypeScript
-- **Vite** (bundler, con plugin SWC)
-- **Tailwind CSS v4** (via `@tailwindcss/vite`)
-- **React Router v7**
-- **Axios**
-- **Vitest** + Testing Library (unit/integration tests)
+🔗 **Repositorio del frontend:** [proyecto-frontend-PlapStudio](https://github.com/LopezGonzaloDamian/proyecto-frontend-PlapStudio)
 
 ---
 
-## Estructura del proyecto
+## ▶️ Cómo correr el proyecto
 
-```
-src/
-  pages/          # Vistas principales (LandingPage, Login, Registro, etc.)
-  components/     # Componentes reutilizables por pagina
-  layouts/        # Layouts compartidos (AppLayout)
-  routes/         # Configuracion de rutas y guards de acceso
-  services/       # Llamadas a la API
-  customHooks/    # Hooks personalizados
-  types/          # Tipos e interfaces TypeScript
-  utils/          # Utilitarios generales
-  lib/            # Helpers internos (ej: manejo de sesion)
-```
+La aplicación se ejecuta en entorno local y consume la API del backend.
 
 ---
 
-## Instalacion y uso
+### 🔹 Requisitos previos
+
+- [Node.js](https://nodejs.org/en/)  
+- npm  
+
+---
+
+### 🔹 Ejecución
 
 ```bash
-# Instalar dependencias
 npm install
-
-# Iniciar servidor de desarrollo
 npm run dev
 
-# Ejecutar tests
-npm test
+La aplicación estará disponible en:
 
-# Build de produccion
-npm run build
-```
+http://localhost:5173
 
----
 
-## Equipo
+🧪 Tests
+```bash
+npm run test
 
-- Gonzalo Lopez
-- Jonathan Gomez Ciranna
-- Nahuel García
-- Rodrigo Casco
-- Santiago Zolla
+📖 Wiki
+Para información detallada consultá la [Wiki de este repositorio.](https://github.com/LopezGonzaloDamian/proyecto-frontend-PlapStudio/wiki)
