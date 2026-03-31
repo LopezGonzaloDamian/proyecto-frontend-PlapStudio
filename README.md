@@ -4,7 +4,7 @@ Agendify es una plataforma SaaS de gestión de turnos orientada a profesionales,
 
 Este repositorio contiene la aplicación frontend, desarrollada con React y TypeScript.
 
-🔗 **Repositorio del frontend:** [proyecto-frontend-PlapStudio](https://github.com/LopezGonzaloDamian/proyecto-frontend-PlapStudio)
+🔗 **Repositorio del backend:** [proyecto-backend-PlapStudio](https://github.com/LopezGonzaloDamian/proyecto-backend-PlapStudio)
 
 
 ## Cómo correr el proyecto
