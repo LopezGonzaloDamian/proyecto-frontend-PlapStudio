@@ -29,6 +29,10 @@ La aplicación estará disponible en:
 
 http://localhost:5173
 
+## Build
+```bash
+npm run build
+```
 
 ## Tests
 ```bash
