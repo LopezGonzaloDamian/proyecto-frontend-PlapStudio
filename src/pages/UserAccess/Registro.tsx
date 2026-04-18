@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ChangeEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 
 import InputGenerico from '../../components/AccesoUsuario/InputGenerico'
 import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcceso'
@@ -21,7 +21,10 @@ export default function Registro() {
     const [enviando, setEnviando] = useState(false)
 
     const navigate = useNavigate()
+    const location = useLocation()
     const { toast, showToast } = useToast()
+    const esProfesional = location.pathname.startsWith('/profesional')
+    const rolActual = esProfesional ? 'profesional' : 'cliente'
 
     const onChange = (e: ChangeEvent<HTMLInputElement>) =>
         setForm({ ...form, [e.target.name]: e.target.value })
@@ -39,21 +42,27 @@ export default function Registro() {
         if (!puedeEnviar) return
 
         setEnviando(true)
-        const idUsuarioMock = 'cliente-demo'
+        const idUsuarioMock = esProfesional ? 'profesional-demo' : 'cliente-demo'
         setSession(idUsuarioMock)
-        showToast('Cuenta mock creada. Ya podes reservar turnos.', 'success')
+        showToast(
+            esProfesional ? 'Cuenta mock creada. Ya podes administrar tu agenda.' : 'Cuenta mock creada. Ya podes reservar turnos.',
+            'success',
+        )
 
         setTimeout(() => {
             setEnviando(false)
-            navigate(`/home/${idUsuarioMock}`)
+            navigate(esProfesional ? '/profesional' : `/home/${idUsuarioMock}`)
         }, 500)
     }
 
     return (
         <CardAcceso>
             <HeaderAcceso
-                titulo="Registro cliente"
-                subtitulo="Registrate gratis y reserva turnos en la demo de cliente."
+                titulo={`Registro ${rolActual}`}
+                subtitulo={esProfesional
+                    ? 'Registrate gratis y administra turnos en la demo profesional.'
+                    : 'Registrate gratis y reserva turnos en la demo de cliente.'
+                }
             />
 
             <form className="w-full flex flex-col gap-4" onSubmit={enviar} autoComplete="off">
@@ -120,7 +129,7 @@ export default function Registro() {
 
             <p className="text-xs text-texto-secundario text-center">
                 Ya tienes una cuenta?{' '}
-                <Link to="/cliente/login" className="text-primario font-semibold hover:underline">
+                <Link to={`/${rolActual}/login`} className="text-primario font-semibold hover:underline">
                     Inicia sesion
                 </Link>
             </p>

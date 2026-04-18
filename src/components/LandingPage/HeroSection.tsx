@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconCheck, IconBell, IconStar } from './Icons'
+import AccessChoiceModal from './AccessChoiceModal'
 
 function BookingCard() {
   const [selectedService, setSelectedService] = useState(0)
@@ -103,7 +103,7 @@ function BookingCard() {
 }
 
 export default function HeroSection() {
-  const navigate = useNavigate()
+  const [accessMode, setAccessMode] = useState<'login' | 'registro' | null>(null)
 
   return (
     <section
@@ -136,13 +136,13 @@ export default function HeroSection() {
 
             <div className="flex flex-col sm:flex-row gap-3 mb-12">
               <button
-                onClick={() => navigate('/registro')}
+                onClick={() => setAccessMode('registro')}
                 className="bg-white text-primario font-semibold px-7 py-3.5 rounded-xl hover:bg-violet-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-sm"
               >
                 Reservar un turno
               </button>
               <button
-                onClick={() => navigate('/registro')}
+                onClick={() => setAccessMode('registro')}
                 className="border-2 border-white/25 text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-white/10 transition-all text-sm backdrop-blur-sm"
               >
                 Registrá tu negocio →
@@ -173,6 +173,12 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
+      {accessMode && (
+        <AccessChoiceModal
+          mode={accessMode}
+          onClose={() => setAccessMode(null)}
+        />
+      )}
     </section>
   )
 }

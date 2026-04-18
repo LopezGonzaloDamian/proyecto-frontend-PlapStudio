@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import AccessChoiceModal from './AccessChoiceModal'
 
 export default function CTABanner() {
-  const navigate = useNavigate()
+  const [accessMode, setAccessMode] = useState<'login' | 'registro' | null>(null)
 
   return (
     <section className="py-20 bg-linear-to-r from-primario-oscuro via-primario to-acento relative overflow-hidden">
@@ -18,19 +19,26 @@ export default function CTABanner() {
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
-            onClick={() => navigate('/registro')}
+            onClick={() => setAccessMode('registro')}
             className="bg-white text-primario font-semibold px-8 py-3.5 rounded-xl hover:bg-violet-50 transition-all shadow-lg hover:-translate-y-0.5 text-sm"
           >
-            Registrá tu negocio gratis
+            Registrate aquí
           </button>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => setAccessMode('login')}
             className="border-2 border-white/30 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-white/10 transition-all text-sm"
           >
             Iniciar sesión
           </button>
         </div>
       </div>
+
+      {accessMode && (
+        <AccessChoiceModal
+          mode={accessMode}
+          onClose={() => setAccessMode(null)}
+        />
+      )}
     </section>
   )
 }

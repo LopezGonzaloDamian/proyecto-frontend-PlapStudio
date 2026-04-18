@@ -17,6 +17,8 @@ export default function RoutesApp() {
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/cliente/login" element={<Login />} />
       <Route path="/cliente/registro" element={<Registro />} />
+      <Route path="/profesional/login" element={<Login />} />
+      <Route path="/profesional/registro" element={<Registro />} />
       <Route path="/cliente" element={<ClienteDashboardMock />} />
       <Route path="/cliente/:seccion" element={<ClienteDashboardMock />} />
       <Route path="/cliente/:seccion/:idProfesional" element={<ClienteDashboardMock />} />

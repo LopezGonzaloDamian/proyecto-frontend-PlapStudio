@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ChangeEvent, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 
 import InputGenerico from '../../components/AccesoUsuario/InputGenerico'
 import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcceso'
@@ -20,7 +20,10 @@ export default function Login() {
 
     const dropdownRef = useRef<HTMLDivElement>(null)
     const navigate = useNavigate()
+    const location = useLocation()
     const { toast, showToast } = useToast()
+    const esProfesional = location.pathname.startsWith('/profesional')
+    const rolActual = esProfesional ? 'profesional' : 'cliente'
 
     useEffect(() => {
         const handleClickAfuera = (e: MouseEvent) => {
@@ -65,7 +68,7 @@ export default function Login() {
         if (!puedeIngresar || enviando) return
 
         setEnviando(true)
-        const idUsuarioMock = 'cliente-demo'
+        const idUsuarioMock = esProfesional ? 'profesional-demo' : 'cliente-demo'
 
         if (recordarme) {
             addRememberedUser(emailTrim)
@@ -78,15 +81,18 @@ export default function Login() {
         showToast('Inicio de sesion mock exitoso.', 'success')
         setTimeout(() => {
             setEnviando(false)
-            navigate(`/home/${idUsuarioMock}`)
+            navigate(esProfesional ? '/profesional' : `/home/${idUsuarioMock}`)
         }, 500)
     }
 
     return (
         <CardAcceso>
             <HeaderAcceso
-                titulo="Login cliente"
-                subtitulo="Ingresa tus datos para ver el dashboard mock de cliente."
+                titulo={`Login ${rolActual}`}
+                subtitulo={esProfesional
+                    ? 'Ingresa tus datos para ver el dashboard mock profesional.'
+                    : 'Ingresa tus datos para ver el dashboard mock de cliente.'
+                }
             />
 
             <form className="w-full flex flex-col gap-4" onSubmit={enviar} autoComplete="off">
@@ -159,7 +165,7 @@ export default function Login() {
 
             <p className="text-xs text-texto-secundario text-center">
                 Aun no tienes una cuenta?{' '}
-                <Link to="/cliente/registro" className="text-primario font-semibold hover:underline">
+                <Link to={`/${rolActual}/registro`} className="text-primario font-semibold hover:underline">
                     Registrate gratis
                 </Link>
             </p>
