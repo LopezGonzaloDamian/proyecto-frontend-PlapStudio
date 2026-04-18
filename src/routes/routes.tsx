@@ -3,6 +3,8 @@ import Login from '../pages/UserAccess/Login'
 import Registro from '../pages/UserAccess/Registro'
 import NotFound from '../pages/Error/NotFound'
 import LandingPage from '../pages/LandingPage/LandingPage'
+import ClienteDashboardMock from '../pages/Cliente/ClienteDashboardMock'
+import ProfesionalDashboardMock from '../pages/Profesional/ProfesionalDashboardMock'
 // import { RutaProtegida, RutaPublica } from './accesoRoutes'
 // import AppLayout from '../layouts/AppLayout'
 // import { IdIgualSesion } from './sesionActiva'
@@ -13,6 +15,16 @@ export default function RoutesApp() {
     <Routes>
       <Route path="/" element={<Navigate to="/landing" replace />} />
       <Route path="/landing" element={<LandingPage />} />
+      <Route path="/cliente/login" element={<Login />} />
+      <Route path="/cliente/registro" element={<Registro />} />
+      <Route path="/cliente" element={<ClienteDashboardMock />} />
+      <Route path="/cliente/:seccion" element={<ClienteDashboardMock />} />
+      <Route path="/cliente/:seccion/:idProfesional" element={<ClienteDashboardMock />} />
+      <Route path="/home/:id" element={<ClienteDashboardMock />} />
+      <Route path="/home/:id/:seccion" element={<ClienteDashboardMock />} />
+      <Route path="/home/:id/:seccion/:idProfesional" element={<ClienteDashboardMock />} />
+      <Route path="/profesional" element={<ProfesionalDashboardMock />} />
+      <Route path="/profesional/:seccion" element={<ProfesionalDashboardMock />} />
 
       <Route element={<RutaPublica />}>
         <Route path="/login" element={<Login />} />

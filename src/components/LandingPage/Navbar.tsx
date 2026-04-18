@@ -43,13 +43,13 @@ export default function Navbar() {
           {/* Desktop auth CTAs */}
           <div className="hidden md:flex items-center gap-3">
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/cliente/login')}
               className="text-sm font-medium text-texto-secundario hover:text-primario transition-colors px-3 py-2 rounded-lg hover:bg-primario-claro cursor-pointer"
             >
               Iniciar sesión
             </button>
             <button
-              onClick={() => navigate('/registro')}
+              onClick={() => navigate('/cliente/registro')}
               className="text-sm font-semibold bg-primario text-white rounded-lg px-4 py-2 hover:bg-primario-hover transition-colors shadow-sm cursor-pointer"
             >
               Comenzar gratis
@@ -82,13 +82,13 @@ export default function Navbar() {
           ))}
           <div className="pt-3 border-t border-borde flex flex-col gap-2">
             <button
-              onClick={() => { setMenuOpen(false); navigate('/login') }}
+              onClick={() => { setMenuOpen(false); navigate('/cliente/login') }}
               className="w-full text-sm font-medium text-primario border border-primario rounded-lg py-2.5 hover:bg-primario-claro transition-colors"
             >
               Iniciar sesión
             </button>
             <button
-              onClick={() => { setMenuOpen(false); navigate('/registro') }}
+              onClick={() => { setMenuOpen(false); navigate('/cliente/registro') }}
               className="w-full text-sm font-semibold bg-primario text-white rounded-lg py-2.5 hover:bg-primario-hover transition-colors"
             >
               Comenzar gratis
