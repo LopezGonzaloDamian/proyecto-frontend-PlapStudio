@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IconChart, IconClose, IconUsers } from './Icons'
+import { IconCalendar, IconChart, IconClose, IconUsers } from './Icons'
 
 type AccessMode = 'login' | 'registro'
 
@@ -15,12 +15,14 @@ const ACTION_TEXT = {
     subtitle: 'Elegí cómo querés ingresar a Agendify.',
     cliente: 'Ingresar como cliente',
     profesional: 'Ingresar como profesional',
+    asistente: 'Ingresar como asistente',
   },
   registro: {
     title: 'Registrate aquí',
     subtitle: 'Contanos qué tipo de cuenta querés crear.',
     cliente: 'Registrarme como cliente',
     profesional: 'Registrarme como profesional',
+    asistente: 'Registrarme como asistente',
   },
 }
 
@@ -37,7 +39,7 @@ export default function AccessChoiceModal({ mode, onClose }: AccessChoiceModalPr
     return () => document.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
-  const goToAccess = (role: 'cliente' | 'profesional') => {
+  const goToAccess = (role: 'cliente' | 'profesional' | 'asistente') => {
     onClose()
     navigate(`/${role}/${mode}`)
   }
@@ -97,6 +99,20 @@ export default function AccessChoiceModal({ mode, onClose }: AccessChoiceModalPr
             <span>
               <span className="block text-sm font-bold text-texto-principal">{copy.profesional}</span>
               <span className="block text-xs text-texto-secundario">Administrar agenda, servicios y negocio.</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => goToAccess('asistente')}
+            className="flex w-full items-center gap-4 rounded-xl border border-borde p-4 text-left transition-all hover:border-primario hover:bg-primario-claro"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primario-claro text-primario">
+              <IconCalendar className="h-6 w-6" />
+            </span>
+            <span>
+              <span className="block text-sm font-bold text-texto-principal">{copy.asistente}</span>
+              <span className="block text-xs text-texto-secundario">Gestionar turnos de agendas asignadas.</span>
             </span>
           </button>
         </div>
