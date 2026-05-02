@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { clearSession, getSession } from '../lib/storage/session'
-import { getUsuario } from 'src/services/usuario.service'
-import type { Usuario } from 'src/types/usuario'
-import { getMensajeError } from 'src/utils/errorHandling'
-import { useToast } from 'src/customHooks/useToast'
-import { useOnInit } from 'src/customHooks/hooks'
+import { getUsuario } from '../services/usuario.service'
+import type { Usuario } from '../types/usuario'
+import { getMensajeError } from '../utils/errorHandling'
+import { useToast } from '../customHooks/useToast'
+import { useOnInit } from '../customHooks/hooks'
 import { Toast } from './common/toast'
 
 export const Navbar = () => {

@@ -1,8 +1,8 @@
-import { Usuario } from 'src/types/usuario'
+import { Usuario } from '../types/usuario'
 import { API_URL } from '../config/api'
-import { ParamsBusqueda } from 'src/customHooks/useGestorLibros'
+import { ParamsBusqueda } from '../customHooks/useGestorLibros'
 import axios from 'axios'
-import { LibrosTarjeta } from 'src/types/libro'
+import { LibrosTarjeta } from '../types/libro'
 
 export async function getUsuario(id: number) : Promise<Usuario> {
   const response = await axios.get(`${API_URL}/perfil/${id}`)

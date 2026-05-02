@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { LibrosTarjeta } from 'src/types/libro'
-import { getLibrosUsuario } from 'src/services/usuario.service'
-import { getMensajeError } from 'src/utils/errorHandling'
+import { LibrosTarjeta } from '../types/libro'
+import { getLibrosUsuario } from '../services/usuario.service'
+import { getMensajeError } from '../utils/errorHandling'
 
 export type FiltroEstado = 'Todos' | 'Disponible' | 'Prestado'
 export type Campo = 'estado' | 'fechaAgregado' | 'ninguno'

@@ -1,6 +1,6 @@
  import axios from 'axios'
 import { API_URL } from '../config/api'
-import {ConfirmarReservaRequest} from 'src/types/detalleLibro'
+import { ConfirmarReservaRequest } from '../types/detalleLibro'
 
 
 export async function confirmarReserva(idLibro: number, body: ConfirmarReservaRequest): Promise<void> {
