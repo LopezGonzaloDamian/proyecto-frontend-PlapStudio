@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, useNavigate, useParams } from 'react-router-dom'
-import { IconBell, IconCalendar, IconCheck, IconUsers } from '../../components/LandingPage/Icons'
+import { IconCalendar } from '../../components/LandingPage/Icons'
 import { BotonPrimario, BotonSecundario, Input, Label, Select, Textarea } from '../../components/common/ui'
 
 type SeccionProfesional = 'agenda' | 'clientes' | 'pagos' | 'notificaciones' | 'login' | 'registro'
@@ -48,7 +48,6 @@ const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard'
   { label: 'Agenda', seccion: 'agenda' },
   { label: 'Clientes', seccion: 'clientes' },
   { label: 'Pagos', seccion: 'pagos' },
-  { label: 'Notificaciones', seccion: 'notificaciones' },
 ]
 
 const turnosIniciales: TurnoProfesional[] = [
@@ -102,18 +101,6 @@ const estadoClass: Record<EstadoTurno, string> = {
 const formatPrecio = (precio: number) =>
   new Intl.NumberFormat('es-PY', { style: 'currency', currency: 'PYG', maximumFractionDigits: 0 }).format(precio)
 
-function MiniStat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-borde-suave bg-white px-4 py-3 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold uppercase tracking-normal text-texto-secundario">{label}</span>
-        <span className="text-primario">{icon}</span>
-      </div>
-      <strong className="mt-2 block text-2xl font-black text-texto-principal">{value}</strong>
-    </div>
-  )
-}
-
 export default function ProfesionalDashboardMock() {
   const { seccion } = useParams()
   const navigate = useNavigate()
@@ -151,6 +138,15 @@ export default function ProfesionalDashboardMock() {
     password: '',
     especialidad: '',
   })
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
+  const menuUsuarioRef = useRef<HTMLDivElement>(null)
+  const profesionalSesion = { nombre: 'Martina Rios' }
+  const inicialesProfesional = profesionalSesion.nombre
+    .split(' ')
+    .slice(0, 2)
+    .map((parte) => parte[0])
+    .join('')
+    .toUpperCase()
 
   const turnosFiltrados = useMemo(
     () =>
@@ -162,7 +158,6 @@ export default function ProfesionalDashboardMock() {
     [turnos, filtros],
   )
 
-  const ingresos = pagos.reduce((total, pago) => total + pago.monto, 0)
   const turnosDeHoy = turnos.filter((turno) => turno.fecha === '2026-04-18' && turno.estado !== 'Cancelado')
 
   const pathDeSeccion = (item: { seccion: SeccionProfesional | 'dashboard' }) =>
@@ -252,17 +247,28 @@ export default function ProfesionalDashboardMock() {
     }
   }
 
+  useEffect(() => {
+    const handleClickAfuera = (evento: MouseEvent) => {
+      if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(evento.target as Node)) {
+        setMenuUsuarioAbierto(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickAfuera)
+    return () => document.removeEventListener('mousedown', handleClickAfuera)
+  }, [])
+
   return (
     <div className="min-h-screen bg-fondo text-texto-principal">
       <header className="sticky top-0 z-40 border-b border-primario-suave bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3 sm:px-8 xl:px-10">
           <Link to="/profesional" className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primario text-white">
               <IconCalendar className="h-5 w-5" />
             </span>
             <span className="text-xl font-black text-texto-principal">Agendify Pro</span>
           </Link>
-          <nav className="hidden items-center gap-2 text-sm font-semibold text-texto-secundario md:flex">
+          <nav className="hidden items-center gap-3 text-sm font-semibold text-texto-secundario lg:flex">
             {navItems.map((item) => (
               <NavLink
                 key={item.seccion}
@@ -278,18 +284,41 @@ export default function ProfesionalDashboardMock() {
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
-            <Link to="/profesional/login" className="hidden rounded-lg border border-borde px-3 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro sm:block">
-              Login
-            </Link>
-            <Link to="/landing" className="rounded-lg border border-borde px-3 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro">
-              Salir
-            </Link>
+          <div ref={menuUsuarioRef} className="relative flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setMenuUsuarioAbierto((abierto) => !abierto)}
+              className="flex items-center gap-3 rounded-full border border-borde bg-white px-2 py-1.5 shadow-sm transition-colors hover:bg-primario-claro"
+              aria-label="Abrir menu de usuario"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primario text-sm font-black text-white">
+                {inicialesProfesional}
+              </span>
+              <svg className={`h-4 w-4 text-texto-secundario transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {menuUsuarioAbierto && (
+              <div className="absolute right-0 top-[calc(100%+0.6rem)] min-w-[190px] rounded-2xl border border-borde bg-white p-2 shadow-lg">
+                <div className="border-b border-borde-suave px-3 py-2">
+                  <p className="text-sm font-bold text-texto-principal">{profesionalSesion.nombre}</p>
+                  <p className="text-xs text-texto-secundario">Cuenta profesional</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/profesional/login')}
+                  className="mt-2 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-semibold text-texto-principal transition-colors hover:bg-primario-claro hover:text-primario"
+                >
+                  Cerrar sesion
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 py-7 sm:px-8 xl:px-10">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 md:hidden">
           {navItems.map((item) => (
             <NavLink
@@ -308,7 +337,7 @@ export default function ProfesionalDashboardMock() {
         </div>
 
         {seccionActual === 'login' && (
-          <section className="mx-auto w-full max-w-md rounded-lg border border-borde-suave bg-white p-6 shadow-sm">
+          <section className="mx-auto w-full max-w-lg rounded-lg border border-borde-suave bg-white p-7 shadow-sm">
             <h1 className="text-2xl font-black text-texto-principal">Login profesional</h1>
             <p className="mt-1 text-sm text-texto-secundario">Acceso mock al dashboard profesional.</p>
             <form onSubmit={ingresarProfesional} className="mt-5 grid gap-4">
@@ -327,10 +356,10 @@ export default function ProfesionalDashboardMock() {
         )}
 
         {seccionActual === 'registro' && (
-          <section className="mx-auto w-full max-w-2xl rounded-lg border border-borde-suave bg-white p-6 shadow-sm">
+          <section className="mx-auto w-full max-w-3xl rounded-lg border border-borde-suave bg-white p-7 shadow-sm">
             <h1 className="text-2xl font-black text-texto-principal">Registro profesional</h1>
             <p className="mt-1 text-sm text-texto-secundario">Crea una cuenta mock para gestionar agenda y turnos.</p>
-            <form onSubmit={registrarProfesional} className="mt-5 grid gap-4 md:grid-cols-2">
+            <form onSubmit={registrarProfesional} className="mt-6 grid gap-4 lg:grid-cols-2">
               <div>
                 <Label>Nombre</Label>
                 <Input value={registroForm.nombre} onChange={(evento) => setRegistroForm({ ...registroForm, nombre: evento.target.value })} />
@@ -362,27 +391,9 @@ export default function ProfesionalDashboardMock() {
 
         {seccionActual === 'dashboard' && (
           <>
-            <section className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-              <div className="rounded-lg bg-primario px-6 py-7 text-white shadow-sm">
-                <span className="text-sm font-semibold text-primario-suave">Dashboard profesional</span>
-                <h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight text-white sm:text-4xl">
-                  Gestiona agenda, clientes, turnos y cobros desde un solo lugar.
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-primario-suave">
-                  Mock funcional para profesional: agenda, disponibilidad, clientes, documentos, pagos, facturacion y notificaciones.
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                <MiniStat label="Turnos de hoy" value={String(turnosDeHoy.length)} icon={<IconCalendar />} />
-                <MiniStat label="Clientes" value={String(clientes.length)} icon={<IconUsers />} />
-                <MiniStat label="Notificaciones" value={String(notificaciones.length)} icon={<IconBell />} />
-                <MiniStat label="Ingresos" value={formatPrecio(ingresos)} icon={<IconCheck />} />
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+            <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {turnosDeHoy.map((turno) => (
                   <article key={turno.id} className="rounded-lg border border-borde bg-fondo p-4">
                     <h3 className="font-black text-texto-principal">{turno.horario} - {turno.cliente}</h3>
@@ -397,8 +408,8 @@ export default function ProfesionalDashboardMock() {
 
         {seccionActual === 'agenda' && (
           <>
-            <section className="grid gap-5 lg:grid-cols-2">
-              <form onSubmit={crearAgenda} className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+            <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+              <form onSubmit={crearAgenda} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
                 <h2 className="text-2xl font-black text-texto-principal">Crear agenda</h2>
                 <div className="mt-5 grid gap-4">
                   <div>
@@ -413,9 +424,9 @@ export default function ProfesionalDashboardMock() {
                 </div>
               </form>
 
-              <form onSubmit={guardarDisponibilidad} className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+              <form onSubmit={guardarDisponibilidad} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
                 <h2 className="text-2xl font-black text-texto-principal">Disponibilidad horaria</h2>
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="mt-5 grid gap-4 lg:grid-cols-2">
                   <div>
                     <Label>Dia de la semana</Label>
                     <Select value={disponibilidad.dia} onChange={(evento) => setDisponibilidad({ ...disponibilidad, dia: evento.target.value })}>
@@ -443,13 +454,13 @@ export default function ProfesionalDashboardMock() {
               </form>
             </section>
 
-            <section className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Ver agenda y gestionar turnos</h2>
                   <p className="text-sm text-texto-secundario">CRUD mock: crear, modificar estado y cancelar turnos.</p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 lg:grid-cols-3 xl:min-w-[620px]">
                   <div>
                     <Label>Fecha</Label>
                     <Input type="date" value={filtros.fecha} onChange={(evento) => setFiltros({ ...filtros, fecha: evento.target.value })} />
@@ -464,7 +475,7 @@ export default function ProfesionalDashboardMock() {
                 </div>
               </div>
 
-              <form onSubmit={crearTurno} className="mt-5 grid gap-3 rounded-lg border border-borde bg-fondo p-4 md:grid-cols-5">
+              <form onSubmit={crearTurno} className="mt-6 grid gap-3 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-[1.1fr_1.1fr_0.9fr_0.8fr_auto]">
                 <div>
                   <Label>Cliente</Label>
                   <Select value={nuevoTurno.cliente} onChange={(evento) => setNuevoTurno({ ...nuevoTurno, cliente: evento.target.value })}>
@@ -523,10 +534,10 @@ export default function ProfesionalDashboardMock() {
         )}
 
         {seccionActual === 'clientes' && (
-          <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-            <article className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+          <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <h2 className="text-2xl font-black text-texto-principal">Gestionar clientes</h2>
-              <div className="mt-5 grid gap-3">
+              <div className="mt-5 grid gap-4 xl:grid-cols-2">
                 {clientes.map((cliente) => (
                   <div key={cliente.id} className="rounded-lg border border-borde bg-fondo p-4">
                     <h3 className="font-black text-texto-principal">{cliente.nombre}</h3>
@@ -542,7 +553,7 @@ export default function ProfesionalDashboardMock() {
               </div>
             </article>
 
-            <form onSubmit={subirDocumento} className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+            <form onSubmit={subirDocumento} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <h2 className="text-2xl font-black text-texto-principal">Subir documento</h2>
               <div className="mt-5 grid gap-4">
                 <div>
@@ -571,7 +582,7 @@ export default function ProfesionalDashboardMock() {
         )}
 
         {seccionActual === 'pagos' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Pagos y facturacion</h2>
             <p className="mt-1 text-sm text-texto-secundario">Consulta turnos pagos y emite comprobantes mock.</p>
             <div className="mt-5 overflow-x-auto">
@@ -606,7 +617,7 @@ export default function ProfesionalDashboardMock() {
         )}
 
         {seccionActual === 'notificaciones' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Notificaciones</h2>
             <p className="mt-1 text-sm text-texto-secundario">Turnos, cambios de agenda, documentos y pagos recibidos.</p>
             <div className="mt-5 grid gap-3">
