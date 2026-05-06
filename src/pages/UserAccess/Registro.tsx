@@ -6,9 +6,12 @@ import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcc
 import { IconoUsuario, IconoEmail, IconoCandado } from '../../components/AccesoUsuario/IconosAcceso'
 import { BotonPrimario } from '../../components/common/ui'
 
-import { setSession } from '../../lib/storage/session'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
+import { useSesion } from '../../customHooks/useSesion'
+import { registro as registroApi } from '../../api/auth'
+import { extraerError } from '../../api/client'
+import type { Rol } from '../../api/types'
 
 export default function Registro() {
     const [form, setForm] = useState({
@@ -17,14 +20,18 @@ export default function Registro() {
         email: '',
         telefono: '',
         password: '',
+        especialidad: '',
     })
     const [enviando, setEnviando] = useState(false)
 
     const navigate = useNavigate()
     const location = useLocation()
     const { toast, showToast } = useToast()
+    const { iniciar } = useSesion()
     const esProfesional = location.pathname.startsWith('/profesional')
-    const rolActual = esProfesional ? 'profesional' : 'cliente'
+    const esAsistente   = location.pathname.startsWith('/asistente')
+    const rolActual = esProfesional ? 'profesional' : esAsistente ? 'asistente' : 'cliente'
+    const rolBack: Rol  = esProfesional ? 'PROFESIONAL' : esAsistente ? 'ASISTENTE' : 'CLIENTE'
 
     const onChange = (e: ChangeEvent<HTMLInputElement>) =>
         setForm({ ...form, [e.target.name]: e.target.value })
@@ -35,6 +42,7 @@ export default function Registro() {
         form.email.trim().length > 0 &&
         form.telefono.trim().length > 0 &&
         form.password.trim().length > 0 &&
+        (!esProfesional || form.especialidad.trim().length > 0) &&
         !enviando
 
     async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -42,26 +50,38 @@ export default function Registro() {
         if (!puedeEnviar) return
 
         setEnviando(true)
-        const idUsuarioMock = esProfesional ? 'profesional-demo' : 'cliente-demo'
-        setSession(idUsuarioMock)
-        showToast(
-            esProfesional ? 'Cuenta mock creada. Ya podes administrar tu agenda.' : 'Cuenta mock creada. Ya podes reservar turnos.',
-            'success',
-        )
-
-        setTimeout(() => {
+        try {
+            const usuario = await registroApi({
+                email: form.email.trim(),
+                password: form.password,
+                nombreCompleto: `${form.nombre.trim()} ${form.apellido.trim()}`,
+                telefono: form.telefono.trim(),
+                rol: rolBack,
+                especialidad: esProfesional ? form.especialidad.trim() : undefined,
+            })
+            iniciar(usuario)
+            showToast(
+                esProfesional ? 'Cuenta creada. Ya podes administrar tu agenda.'
+              : esAsistente   ? 'Cuenta creada. Ya podes operar agendas asignadas.'
+                              : 'Cuenta creada. Ya podes reservar turnos.',
+                'success',
+            )
+            const destino = esProfesional ? '/profesional' : esAsistente ? '/asistente' : '/cliente'
+            setTimeout(() => navigate(destino), 400)
+        } catch (e) {
+            showToast(extraerError(e), 'error')
             setEnviando(false)
-            navigate(esProfesional ? '/profesional' : `/home/${idUsuarioMock}`)
-        }, 500)
+        }
     }
 
     return (
         <CardAcceso>
             <HeaderAcceso
                 titulo={`Registro ${rolActual}`}
-                subtitulo={esProfesional
-                    ? 'Registrate gratis y administra turnos en la demo profesional.'
-                    : 'Registrate gratis y reserva turnos en la demo de cliente.'
+                subtitulo={
+                    esProfesional ? 'Registrate gratis para administrar tu agenda profesional.'
+                  : esAsistente   ? 'Registrate como asistente para operar agendas de profesionales.'
+                                  : 'Registrate gratis y reserva turnos en pocos clics.'
                 }
             />
 
@@ -116,6 +136,17 @@ export default function Registro() {
                     type="password"
                     icono={<IconoCandado />}
                 />
+
+                {esProfesional && (
+                    <InputGenerico
+                        label="Especialidad"
+                        name="especialidad"
+                        value={form.especialidad}
+                        onChange={onChange}
+                        placeholder="Ej: Kinesiologia"
+                        type="text"
+                    />
+                )}
 
                 <BotonPrimario
                     type="submit"

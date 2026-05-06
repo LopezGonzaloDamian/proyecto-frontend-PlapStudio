@@ -6,9 +6,12 @@ import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcc
 import { IconoEmail, IconoCandado } from '../../components/AccesoUsuario/IconosAcceso'
 import { BotonPrimario } from '../../components/common/ui'
 
-import { setSession, addRememberedUser, getRememberedUsers, removeRememberedUser } from '../../lib/storage/session'
+import { addRememberedUser, getRememberedUsers, removeRememberedUser } from '../../lib/storage/session'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
+import { useSesion } from '../../customHooks/useSesion'
+import { login as loginApi } from '../../api/auth'
+import { extraerError } from '../../api/client'
 
 export default function Login() {
     const [email, setEmail] = useState('')
@@ -22,8 +25,10 @@ export default function Login() {
     const navigate = useNavigate()
     const location = useLocation()
     const { toast, showToast } = useToast()
+    const { iniciar } = useSesion()
     const esProfesional = location.pathname.startsWith('/profesional')
-    const rolActual = esProfesional ? 'profesional' : 'cliente'
+    const esAsistente   = location.pathname.startsWith('/asistente')
+    const rolActual = esProfesional ? 'profesional' : esAsistente ? 'asistente' : 'cliente'
 
     useEffect(() => {
         const handleClickAfuera = (e: MouseEvent) => {
@@ -68,30 +73,34 @@ export default function Login() {
         if (!puedeIngresar || enviando) return
 
         setEnviando(true)
-        const idUsuarioMock = esProfesional ? 'profesional-demo' : 'cliente-demo'
+        try {
+            const usuario = await loginApi({ email: emailTrim, password: passwordTrim })
 
-        if (recordarme) {
-            addRememberedUser(emailTrim)
-        } else {
-            removeRememberedUser(emailTrim)
-        }
-        setUsuariosRecordados(getRememberedUsers())
-        setSession(idUsuarioMock)
+            if (recordarme) addRememberedUser(emailTrim)
+            else            removeRememberedUser(emailTrim)
+            setUsuariosRecordados(getRememberedUsers())
 
-        showToast('Inicio de sesion mock exitoso.', 'success')
-        setTimeout(() => {
+            iniciar(usuario)
+            showToast(`Hola, ${usuario.nombreCompleto}`, 'success')
+
+            const destino = usuario.roles.includes('PROFESIONAL') ? '/profesional'
+                          : usuario.roles.includes('ASISTENTE')   ? '/asistente'
+                                                                  : '/cliente'
+            setTimeout(() => navigate(destino), 400)
+        } catch (e) {
+            showToast(extraerError(e), 'error')
             setEnviando(false)
-            navigate(esProfesional ? '/profesional' : `/home/${idUsuarioMock}`)
-        }, 500)
+        }
     }
 
     return (
         <CardAcceso>
             <HeaderAcceso
                 titulo={`Login ${rolActual}`}
-                subtitulo={esProfesional
-                    ? 'Ingresa tus datos para ver el dashboard mock profesional.'
-                    : 'Ingresa tus datos para ver el dashboard mock de cliente.'
+                subtitulo={
+                    esProfesional ? 'Ingresa tus datos para acceder al dashboard profesional.'
+                  : esAsistente   ? 'Ingresa tus datos para acceder al panel del asistente.'
+                                  : 'Ingresa tus datos para reservar y gestionar tus turnos.'
                 }
             />
 

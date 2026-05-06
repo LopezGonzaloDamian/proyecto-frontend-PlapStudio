@@ -32,7 +32,7 @@
   --color-borde-suave:         #f3f4f6;
 
   /* Text */
-  --color-texto-principal:     #1e1b4b;
+  --color-texto-principal:     #15122e;
   --color-texto-secundario:    #6b7280;
   --color-texto-suave:         #9ca3af;
 }
@@ -42,7 +42,7 @@
    ============================================================ */
 :root {
   --text:         #6b7280;
-  --text-h:       #1e1b4b;
+  --text-h:       #15122e;
   --bg:           #fff;
   --border:       #e5e7eb;
   --accent:       #7c3aed;
