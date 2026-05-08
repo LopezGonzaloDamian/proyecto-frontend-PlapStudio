@@ -22,22 +22,27 @@ import {
 } from '../../api/turnos'
 import { getClientesDeProfesional } from '../../api/clientes'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
+import { asignarAsistente, desasignarAsistente, getAsistentesDeProfesional } from '../../api/asistentes'
+import { getUsuarios } from '../../api/usuarios'
 import type {
   Agenda,
+  AsistenteAsignacion,
   Cliente,
   DiaSemana,
   Notificacion,
   Profesional,
   Turno,
+  Usuario,
 } from '../../api/types'
 
-type SeccionProfesional = 'agenda' | 'clientes' | 'pagos' | 'notificaciones'
-const seccionesValidas: SeccionProfesional[] = ['agenda', 'clientes', 'pagos', 'notificaciones']
+type SeccionProfesional = 'agenda' | 'clientes' | 'asistentes' | 'pagos' | 'notificaciones'
+const seccionesValidas: SeccionProfesional[] = ['agenda', 'clientes', 'asistentes', 'pagos', 'notificaciones']
 
 const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard' }> = [
   { label: 'Dashboard', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
   { label: 'Clientes', seccion: 'clientes' },
+  { label: 'Asistentes', seccion: 'asistentes' },
   { label: 'Pagos', seccion: 'pagos' },
 ]
 
@@ -78,6 +83,8 @@ export default function ProfesionalDashboard() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
+  const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
+  const [usuariosAsistentes, setUsuariosAsistentes] = useState<Usuario[]>([])
 
   const [filtros, setFiltros] = useState<{ fecha: string; estado: 'Todos' | Turno['estado'] }>({ fecha: '', estado: 'Todos' })
   const [nuevoTurno, setNuevoTurno] = useState({ clienteId: '', servicio: '', fecha: '', horario: '' })
@@ -86,6 +93,7 @@ export default function ProfesionalDashboard() {
   const [disponibilidad, setDisponibilidad] = useState({
     diaSemana: 'MONDAY' as DiaSemana, inicio: '09:00', fin: '18:00', duracion: '30',
   })
+  const [asistenteSeleccionadoId, setAsistenteSeleccionadoId] = useState('')
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -104,6 +112,8 @@ export default function ProfesionalDashboard() {
     void getAgendasDeProfesional(profesionalId).then(setAgendas).catch((e) => showToast(extraerError(e), 'error'))
     void getTurnosProfesional(profesionalId).then(setTurnos).catch((e) => showToast(extraerError(e), 'error'))
     void getClientesDeProfesional(profesionalId).then(setClientes).catch((e) => showToast(extraerError(e), 'error'))
+    void getAsistentesDeProfesional(profesionalId).then(setAsistentes).catch((e) => showToast(extraerError(e), 'error'))
+    void getUsuarios('ASISTENTE').then(setUsuariosAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalId, usuario?.id])
@@ -138,6 +148,11 @@ export default function ProfesionalDashboard() {
       })),
     [turnos],
   )
+
+  const asistentesDisponibles = useMemo(() => {
+    const asignados = new Set(asistentes.map((a) => a.asistenteId))
+    return usuariosAsistentes.filter((u) => u.activo && !asignados.has(u.id))
+  }, [asistentes, usuariosAsistentes])
 
   const pathDeSeccion = (item: { seccion: SeccionProfesional | 'dashboard' }) =>
     item.seccion === 'dashboard' ? '/profesional' : `/profesional/${item.seccion}`
@@ -231,6 +246,36 @@ export default function ProfesionalDashboard() {
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
+  const refrescarAsistentes = () => {
+    if (!profesionalId) return
+    void getAsistentesDeProfesional(profesionalId).then(setAsistentes).catch((e) => showToast(extraerError(e), 'error'))
+  }
+
+  const onAsignarAsistente = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!profesionalId || !asistenteSeleccionadoId) {
+      showToast('Selecciona un asistente', 'error')
+      return
+    }
+    try {
+      const asignacion = await asignarAsistente(profesionalId, parseInt(asistenteSeleccionadoId, 10))
+      setAsistentes((act) => [...act, asignacion])
+      setAsistenteSeleccionadoId('')
+      showToast('Asistente asignado', 'success')
+    } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
+  const onDesasignarAsistente = async (id: string) => {
+    try {
+      await desasignarAsistente(id)
+      setAsistentes((act) => act.filter((a) => a.id !== id))
+      showToast('Asistente desasignado', 'success')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
+      refrescarAsistentes()
+    }
+  }
+
   const inicialesProf = (perfil?.nombreCompleto ?? usuario?.nombreCompleto ?? '')
     .split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
 
@@ -259,14 +304,6 @@ export default function ProfesionalDashboard() {
                 {item.label}
               </NavLink>
             ))}
-            <NavLink
-              to="/profesional/notificaciones"
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-2 ${isActive ? 'bg-primario-claro text-primario' : 'hover:bg-primario-claro hover:text-primario'}`
-              }
-            >
-              Notificaciones {notificaciones.filter((n) => !n.leida).length > 0 && `(${notificaciones.filter((n) => !n.leida).length})`}
-            </NavLink>
           </nav>
           <div ref={menuUsuarioRef} className="relative flex items-center justify-end">
             <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-borde bg-white px-2 py-1.5 shadow-sm hover:bg-primario-claro">
@@ -473,6 +510,56 @@ export default function ProfesionalDashboard() {
               })}
               {clientes.length === 0 && <p className="text-sm text-texto-secundario">Aun no tenes clientes con turnos.</p>}
             </div>
+          </section>
+        )}
+
+        {seccionActual === 'asistentes' && (
+          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <h2 className="text-2xl font-black text-texto-principal">Asistentes asignados</h2>
+              <p className="mt-1 text-sm text-texto-secundario">Usuarios que pueden operar tu agenda y tus turnos.</p>
+
+              <div className="mt-6 grid gap-3">
+                {asistentes.map((a) => (
+                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-borde bg-fondo p-4">
+                    <div>
+                      <h3 className="font-black text-texto-principal">{a.asistenteNombre}</h3>
+                      <p className="text-sm text-texto-secundario">Asignado a {a.profesionalNombre}</p>
+                    </div>
+                    <BotonSecundario type="button" onClick={() => onDesasignarAsistente(a.id)}>
+                      Quitar acceso
+                    </BotonSecundario>
+                  </div>
+                ))}
+                {asistentes.length === 0 && (
+                  <p className="rounded-lg border border-borde bg-fondo p-4 text-sm text-texto-secundario">
+                    Todavia no tenes asistentes asignados.
+                  </p>
+                )}
+              </div>
+            </article>
+
+            <form onSubmit={onAsignarAsistente} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <h2 className="text-2xl font-black text-texto-principal">Asignar asistente</h2>
+              <p className="mt-1 text-sm text-texto-secundario">Elegis un usuario con rol asistente y queda vinculado a tu perfil profesional.</p>
+              <div className="mt-6 grid gap-4">
+                <div>
+                  <Label>Asistente</Label>
+                  <Select value={asistenteSeleccionadoId} onChange={(e) => setAsistenteSeleccionadoId(e.target.value)}>
+                    <option value="">Seleccionar...</option>
+                    {asistentesDisponibles.map((a) => (
+                      <option key={a.id} value={a.id}>{a.nombreCompleto}</option>
+                    ))}
+                  </Select>
+                </div>
+                <BotonPrimario type="submit" disabled={!asistenteSeleccionadoId}>
+                  Asignar asistente
+                </BotonPrimario>
+                {asistentesDisponibles.length === 0 && (
+                  <p className="text-sm text-texto-secundario">No hay asistentes disponibles para asignar.</p>
+                )}
+              </div>
+            </form>
           </section>
         )}
 

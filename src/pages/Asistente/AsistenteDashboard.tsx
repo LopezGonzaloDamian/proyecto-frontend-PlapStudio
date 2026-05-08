@@ -8,27 +8,23 @@ import { Toast } from '../../components/common/toast'
 import { extraerError } from '../../api/client'
 import { getAgendasDeProfesional } from '../../api/agendas'
 import {
+  actualizarNotasTurnoAsistente,
+  cancelarTurnoAsistente,
   getProfesionalesDeAsistente,
   getTurnosDeAsistente,
+  modificarTurnoAsistente,
+  reservarTurnoAsistente,
 } from '../../api/asistentes'
-import {
-  actualizarNotasTurno,
-  cancelarTurno,
-  modificarTurno,
-  reservarTurno,
-} from '../../api/turnos'
 import { getClientesDeProfesional } from '../../api/clientes'
-import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import type {
   Agenda,
   AsistenteAsignacion,
   Cliente,
-  Notificacion,
   Turno,
 } from '../../api/types'
 
-type SeccionAsistente = 'agenda' | 'clientes' | 'historial' | 'notificaciones'
-const seccionesValidas: SeccionAsistente[] = ['agenda', 'clientes', 'historial', 'notificaciones']
+type SeccionAsistente = 'agenda' | 'clientes' | 'historial'
+const seccionesValidas: SeccionAsistente[] = ['agenda', 'clientes', 'historial']
 
 const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }> = [
   { label: 'Dashboard', seccion: 'dashboard' },
@@ -63,13 +59,12 @@ export default function AsistenteDashboard() {
   const [profesionales, setProfesionales] = useState<AsistenteAsignacion[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [agendaPorProfesional, setAgendaPorProfesional] = useState<Record<number, Agenda | null>>({})
 
   const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', fechaDesde: '', fechaHasta: '' })
-  const [turnoNuevo, setTurnoNuevo] = useState({ profesionalId: '', clienteId: '', fecha: '', horario: '', notas: '' })
+  const [turnoNuevo, setTurnoNuevo] = useState({ profesionalId: '', clienteId: '', fecha: '', horario: '', duracion: '45', notas: '' })
   const [turnoEditarId, setTurnoEditarId] = useState('')
-  const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', estado: 'CONFIRMADO' as Turno['estado'], notas: '' })
+  const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', duracion: '45', estado: 'CONFIRMADO' as Turno['estado'], notas: '' })
   const [turnoCancelarId, setTurnoCancelarId] = useState('')
   const [motivoCancelacion, setMotivoCancelacion] = useState('')
   const [turnoObservacionId, setTurnoObservacionId] = useState('')
@@ -91,7 +86,6 @@ export default function AsistenteDashboard() {
     if (!usuario) return
     void getProfesionalesDeAsistente(usuario.id).then(setProfesionales).catch((e) => showToast(extraerError(e), 'error'))
     void getTurnosDeAsistente(usuario.id).then(setTurnos).catch((e) => showToast(extraerError(e), 'error'))
-    void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.id])
 
@@ -123,7 +117,7 @@ export default function AsistenteDashboard() {
   useEffect(() => {
     const t = turnos.find((x) => x.id === turnoEditarId)
     if (!t) return
-    setTurnoEditar({ fecha: fechaIsoDe(t), horario: horaDe(t), estado: t.estado, notas: t.notas })
+    setTurnoEditar({ fecha: fechaIsoDe(t), horario: horaDe(t), duracion: String(t.duracionMinutos), estado: t.estado, notas: t.notas })
   }, [turnoEditarId, turnos])
 
   useEffect(() => {
@@ -224,11 +218,12 @@ export default function AsistenteDashboard() {
       return
     }
     try {
-      await reservarTurno({
+      if (!usuario) return
+      await reservarTurnoAsistente(usuario.id, {
         agendaId: agenda.id,
         clienteId: parseInt(turnoNuevo.clienteId, 10),
         iniciaEn: `${turnoNuevo.fecha}T${turnoNuevo.horario}:00`,
-        duracionMinutos: 45,
+        duracionMinutos: parseInt(turnoNuevo.duracion, 10),
         notas: turnoNuevo.notas,
       })
       refrescarTurnos()
@@ -242,9 +237,10 @@ export default function AsistenteDashboard() {
     const t = turnos.find((x) => x.id === turnoEditarId)
     if (!t) return
     try {
-      await modificarTurno(turnoEditarId, {
+      if (!usuario) return
+      await modificarTurnoAsistente(usuario.id, turnoEditarId, {
         iniciaEn: `${turnoEditar.fecha}T${turnoEditar.horario}:00`,
-        duracionMinutos: t.duracionMinutos,
+        duracionMinutos: parseInt(turnoEditar.duracion, 10),
         notas: turnoEditar.notas,
         estado: turnoEditar.estado,
       })
@@ -257,7 +253,8 @@ export default function AsistenteDashboard() {
     e.preventDefault()
     if (!turnoCancelarId) return
     try {
-      await cancelarTurno(turnoCancelarId, motivoCancelacion || undefined)
+      if (!usuario) return
+      await cancelarTurnoAsistente(usuario.id, turnoCancelarId, motivoCancelacion || undefined)
       refrescarTurnos()
       setMotivoCancelacion('')
       showToast('Turno cancelado', 'success')
@@ -268,7 +265,8 @@ export default function AsistenteDashboard() {
     e.preventDefault()
     if (!turnoObservacionId) return
     try {
-      await actualizarNotasTurno(turnoObservacionId, observacionTurno)
+      if (!usuario) return
+      await actualizarNotasTurnoAsistente(usuario.id, turnoObservacionId, observacionTurno)
       refrescarTurnos()
       showToast('Observacion guardada', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
@@ -299,14 +297,6 @@ export default function AsistenteDashboard() {
                 {item.label}
               </NavLink>
             ))}
-            <NavLink
-              to="/asistente/notificaciones"
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-2 ${isActive ? 'bg-primario-claro text-primario' : 'hover:bg-primario-claro hover:text-primario'}`
-              }
-            >
-              Notificaciones {notificaciones.filter((n) => !n.leida).length > 0 && `(${notificaciones.filter((n) => !n.leida).length})`}
-            </NavLink>
           </nav>
           <div ref={menuUsuarioRef} className="relative">
             <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-borde bg-white px-2 py-1.5 shadow-sm hover:bg-primario-claro">
@@ -490,6 +480,15 @@ export default function AsistenteDashboard() {
                   </div>
                   <div><Label>Fecha</Label><Input type="date" value={turnoNuevo.fecha} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, fecha: e.target.value })} /></div>
                   <div><Label>Horario</Label><Input type="time" value={turnoNuevo.horario} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, horario: e.target.value })} /></div>
+                  <div>
+                    <Label>Duracion</Label>
+                    <Select value={turnoNuevo.duracion} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, duracion: e.target.value })}>
+                      <option value="30">30 minutos</option>
+                      <option value="45">45 minutos</option>
+                      <option value="60">60 minutos</option>
+                      <option value="90">90 minutos</option>
+                    </Select>
+                  </div>
                   <div className="lg:col-span-2"><Label>Notas opcionales</Label><Textarea rows={4} value={turnoNuevo.notas} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, notas: e.target.value })} /></div>
                   <BotonPrimario type="submit" className="lg:col-span-2">Registrar turno</BotonPrimario>
                 </div>
@@ -510,7 +509,16 @@ export default function AsistenteDashboard() {
                     </div>
                     <div><Label>Fecha</Label><Input type="date" value={turnoEditar.fecha} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} /></div>
                     <div><Label>Horario</Label><Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} /></div>
-                    <div className="lg:col-span-2">
+                    <div>
+                      <Label>Duracion</Label>
+                      <Select value={turnoEditar.duracion} onChange={(e) => setTurnoEditar({ ...turnoEditar, duracion: e.target.value })}>
+                        <option value="30">30 minutos</option>
+                        <option value="45">45 minutos</option>
+                        <option value="60">60 minutos</option>
+                        <option value="90">90 minutos</option>
+                      </Select>
+                    </div>
+                    <div>
                       <Label>Estado</Label>
                       <Select value={turnoEditar.estado} onChange={(e) => setTurnoEditar({ ...turnoEditar, estado: e.target.value as Turno['estado'] })}>
                         <option value="PENDIENTE">Reservado</option>
@@ -663,33 +671,6 @@ export default function AsistenteDashboard() {
           </section>
         )}
 
-        {seccionActual === 'notificaciones' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-black text-texto-principal">Notificaciones</h2>
-                <p className="text-sm text-texto-secundario">Cambios, confirmaciones y cancelaciones.</p>
-              </div>
-              {notificaciones.some((n) => !n.leida) && (
-                <BotonSecundario onClick={() => marcarTodasLeidas(usuario.id).then(() => getNotificaciones(usuario.id).then(setNotificaciones))}>
-                  Marcar todas como leidas
-                </BotonSecundario>
-              )}
-            </div>
-            <div className="mt-5 grid gap-3">
-              {notificaciones.length === 0 && <p className="text-sm text-texto-secundario">Sin notificaciones.</p>}
-              {notificaciones.map((n) => (
-                <article key={n.id} className={`rounded-lg border p-4 ${n.leida ? 'border-borde bg-fondo' : 'border-primario-suave bg-primario-claro'}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="font-black text-texto-principal">{n.titulo}</h3>
-                    <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-primario">{new Date(n.enviadaEn).toLocaleString('es-PY')}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-texto-secundario">{n.cuerpo}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
       </main>
 
       <div id="toast-container">
