@@ -97,10 +97,12 @@ export default function ProfesionalDashboard() {
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
+  const cerrandoSesionRef = useRef(false)
 
   const profesionalId = usuario?.perfilProfesionalId ?? null
 
   useEffect(() => {
+    if (cerrandoSesionRef.current) return
     if (!usuario || !usuario.roles.includes('PROFESIONAL') || profesionalId == null) {
       navigate('/profesional/login', { replace: true })
     }
@@ -158,8 +160,9 @@ export default function ProfesionalDashboard() {
     item.seccion === 'dashboard' ? '/profesional' : `/profesional/${item.seccion}`
 
   const cerrarSesion = () => {
+    cerrandoSesionRef.current = true
     cerrar()
-    navigate('/profesional/login')
+    navigate('/landing', { replace: true })
   }
 
   useEffect(() => {

@@ -75,8 +75,10 @@ export default function AsistenteDashboard() {
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
+  const cerrandoSesionRef = useRef(false)
 
   useEffect(() => {
+    if (cerrandoSesionRef.current) return
     if (!usuario || !usuario.roles.includes('ASISTENTE')) {
       navigate('/asistente/login', { replace: true })
     }
@@ -194,8 +196,9 @@ export default function AsistenteDashboard() {
   const turnosFechaSeleccionada = turnosPorFecha[fechaCalendario] ?? []
 
   const cerrarSesion = () => {
+    cerrandoSesionRef.current = true
     cerrar()
-    navigate('/asistente/login')
+    navigate('/landing', { replace: true })
   }
 
   const inicialesAsistente = (usuario?.nombreCompleto ?? '')

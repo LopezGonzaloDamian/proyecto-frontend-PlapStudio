@@ -18,8 +18,8 @@ const ACTION_TEXT = {
     asistente: 'Ingresar como asistente',
   },
   registro: {
-    title: 'Registrate aquí',
-    subtitle: 'Contanos qué tipo de cuenta querés crear.',
+    title: 'Crear cuenta',
+    subtitle: 'Contanos que tipo de cuenta queres crear.',
     cliente: 'Registrarme como cliente',
     profesional: 'Registrarme como profesional',
     asistente: 'Registrarme como asistente',

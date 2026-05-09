@@ -67,19 +67,75 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text:         #9ca3af;
-    --text-h:       #f3f4f6;
-    --bg:           #0f0e17;
-    --border:       #2e303a;
-    --accent:       #a78bfa;
-    --accent-bg:    rgba(167, 139, 250, 0.12);
-    --accent-border:rgba(167, 139, 250, 0.4);
-    --shadow:
-      rgba(0, 0, 0, 0.5) 0 10px 15px -3px,
-      rgba(0, 0, 0, 0.3) 0  4px  6px -2px;
-  }
+html.theme-dark {
+  --color-primario:            #a78bfa;
+  --color-primario-hover:      #8b5cf6;
+  --color-primario-suave:      #34235d;
+  --color-primario-suave-hover:#493079;
+  --color-primario-claro:      #251b3d;
+  --color-primario-oscuro:     #c4b5fd;
+
+  --color-acento:              #c084fc;
+  --color-acento-hover:        #a855f7;
+
+  --color-confirmacion:        #34d399;
+  --color-confirmacion-hover:  #10b981;
+  --color-peligro:             #f87171;
+  --color-peligro-hover:       #ef4444;
+  --color-peligro-suave:       #3f1d25;
+  --color-advertencia:         #fbbf24;
+
+  --color-fondo:               #0f1020;
+  --color-fondo-violeta:       #151127;
+  --color-borde:               #30324a;
+  --color-borde-suave:         #22243a;
+
+  --color-texto-principal:     #f6f4ff;
+  --color-texto-secundario:    #b9b6ca;
+  --color-texto-suave:         #8f8aa8;
+
+  --text:         #b9b6ca;
+  --text-h:       #f6f4ff;
+  --bg:           #0f1020;
+  --border:       #30324a;
+  --accent:       #a78bfa;
+  --accent-bg:    rgba(167, 139, 250, 0.14);
+  --accent-border:rgba(167, 139, 250, 0.4);
+  --shadow:
+    rgba(0, 0, 0, 0.5) 0 10px 15px -3px,
+    rgba(0, 0, 0, 0.3) 0  4px  6px -2px;
+
+  color-scheme: dark;
+}
+
+html.theme-dark body {
+  background: #0f1020;
+}
+
+html.theme-dark .bg-white,
+html.theme-dark .bg-white\/95,
+html.theme-dark .bg-white\/90,
+html.theme-dark .bg-\[\#fcfdff\] {
+  background-color: #17182b !important;
+}
+
+html.theme-dark .bg-fondo,
+html.theme-dark .bg-\[\#fafafa\] {
+  background-color: #0f1020 !important;
+}
+
+html.theme-dark .border-\[\#dfe3ff\],
+html.theme-dark .border-\[\#d7dbff\],
+html.theme-dark .border-borde,
+html.theme-dark .border-borde-suave {
+  border-color: #30324a !important;
+}
+
+html.theme-dark .shadow-sm,
+html.theme-dark .shadow-lg,
+html.theme-dark .shadow-xl,
+html.theme-dark .shadow-2xl {
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28) !important;
 }
 
 /* ============================================================

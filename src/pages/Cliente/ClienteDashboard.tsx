@@ -27,7 +27,7 @@ import type {
   Turno,
 } from '../../api/types'
 
-const secciones = ['buscar', 'profesional', 'reservar', 'turnos', 'notificaciones'] as const
+const secciones = ['buscar', 'profesional', 'reservar', 'notificaciones'] as const
 type SeccionCliente = typeof secciones[number]
 type ItemNavCliente = { label: string; seccion: SeccionCliente | 'dashboard' }
 
@@ -100,6 +100,7 @@ export default function ClienteDashboard() {
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
   const turnosDetalleRef = useRef<HTMLElement>(null)
+  const cerrandoSesionRef = useRef(false)
 
   const seccionActual = secciones.includes(seccion as SeccionCliente)
     ? (seccion as SeccionCliente)
@@ -111,6 +112,7 @@ export default function ClienteDashboard() {
   const cantidadNotificaciones = notificaciones.length > 9 ? '9+' : String(notificaciones.length)
 
   useEffect(() => {
+    if (cerrandoSesionRef.current) return
     if (!usuario || usuario.perfilClienteId == null) {
       navigate('/cliente/login', { replace: true })
     }
@@ -218,9 +220,6 @@ export default function ClienteDashboard() {
   }, [fechaSeleccionada])
   const turnosFechaSeleccionada = turnosPorFecha[fechaCalendario] ?? []
 
-  const scrollADetalleTurnos = () =>
-    turnosDetalleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
   const verPerfilProfesional = (p: { id: number }) => navigate(`${basePath}/profesional/${p.id}`)
   const irAReservarProfesional = (p: { id: number }) => navigate(`${basePath}/reservar/${p.id}`)
 
@@ -264,7 +263,7 @@ export default function ClienteDashboard() {
       // Refrescar slots y notificaciones
       void getSlots(agenda.id, fechaDeseada).then(setSlots)
       void getNotificaciones(usuario.id).then(setNotificaciones)
-      navigate(`${basePath}/turnos`)
+      navigate(basePath)
     } catch (err) {
       showToast(extraerError(err), 'error')
     } finally {
@@ -284,8 +283,9 @@ export default function ClienteDashboard() {
   }
 
   const cerrarSesion = () => {
+    cerrandoSesionRef.current = true
     cerrar()
-    navigate('/cliente/login')
+    navigate('/landing', { replace: true })
   }
 
   const inicialesUsuario = (usuario?.nombreCompleto ?? '')
@@ -318,16 +318,6 @@ export default function ClienteDashboard() {
                 {item.label}
               </NavLink>
             ))}
-            <NavLink
-              to={`${basePath}/turnos`}
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-2 transition-colors ${
-                  isActive ? 'bg-primario-claro text-primario' : 'hover:bg-primario-claro hover:text-primario'
-                }`
-              }
-            >
-              Mis turnos
-            </NavLink>
           </nav>
           <div className="flex items-center gap-3">
             <NavLink
@@ -388,9 +378,6 @@ export default function ClienteDashboard() {
                     <span className="text-sm font-bold uppercase tracking-[0.12em] text-primario">Hoy</span>
                     <h2 className="mt-2 text-3xl font-black text-texto-principal">Turnos del dia</h2>
                   </div>
-                  <button onClick={scrollADetalleTurnos} className="rounded-xl border border-borde bg-white px-4 py-2.5 text-sm font-bold text-texto-principal hover:bg-primario-claro">
-                    Ver detalle
-                  </button>
                 </div>
                 <div className="mt-5 grid gap-3">
                   {turnosHoy.length > 0 ? turnosHoy.map((t) => (
@@ -617,11 +604,9 @@ export default function ClienteDashboard() {
                           <div className="min-w-0">
                             <h3 className="text-[1.45rem] leading-tight font-semibold text-texto-principal">{p.nombreCompleto}</h3>
                             <p className="mt-1.5 text-base text-texto-principal">{p.especialidad}</p>
-                            <p className="mt-1 text-sm font-semibold text-primario">{formatPrecio(p.precio)}</p>
                           </div>
                         </div>
-                        <div className="flex items-start justify-between gap-3 xl:max-w-[320px]">
-                          <div className="text-sm text-texto-principal">{p.ubicacion}</div>
+                        <div className="flex flex-col items-end gap-3 xl:max-w-[320px]">
                           <button
                             onClick={() => toggleFavorito(p.id)}
                             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
@@ -630,6 +615,13 @@ export default function ClienteDashboard() {
                           >
                             <IconStar className="h-5 w-5" />
                           </button>
+                          <div className="flex max-w-[260px] items-center gap-2 text-right text-sm text-texto-principal">
+                            <svg className="h-4 w-4 shrink-0 text-texto-principal" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5h.01" />
+                            </svg>
+                            <span className="truncate">{p.ubicacion}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="border-t border-[#dfe3ff] pt-3.5 flex justify-between">
@@ -649,6 +641,13 @@ export default function ClienteDashboard() {
 
         {seccionActual === 'profesional' && profesionalDetalle && (
           <section className="rounded-[24px] border border-borde-suave bg-white p-6 shadow-sm xl:p-8">
+            <button
+              type="button"
+              onClick={() => navigate(`${basePath}/buscar`)}
+              className="mb-6 inline-flex items-center rounded-lg border border-borde bg-white px-4 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro hover:text-primario"
+            >
+              Volver
+            </button>
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} />
@@ -810,32 +809,6 @@ export default function ClienteDashboard() {
                 </BotonSecundario>
               </div>
             </form>
-          </section>
-        )}
-
-        {seccionActual === 'turnos' && (
-          <section ref={turnosDetalleRef} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-            <h2 className="text-2xl font-black text-texto-principal">Mis turnos</h2>
-            <div className="mt-5 grid gap-3">
-              {turnos.length === 0 && <p className="text-sm text-texto-secundario">Aun no tenes turnos.</p>}
-              {turnos.map((t) => (
-                <div key={t.id} className="rounded-2xl border border-borde bg-fondo px-4 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-black text-texto-principal">{fechaIsoDe(t)} {horaDe(t)} - {t.profesionalNombre}</h3>
-                      <p className="mt-1 text-sm text-texto-secundario">{t.notas || t.agendaNombre}</p>
-                      {t.pago && <p className="mt-1 text-xs font-bold text-primario">Pago: {t.pago.estado} {formatPrecio(t.pago.monto)}</p>}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
-                      {t.estado !== 'CANCELADO' && t.estado !== 'COMPLETADO' && (
-                        <button onClick={() => cancelar(t.id)} className="text-xs font-bold text-peligro hover:underline">Cancelar</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </section>
         )}
 

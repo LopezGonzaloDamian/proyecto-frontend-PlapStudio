@@ -28,6 +28,7 @@ export default function Login() {
     const { iniciar } = useSesion()
     const esProfesional = location.pathname.startsWith('/profesional')
     const esAsistente   = location.pathname.startsWith('/asistente')
+    const esLoginGeneral = location.pathname === '/login'
     const rolActual = esProfesional ? 'profesional' : esAsistente ? 'asistente' : 'cliente'
 
     useEffect(() => {
@@ -96,9 +97,10 @@ export default function Login() {
     return (
         <CardAcceso>
             <HeaderAcceso
-                titulo={`Login ${rolActual}`}
+                titulo={esLoginGeneral ? 'Login' : `Login ${rolActual}`}
                 subtitulo={
-                    esProfesional ? 'Ingresa tus datos para acceder al dashboard profesional.'
+                    esLoginGeneral ? 'Ingresa tus datos y te llevamos a tu panel automaticamente.'
+                  : esProfesional ? 'Ingresa tus datos para acceder al dashboard profesional.'
                   : esAsistente   ? 'Ingresa tus datos para acceder al panel del asistente.'
                                   : 'Ingresa tus datos para reservar y gestionar tus turnos.'
                 }
@@ -174,7 +176,7 @@ export default function Login() {
 
             <p className="text-xs text-texto-secundario text-center">
                 Aun no tienes una cuenta?{' '}
-                <Link to={`/${rolActual}/registro`} className="text-primario font-semibold hover:underline">
+                <Link to={esLoginGeneral ? '/landing' : `/${rolActual}/registro`} className="text-primario font-semibold hover:underline">
                     Registrate gratis
                 </Link>
             </p>
