@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconCheck, IconBell, IconStar } from './Icons'
+import AccessChoiceModal from './AccessChoiceModal'
 
 function BookingCard() {
   const [selectedService, setSelectedService] = useState(0)
@@ -103,7 +103,7 @@ function BookingCard() {
 }
 
 export default function HeroSection() {
-  const navigate = useNavigate()
+  const [accessMode, setAccessMode] = useState<'login' | 'registro' | null>(null)
 
   return (
     <section
@@ -113,7 +113,7 @@ export default function HeroSection() {
       {/* Decorative blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-48 -right-48 w-[500px] h-[500px] bg-acento rounded-full opacity-20 blur-3xl" />
-        <div className="absolute bottom-0 -left-48 w-[400px] h-[400px] bg-violet-400 rounded-full opacity-15 blur-3xl" />
+        <div className="absolute bottom-0 -left-48 w-[400px] h-[400px] bg-white rounded-full opacity-15 blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primario-oscuro rounded-full opacity-30 blur-3xl" />
       </div>
 
@@ -122,27 +122,27 @@ export default function HeroSection() {
 
           {/* Copy */}
           <div>
-            <span className="inline-flex items-center gap-2 bg-white/10 text-violet-100 text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-white/20 backdrop-blur-sm">
+            <span className="inline-flex items-center gap-2 bg-white/10 text-white/90 text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-white/20 backdrop-blur-sm">
               ✨ La forma más simple de reservar turnos
             </span>
             <h1 className="text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-6 tracking-tight">
               Tu turno,<br />
-              <span className="text-violet-200">a un clic</span> de<br />
+              <span className="text-white/80">a un clic</span> de<br />
               distancia
             </h1>
-            <p className="text-lg text-violet-200 leading-relaxed mb-8 max-w-md">
+            <p className="text-lg text-white/80 leading-relaxed mb-8 max-w-md">
               Reservá en barberías, salones de belleza, spas y más, al instante. Sin llamadas, sin filas. Rápido, simple y confiable.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-12">
               <button
-                onClick={() => navigate('/registro')}
-                className="bg-white text-primario font-semibold px-7 py-3.5 rounded-xl hover:bg-violet-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-sm"
+                onClick={() => setAccessMode('registro')}
+                className="bg-white text-primario font-semibold px-7 py-3.5 rounded-xl hover:bg-primario-claro transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-sm"
               >
                 Reservar un turno
               </button>
               <button
-                onClick={() => navigate('/registro')}
+                onClick={() => setAccessMode('registro')}
                 className="border-2 border-white/25 text-white font-semibold px-7 py-3.5 rounded-xl hover:bg-white/10 transition-all text-sm backdrop-blur-sm"
               >
                 Registrá tu negocio →
@@ -160,7 +160,7 @@ export default function HeroSection() {
                   {i > 0 && <div className="w-px h-8 bg-white/20" />}
                   <div>
                     <p className="text-xl font-bold text-white">{value}</p>
-                    <p className="text-xs text-violet-300">{label}</p>
+                    <p className="text-xs text-white/70">{label}</p>
                   </div>
                 </div>
               ))}
@@ -173,6 +173,12 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
+      {accessMode && (
+        <AccessChoiceModal
+          mode={accessMode}
+          onClose={() => setAccessMode(null)}
+        />
+      )}
     </section>
   )
 }

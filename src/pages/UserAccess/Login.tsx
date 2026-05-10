@@ -1,32 +1,35 @@
 import { useState, type FormEvent, type ChangeEvent, useRef, useEffect, type MouseEvent as ReactMouseEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 
 import InputGenerico from '../../components/AccesoUsuario/InputGenerico'
 import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcceso'
 import { IconoEmail, IconoCandado } from '../../components/AccesoUsuario/IconosAcceso'
 import { BotonPrimario } from '../../components/common/ui'
 
-import { login } from '../../services/login.service'
-import { setSession, addRememberedUser, getRememberedUsers, removeRememberedUser } from '../../lib/storage/session'
-import type { LoginResponse } from '../../types/login'
-
+import { addRememberedUser, getRememberedUsers, removeRememberedUser } from '../../lib/storage/session'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
-import { getMensajeError } from '../../utils/errorHandling'
+import { useSesion } from '../../customHooks/useSesion'
+import { login as loginApi } from '../../api/auth'
+import { extraerError } from '../../api/client'
 
 export default function Login() {
-    const [email, setEmail]                          = useState('')
-    const [password, setPassword]                    = useState('')
-    const [recordarme, setRecordarme]                = useState(false)
-    const [enviando, setEnviando]                    = useState(false)
-    const [mostrarDropdown, setMostrarDropdown]      = useState(false)
-    const [usuariosRecordados, setUsuariosRecordados] = useState<string[]>(
-        () => getRememberedUsers()
-    )
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [recordarme, setRecordarme] = useState(false)
+    const [enviando, setEnviando] = useState(false)
+    const [mostrarDropdown, setMostrarDropdown] = useState(false)
+    const [usuariosRecordados, setUsuariosRecordados] = useState<string[]>(() => getRememberedUsers())
 
     const dropdownRef = useRef<HTMLDivElement>(null)
-    const navigate    = useNavigate()
+    const navigate = useNavigate()
+    const location = useLocation()
     const { toast, showToast } = useToast()
+    const { iniciar } = useSesion()
+    const esProfesional = location.pathname.startsWith('/profesional')
+    const esAsistente   = location.pathname.startsWith('/asistente')
+    const esLoginGeneral = location.pathname === '/login'
+    const rolActual = esProfesional ? 'profesional' : esAsistente ? 'asistente' : 'cliente'
 
     useEffect(() => {
         const handleClickAfuera = (e: MouseEvent) => {
@@ -38,8 +41,8 @@ export default function Login() {
         return () => document.removeEventListener('mousedown', handleClickAfuera)
     }, [])
 
-    const emailTrim     = email.trim()
-    const passwordTrim  = password.trim()
+    const emailTrim = email.trim()
+    const passwordTrim = password.trim()
     const puedeIngresar = emailTrim.length > 0 && passwordTrim.length > 0
 
     const onChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -50,8 +53,8 @@ export default function Login() {
         if (e.target.name === 'password') setPassword(e.target.value)
     }
 
-    const sugerencias = usuariosRecordados.filter(u =>
-        u.toLowerCase().includes(emailTrim.toLowerCase())
+    const sugerencias = usuariosRecordados.filter((u) =>
+        u.toLowerCase().includes(emailTrim.toLowerCase()),
     )
 
     const seleccionarUsuario = (mail: string) => {
@@ -68,35 +71,25 @@ export default function Login() {
 
     async function enviar(evento: FormEvent<HTMLFormElement>) {
         evento.preventDefault()
-
         if (!puedeIngresar || enviando) return
 
         setEnviando(true)
-
         try {
-            const payload = { email: emailTrim, password: passwordTrim }
-            const resp: LoginResponse = await login(payload)
+            const usuario = await loginApi({ email: emailTrim, password: passwordTrim })
 
-            if (!resp.idUsuario) {
-                showToast('No se pudo iniciar sesión.', 'error')
-                return
-            }
-
-            if (recordarme) {
-                addRememberedUser(emailTrim)
-            } else {
-                removeRememberedUser(emailTrim)
-            }
+            if (recordarme) addRememberedUser(emailTrim)
+            else            removeRememberedUser(emailTrim)
             setUsuariosRecordados(getRememberedUsers())
 
-            setSession(resp.idUsuario)
+            iniciar(usuario)
+            showToast(`Hola, ${usuario.nombreCompleto}`, 'success')
 
-            showToast('Inicio de sesión exitoso.', 'success')
-            setTimeout(() => navigate(`/home/${resp.idUsuario}`), 1200)
-        } catch (error: unknown) {
-            const mensaje = getMensajeError(error)
-            showToast(mensaje, 'error')
-        } finally {
+            const destino = usuario.roles.includes('PROFESIONAL') ? '/profesional'
+                          : usuario.roles.includes('ASISTENTE')   ? '/asistente'
+                                                                  : '/cliente'
+            setTimeout(() => navigate(destino), 400)
+        } catch (e) {
+            showToast(extraerError(e), 'error')
             setEnviando(false)
         }
     }
@@ -104,39 +97,40 @@ export default function Login() {
     return (
         <CardAcceso>
             <HeaderAcceso
-                titulo="Agendify"
-                subtitulo="Ingresá tus datos para gestionar tus turnos."
+                titulo={esLoginGeneral ? 'Login' : `Login ${rolActual}`}
+                subtitulo={
+                    esLoginGeneral ? 'Ingresa tus datos y te llevamos a tu panel automaticamente.'
+                  : esProfesional ? 'Ingresa tus datos para acceder al dashboard profesional.'
+                  : esAsistente   ? 'Ingresa tus datos para acceder al panel del asistente.'
+                                  : 'Ingresa tus datos para reservar y gestionar tus turnos.'
+                }
             />
 
             <form className="w-full flex flex-col gap-4" onSubmit={enviar} autoComplete="off">
-
                 <div className="relative" ref={dropdownRef}>
                     <InputGenerico
-                        label="Correo electrónico"
+                        label="Email"
                         name="username"
                         value={email}
                         onChange={onChange}
                         onFocus={() => setMostrarDropdown(true)}
-                        placeholder="tu@ejemplo.com"
+                        placeholder="cliente@agendify.com"
                         type="text"
                         icono={<IconoEmail />}
                     />
 
                     {mostrarDropdown && sugerencias.length > 0 && (
-                        <ul className="absolute z-10 w-full bg-white border border-borde
-                            rounded-xl shadow-lg mt-1 overflow-hidden">
-                            {sugerencias.map(mail => (
+                        <ul className="absolute z-10 w-full bg-white border border-borde rounded-xl shadow-lg mt-1 overflow-hidden">
+                            {sugerencias.map((mail) => (
                                 <li
                                     key={mail}
                                     onClick={() => seleccionarUsuario(mail)}
-                                    className="flex items-center justify-between
-                                        px-4 py-2.5 text-sm text-texto-principal
-                                        hover:bg-fondo cursor-pointer"
+                                    className="flex items-center justify-between px-4 py-2.5 text-sm text-texto-principal hover:bg-fondo cursor-pointer"
                                 >
                                     <span>{mail}</span>
                                     <button
                                         type="button"
-                                        onClick={e => olvidarUsuario(mail, e)}
+                                        onClick={(e) => olvidarUsuario(mail, e)}
                                         className="text-texto-suave hover:text-peligro transition-colors ml-2"
                                         aria-label="Olvidar usuario"
                                     >
@@ -151,11 +145,11 @@ export default function Login() {
                 </div>
 
                 <InputGenerico
-                    label="Contraseña"
+                    label="Contrasena"
                     name="password"
                     value={password}
                     onChange={onChange}
-                    placeholder="••••••••"
+                    placeholder="********"
                     type="password"
                     icono={<IconoCandado />}
                 />
@@ -164,8 +158,8 @@ export default function Login() {
                     <input
                         type="checkbox"
                         checked={recordarme}
-                        onChange={e => setRecordarme(e.target.checked)}
-                        className="w-4 h-4 rounded border-[#e0e0e0] accent-confirmacion cursor-pointer"
+                        onChange={(e) => setRecordarme(e.target.checked)}
+                        className="w-4 h-4 rounded border-borde accent-primario cursor-pointer"
                     />
                     <span className="text-sm text-texto-secundario">Recordarme</span>
                 </label>
@@ -176,14 +170,14 @@ export default function Login() {
                     disabled={!puedeIngresar || enviando}
                     className="py-4 text-base rounded-xl"
                 >
-                    {enviando ? 'Ingresando…' : 'Ingresar'}
+                    {enviando ? 'Ingresando...' : 'Ingresar'}
                 </BotonPrimario>
             </form>
 
             <p className="text-xs text-texto-secundario text-center">
-                ¿Aún no tienes una cuenta?{' '}
-                <Link to="/registro" className="text-primario font-semibold hover:underline">
-                    Regístrate gratis
+                Aun no tienes una cuenta?{' '}
+                <Link to={esLoginGeneral ? '/landing' : `/${rolActual}/registro`} className="text-primario font-semibold hover:underline">
+                    Registrate gratis
                 </Link>
             </p>
 

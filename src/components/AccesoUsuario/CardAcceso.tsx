@@ -3,7 +3,7 @@ import { IconCalendar } from '../LandingPage/Icons'
 
 // ── CardAcceso ────────────────────────────────────────────────────────────────
 // Contenedor compartido entre Login y Registro.
-// Usa el mismo gradiente violeta del hero del landing para coherencia visual.
+// Usa el mismo gradiente del hero del landing para coherencia visual.
 
 interface CardAccesoProps {
     children: ReactNode
@@ -15,7 +15,7 @@ export const CardAcceso = ({ children }: CardAccesoProps) => (
 
         {/* Decorative blobs — mismo estilo que el hero */}
         <div className="absolute -top-32 -right-32 w-80 h-80 bg-acento rounded-full opacity-20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-violet-400 rounded-full opacity-15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-white rounded-full opacity-15 blur-3xl pointer-events-none" />
 
         {/* Card */}
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-6
