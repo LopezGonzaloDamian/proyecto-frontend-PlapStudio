@@ -159,7 +159,7 @@ export default function Login() {
                         type="checkbox"
                         checked={recordarme}
                         onChange={(e) => setRecordarme(e.target.checked)}
-                        className="w-4 h-4 rounded border-[#e0e0e0] accent-confirmacion cursor-pointer"
+                        className="w-4 h-4 rounded border-borde accent-primario cursor-pointer"
                     />
                     <span className="text-sm text-texto-secundario">Recordarme</span>
                 </label>

@@ -84,16 +84,16 @@ export default function PricingSection() {
               )}
 
               <div className="mb-5">
-                <p className={`text-sm font-semibold mb-1 ${primary ? 'text-violet-200' : 'text-primario'}`}>{name}</p>
+                <p className={`text-sm font-semibold mb-1 ${primary ? 'text-white/80' : 'text-primario'}`}>{name}</p>
                 <p className={`text-3xl font-bold tracking-tight ${primary ? 'text-white' : 'text-texto-principal'}`}>
                   {price}
                   {period && (
-                    <span className={`text-base font-normal ml-1 ${primary ? 'text-violet-200' : 'text-texto-secundario'}`}>
+                    <span className={`text-base font-normal ml-1 ${primary ? 'text-white/80' : 'text-texto-secundario'}`}>
                       /{period}
                     </span>
                   )}
                 </p>
-                <p className={`text-sm mt-1 ${primary ? 'text-violet-200' : 'text-texto-secundario'}`}>{desc}</p>
+                <p className={`text-sm mt-1 ${primary ? 'text-white/80' : 'text-texto-secundario'}`}>{desc}</p>
               </div>
 
               <ul className="space-y-2.5 mb-7">
@@ -102,7 +102,7 @@ export default function PricingSection() {
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${primary ? 'bg-white/20' : 'bg-primario-suave'}`}>
                       <IconCheck className={`w-3 h-3 ${primary ? 'text-white' : 'text-primario'}`} />
                     </div>
-                    <span className={`text-sm ${primary ? 'text-violet-100' : 'text-texto-secundario'}`}>{f}</span>
+                    <span className={`text-sm ${primary ? 'text-white/90' : 'text-texto-secundario'}`}>{f}</span>
                   </li>
                 ))}
               </ul>
@@ -111,7 +111,7 @@ export default function PricingSection() {
                 onClick={() => navigate('/registro')}
                 className={`w-full font-semibold py-3 rounded-xl text-sm transition-all ${
                   primary
-                    ? 'bg-white text-primario hover:bg-violet-50 shadow-sm'
+                    ? 'bg-white text-primario hover:bg-primario-claro shadow-sm'
                     : 'bg-primario-claro text-primario border border-primario-suave-hover hover:bg-primario-suave'
                 }`}
               >

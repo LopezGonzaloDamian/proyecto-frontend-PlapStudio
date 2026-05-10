@@ -43,7 +43,7 @@ const estadoClass: Record<Turno['estado'], string> = {
   PENDIENTE: 'bg-amber-100 text-amber-800 border-amber-200',
   CONFIRMADO: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   CANCELADO: 'bg-red-100 text-red-700 border-red-200',
-  COMPLETADO: 'bg-violet-100 text-violet-800 border-violet-200',
+  COMPLETADO: 'bg-blue-100 text-blue-800 border-blue-200',
 }
 
 const estadoLabel: Record<Turno['estado'], string> = {
@@ -64,7 +64,7 @@ function horaDe(t: { iniciaEn: string }): string {
 function AvatarProfesional({ nombre }: { nombre: string }) {
   const iniciales = nombre.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[18px] bg-[#9a5966] text-2xl font-black text-white shadow-sm">
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[18px] bg-primario text-2xl font-black text-white shadow-sm">
       {iniciales}
     </div>
   )
@@ -372,7 +372,7 @@ export default function ClienteDashboard() {
         {seccionActual === 'dashboard' && (
           <>
             <section>
-              <article className="rounded-[28px] border border-[#dfe3ff] bg-white p-6 shadow-sm xl:p-7">
+              <article className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <span className="text-sm font-bold uppercase tracking-[0.12em] text-primario">Hoy</span>
@@ -399,7 +399,7 @@ export default function ClienteDashboard() {
               </article>
             </section>
 
-            <section className="rounded-[28px] border border-[#dfe3ff] bg-white p-6 shadow-sm xl:p-7">
+            <section className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <h2 className="text-3xl font-black text-texto-principal">Mi agenda</h2>
@@ -596,7 +596,7 @@ export default function ClienteDashboard() {
               </div>
               <div className="mt-6 grid gap-4">
                 {resultados.map((p) => (
-                  <article key={p.id} className="rounded-[22px] border border-[#d7dbff] bg-white p-5 shadow-sm transition-colors hover:border-primario xl:p-6">
+                  <article key={p.id} className="rounded-[22px] border border-primario-suave bg-white p-5 shadow-sm transition-colors hover:border-primario xl:p-6">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div className="flex gap-4">
@@ -624,8 +624,8 @@ export default function ClienteDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="border-t border-[#dfe3ff] pt-3.5 flex justify-between">
-                        <button onClick={() => verPerfilProfesional(p)} className="text-sm font-bold text-[#6b72a8] hover:text-primario">Ver perfil</button>
+                      <div className="border-t border-primario-suave pt-3.5 flex justify-between">
+                        <button onClick={() => verPerfilProfesional(p)} className="text-sm font-bold text-texto-secundario hover:text-primario">Ver perfil</button>
                         <button onClick={() => irAReservarProfesional(p)} className="text-sm font-bold text-primario hover:underline">Reservar</button>
                       </div>
                     </div>
@@ -671,7 +671,7 @@ export default function ClienteDashboard() {
               <p className="mt-3 max-w-5xl text-sm leading-7 text-texto-secundario">{profesionalDetalle.biografia}</p>
             </section>
 
-            <section className="mt-8 rounded-[18px] border border-borde bg-[#fcfdff] p-5">
+            <section className="mt-8 rounded-[18px] border border-borde bg-fondo p-5">
               <h3 className="text-lg font-black text-texto-principal">Detalles</h3>
               <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Rubro</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.especialidad}</p></div>
@@ -701,7 +701,7 @@ export default function ClienteDashboard() {
             <div className="mt-8 flex justify-end">
               <button
                 onClick={() => irAReservarProfesional(profesionalDetalle)}
-                className="inline-flex items-center justify-center gap-3 rounded-xl bg-[#31927f] px-6 py-3 text-base font-black text-white hover:bg-[#28786a]"
+                className="inline-flex items-center justify-center gap-3 rounded-xl bg-primario px-6 py-3 text-base font-black text-white hover:bg-primario-hover"
               >
                 <IconCalendar className="h-5 w-5" />
                 Reservar turno
@@ -712,7 +712,7 @@ export default function ClienteDashboard() {
 
         {seccionActual === 'reservar' && profesionalDetalle && (
           <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-            <aside className="rounded-[28px] border border-[#dfe3ff] bg-white p-6 shadow-sm">
+            <aside className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} />
                 <div>

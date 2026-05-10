@@ -6,16 +6,16 @@
    ============================================================ */
 @theme {
   /* Primary — Modern Violet */
-  --color-primario:            #7c3aed;
-  --color-primario-hover:      #6d28d9;
-  --color-primario-suave:      #ede9fe;
-  --color-primario-suave-hover:#ddd6fe;
-  --color-primario-claro:      #f5f3ff;
-  --color-primario-oscuro:     #5b21b6;
+  --color-primario:            #1877F2;
+  --color-primario-hover:      #166FE5;
+  --color-primario-suave:      #DCEBFF;
+  --color-primario-suave-hover:#C8DFFF;
+  --color-primario-claro:      #F0F6FF;
+  --color-primario-oscuro:     #0F5EC7;
 
   /* Accent — Purple (gradient partner) */
-  --color-acento:              #a855f7;
-  --color-acento-hover:        #9333ea;
+  --color-acento:              #4C8FF7;
+  --color-acento-hover:        #1877F2;
 
   /* Semantic states */
   --color-confirmacion:        #10b981;
@@ -27,12 +27,12 @@
 
   /* Surfaces */
   --color-fondo:               #fafafa;
-  --color-fondo-violeta:       #f5f3ff;
+  --color-fondo-violeta:       #F0F6FF;
   --color-borde:               #e5e7eb;
   --color-borde-suave:         #f3f4f6;
 
   /* Text */
-  --color-texto-principal:     #15122e;
+  --color-texto-principal:     #111827;
   --color-texto-secundario:    #6b7280;
   --color-texto-suave:         #9ca3af;
 }
@@ -42,12 +42,12 @@
    ============================================================ */
 :root {
   --text:         #6b7280;
-  --text-h:       #15122e;
+  --text-h:       #111827;
   --bg:           #fff;
   --border:       #e5e7eb;
-  --accent:       #7c3aed;
-  --accent-bg:    rgba(124, 58, 237, 0.08);
-  --accent-border:rgba(124, 58, 237, 0.3);
+  --accent:       #1877F2;
+  --accent-bg:    rgba(24, 119, 242, 0.08);
+  --accent-border:rgba(24, 119, 242, 0.3);
   --shadow:
     rgba(0, 0, 0, 0.1)  0 10px 15px -3px,
     rgba(0, 0, 0, 0.05) 0  4px  6px -2px;
@@ -68,15 +68,15 @@
 }
 
 html.theme-dark {
-  --color-primario:            #a78bfa;
-  --color-primario-hover:      #8b5cf6;
-  --color-primario-suave:      #34235d;
-  --color-primario-suave-hover:#493079;
-  --color-primario-claro:      #251b3d;
-  --color-primario-oscuro:     #c4b5fd;
+  --color-primario:            #62A8FF;
+  --color-primario-hover:      #1877F2;
+  --color-primario-suave:      #18365F;
+  --color-primario-suave-hover:#214A82;
+  --color-primario-claro:      #10233D;
+  --color-primario-oscuro:     #9AC7FF;
 
-  --color-acento:              #c084fc;
-  --color-acento-hover:        #a855f7;
+  --color-acento:              #8BC0FF;
+  --color-acento-hover:        #62A8FF;
 
   --color-confirmacion:        #34d399;
   --color-confirmacion-hover:  #10b981;
@@ -85,22 +85,22 @@ html.theme-dark {
   --color-peligro-suave:       #3f1d25;
   --color-advertencia:         #fbbf24;
 
-  --color-fondo:               #0f1020;
-  --color-fondo-violeta:       #151127;
+  --color-fondo:               #0B1220;
+  --color-fondo-violeta:       #111827;
   --color-borde:               #30324a;
   --color-borde-suave:         #22243a;
 
-  --color-texto-principal:     #f6f4ff;
-  --color-texto-secundario:    #b9b6ca;
-  --color-texto-suave:         #8f8aa8;
+  --color-texto-principal:     #F9FAFB;
+  --color-texto-secundario:    #CBD5E1;
+  --color-texto-suave:         #94A3B8;
 
-  --text:         #b9b6ca;
-  --text-h:       #f6f4ff;
-  --bg:           #0f1020;
+  --text:         #CBD5E1;
+  --text-h:       #F9FAFB;
+  --bg:           #111827;
   --border:       #30324a;
-  --accent:       #a78bfa;
-  --accent-bg:    rgba(167, 139, 250, 0.14);
-  --accent-border:rgba(167, 139, 250, 0.4);
+  --accent:       #62A8FF;
+  --accent-bg:    rgba(98, 168, 255, 0.14);
+  --accent-border:rgba(98, 168, 255, 0.4);
   --shadow:
     rgba(0, 0, 0, 0.5) 0 10px 15px -3px,
     rgba(0, 0, 0, 0.3) 0  4px  6px -2px;
@@ -109,19 +109,19 @@ html.theme-dark {
 }
 
 html.theme-dark body {
-  background: #0f1020;
+  background: #111827;
 }
 
 html.theme-dark .bg-white,
 html.theme-dark .bg-white\/95,
 html.theme-dark .bg-white\/90,
 html.theme-dark .bg-\[\#fcfdff\] {
-  background-color: #17182b !important;
+  background-color: #111827 !important;
 }
 
 html.theme-dark .bg-fondo,
 html.theme-dark .bg-\[\#fafafa\] {
-  background-color: #0f1020 !important;
+  background-color: #0B1220 !important;
 }
 
 html.theme-dark .border-\[\#dfe3ff\],

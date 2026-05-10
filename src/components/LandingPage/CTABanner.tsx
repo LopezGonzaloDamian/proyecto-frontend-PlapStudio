@@ -14,13 +14,13 @@ export default function CTABanner() {
         <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4 tracking-tight">
           ¿Listo para llenar tu agenda?
         </h2>
-        <p className="text-violet-200 text-lg mb-8">
+        <p className="text-white/80 text-lg mb-8">
           Sumate a miles de profesionales que ya optimizaron su negocio con Agendify. Configuración en minutos, resultados desde el día 1.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => setAccessMode('registro')}
-            className="bg-white text-primario font-semibold px-8 py-3.5 rounded-xl hover:bg-violet-50 transition-all shadow-lg hover:-translate-y-0.5 text-sm"
+            className="bg-white text-primario font-semibold px-8 py-3.5 rounded-xl hover:bg-primario-claro transition-all shadow-lg hover:-translate-y-0.5 text-sm"
           >
             Registrate aquí
           </button>

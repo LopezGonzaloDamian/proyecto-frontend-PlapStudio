@@ -79,11 +79,6 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         Crear cuenta nueva
       </button>
 
-      <div className="mt-8 flex items-center justify-center gap-2 text-lg font-black text-texto-principal">
-        <IconCalendar className="h-5 w-5 text-primario" />
-        Agendify
-      </div>
-
       <div id="toast-container">
         <Toast toast={toast} />
       </div>
@@ -178,7 +173,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white text-texto-principal">
       <div className="grid min-h-screen lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#2c0f55] via-primario to-[#7c31ed] px-8 py-8 text-white lg:px-12 xl:px-16">
+        <section className="relative overflow-hidden bg-gradient-to-br from-[#111827] via-primario to-[#0F5EC7] px-8 py-8 text-white lg:px-12 xl:px-16">
           <div className="relative z-10 flex h-full min-h-[720px] flex-col">
             <div className="flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
