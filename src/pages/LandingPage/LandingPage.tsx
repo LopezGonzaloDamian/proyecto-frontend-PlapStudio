@@ -7,6 +7,7 @@ import { extraerError } from '../../api/client'
 import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
+import AgendifyChatbot from '../../chatbot/AgendifyChatbot'
 
 function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
   const navigate = useNavigate()
@@ -228,6 +229,7 @@ export default function LandingPage() {
       {modalRegistroAbierto && (
         <AccessChoiceModal mode="registro" onClose={() => setModalRegistroAbierto(false)} />
       )}
+      <AgendifyChatbot />
     </main>
   )
 }

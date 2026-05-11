@@ -21,7 +21,7 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={() => setOscuro((valor) => !valor)}
-      className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full border border-borde bg-white text-xl shadow-lg transition-transform hover:-translate-y-0.5 hover:bg-primario-claro"
+      className="fixed bottom-5 left-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full border border-borde bg-white text-xl shadow-lg transition-transform hover:-translate-y-0.5 hover:bg-primario-claro sm:left-6"
       aria-label={oscuro ? 'Activar modo claro' : 'Activar modo oscuro'}
       title={oscuro ? 'Modo claro' : 'Modo oscuro'}
     >
