@@ -120,6 +120,18 @@ export default function ProfesionalDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalId, usuario?.id])
 
+  useEffect(() => {
+    if (!profesionalId || !usuario) return
+
+    const refrescarDatosOperativos = () => {
+      void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
+      void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
+    }
+
+    const intervalo = window.setInterval(refrescarDatosOperativos, 1500)
+    return () => window.clearInterval(intervalo)
+  }, [profesionalId, usuario])
+
   const agendaPrincipal = agendas[0] ?? null
 
   const turnosFiltrados = useMemo(() =>
@@ -310,8 +322,12 @@ export default function ProfesionalDashboard() {
           </nav>
           <div ref={menuUsuarioRef} className="relative flex items-center justify-end">
             <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-borde bg-white px-2 py-1.5 shadow-sm hover:bg-primario-claro">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primario text-sm font-black text-white">
-                {inicialesProf || 'P'}
+              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primario text-sm font-black text-white">
+                {perfil?.urlAvatar ? (
+                  <img src={perfil.urlAvatar} alt={perfil.nombreCompleto} className="block h-full w-full object-cover object-center" />
+                ) : (
+                  inicialesProf || 'P'
+                )}
               </span>
               <svg className={`h-4 w-4 text-texto-secundario transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clipRule="evenodd" />
@@ -319,11 +335,10 @@ export default function ProfesionalDashboard() {
             </button>
             {menuUsuarioAbierto && (
               <div className="absolute right-0 top-[calc(100%+0.6rem)] min-w-[220px] rounded-2xl border border-borde bg-white p-2 shadow-lg">
-                <div className="border-b border-borde-suave px-3 py-2">
-                  <p className="text-sm font-bold text-texto-principal">{usuario.nombreCompleto}</p>
-                  <p className="text-xs text-texto-secundario">{usuario.email}</p>
-                </div>
-                <button onClick={cerrarSesion} className="mt-2 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-semibold text-peligro hover:bg-peligro-suave">
+                <button onClick={cerrarSesion} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-peligro hover:bg-peligro-suave">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                  </svg>
                   Cerrar sesion
                 </button>
               </div>

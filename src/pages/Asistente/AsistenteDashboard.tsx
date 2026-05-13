@@ -91,6 +91,17 @@ export default function AsistenteDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.id])
 
+  useEffect(() => {
+    if (!usuario) return
+
+    const refrescarTurnos = () => {
+      void getTurnosDeAsistente(usuario.id).then(setTurnos).catch(() => undefined)
+    }
+
+    const intervalo = window.setInterval(refrescarTurnos, 1500)
+    return () => window.clearInterval(intervalo)
+  }, [usuario])
+
   // Cuando hay profesionales, cargar clientes y agendas de los asignados
   useEffect(() => {
     if (profesionales.length === 0) return
@@ -310,11 +321,10 @@ export default function AsistenteDashboard() {
             </button>
             {menuUsuarioAbierto && (
               <div className="absolute right-0 top-[calc(100%+0.6rem)] min-w-[220px] rounded-2xl border border-borde bg-white p-2 shadow-lg">
-                <div className="border-b border-borde-suave px-3 py-2">
-                  <p className="text-sm font-bold text-texto-principal">{usuario.nombreCompleto}</p>
-                  <p className="text-xs text-texto-secundario">Cuenta asistente</p>
-                </div>
-                <button onClick={cerrarSesion} className="mt-2 flex w-full items-center rounded-xl px-3 py-2 text-left text-sm font-semibold text-peligro hover:bg-peligro-suave">
+                <button onClick={cerrarSesion} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-peligro hover:bg-peligro-suave">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                  </svg>
                   Cerrar sesion
                 </button>
               </div>
