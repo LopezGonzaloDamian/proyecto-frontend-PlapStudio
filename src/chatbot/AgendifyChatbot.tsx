@@ -137,7 +137,7 @@ export default function AgendifyChatbot() {
   return (
     <>
       {open ? (
-        <section className="fixed bottom-20 right-4 z-[70] flex h-[min(710px,82vh)] w-[min(390px,calc(100vw-20px))] flex-col overflow-hidden rounded-[30px] border border-[#f1f1f4] bg-white shadow-[0_30px_90px_rgba(21,34,66,0.18)] sm:bottom-22 sm:right-6">
+        <section className="chatbot-shell fixed bottom-20 right-4 z-[70] flex h-[min(710px,82vh)] w-[min(390px,calc(100vw-20px))] flex-col overflow-hidden rounded-[30px] border border-borde bg-white shadow-[0_30px_90px_rgba(21,34,66,0.18)] sm:bottom-22 sm:right-6">
           <header className="flex min-h-[76px] items-center justify-between border-b border-borde-suave px-4 py-3">
             <div className="flex items-center gap-3">
               <button
@@ -184,14 +184,14 @@ export default function AgendifyChatbot() {
             </div>
           </header>
 
-          <div ref={scrollRef} className="flex-1 overflow-y-auto bg-white px-4 py-5">
+          <div ref={scrollRef} className="chatbot-scroll flex-1 overflow-y-auto bg-white px-4 py-5">
             {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className="mb-3 flex flex-col">
                 <div className={message.role === 'assistant' ? 'self-start' : 'self-end'}>
                   <article
                     className={`max-w-[305px] rounded-[22px] px-4 py-3 text-[15px] leading-8 shadow-sm ${
                       message.role === 'assistant'
-                        ? 'rounded-bl-md bg-[#f4f4f6] text-texto-principal'
+                        ? 'chatbot-assistant-bubble rounded-bl-md bg-fondo text-texto-principal'
                         : 'rounded-br-md bg-[#1877F2] text-white'
                     }`}
                   >
@@ -209,7 +209,7 @@ export default function AgendifyChatbot() {
 
             {isLoading ? (
               <div className="mb-3 flex justify-start">
-                <div className="flex items-center gap-2 rounded-[22px] rounded-bl-md bg-[#f3f3f5] px-4 py-3 shadow-sm">
+                <div className="chatbot-assistant-bubble flex items-center gap-2 rounded-[22px] rounded-bl-md bg-fondo px-4 py-3 shadow-sm">
                   <span className="h-2 w-2 animate-bounce rounded-full bg-primario [animation-delay:-0.2s]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-primario [animation-delay:-0.1s]" />
                   <span className="h-2 w-2 animate-bounce rounded-full bg-primario" />
@@ -224,7 +224,7 @@ export default function AgendifyChatbot() {
                     key={action}
                     type="button"
                     onClick={() => void sendMessage(action)}
-                    className="rounded-full border border-borde bg-white px-3 py-2 text-xs font-medium text-texto-secundario transition-colors hover:border-primario hover:text-primario"
+                    className="chatbot-chip rounded-full border border-borde bg-white px-3 py-2 text-xs font-medium text-texto-secundario transition-colors hover:border-primario hover:text-primario"
                   >
                     {action}
                   </button>
@@ -242,7 +242,7 @@ export default function AgendifyChatbot() {
           <div className="border-t border-borde-suave bg-white px-4 py-4">
             <form
               onSubmit={handleSubmit}
-              className="rounded-[22px] border-2 border-[#1570ff] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(21,112,255,0.08)]"
+              className="chatbot-input-shell rounded-[22px] border-2 border-[#1570ff] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(21,112,255,0.08)]"
             >
               <div className="flex items-center gap-3">
                 <input
@@ -270,7 +270,7 @@ export default function AgendifyChatbot() {
       <button
         type="button"
         onClick={() => setOpen((currentOpen) => !currentOpen)}
-        className="fixed bottom-5 right-5 z-[69] flex h-14 w-14 items-center justify-center rounded-full bg-[#1570ff] text-white shadow-[0_18px_42px_rgba(21,112,255,0.32)] transition-transform hover:scale-105 sm:right-6"
+        className="chatbot-trigger fixed bottom-5 right-5 z-[69] flex h-14 w-14 items-center justify-center rounded-full bg-[#1570ff] text-white shadow-[0_18px_42px_rgba(21,112,255,0.32)] transition-transform hover:scale-105 sm:right-6"
         aria-label="Abrir chatbot de Agendify"
       >
         {open ? <IconChatChevron className="h-5 w-5" /> : <IconChatMessage className="h-6 w-6" />}
