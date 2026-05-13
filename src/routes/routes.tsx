@@ -6,7 +6,8 @@ import LandingPage from '../pages/LandingPage/LandingPage'
 import ClienteDashboard from '../pages/Cliente/ClienteDashboard'
 import ProfesionalDashboard from '../pages/Profesional/ProfesionalDashboard'
 import AsistenteDashboard from '../pages/Asistente/AsistenteDashboard'
-import { RutaPublica } from './accesoRoutes'
+import SeleccionRol from '../pages/UserAccess/SeleccionRol'
+import { RutaProtegida, RutaPublica, RutaSeleccionRol } from './accesoRoutes'
 
 export default function RoutesApp() {
   return (
@@ -25,15 +26,21 @@ export default function RoutesApp() {
         <Route path="/registro"           element={<Registro />} />
       </Route>
 
-      <Route path="/cliente"                                  element={<ClienteDashboard />} />
-      <Route path="/cliente/:seccion"                         element={<ClienteDashboard />} />
-      <Route path="/cliente/:seccion/:idProfesional"          element={<ClienteDashboard />} />
+      <Route element={<RutaSeleccionRol />}>
+        <Route path="/seleccionar-rol" element={<SeleccionRol />} />
+      </Route>
 
-      <Route path="/profesional"                              element={<ProfesionalDashboard />} />
-      <Route path="/profesional/:seccion"                     element={<ProfesionalDashboard />} />
+      <Route element={<RutaProtegida />}>
+        <Route path="/cliente"                                  element={<ClienteDashboard />} />
+        <Route path="/cliente/:seccion"                         element={<ClienteDashboard />} />
+        <Route path="/cliente/:seccion/:idProfesional"          element={<ClienteDashboard />} />
 
-      <Route path="/asistente"                                element={<AsistenteDashboard />} />
-      <Route path="/asistente/:seccion"                       element={<AsistenteDashboard />} />
+        <Route path="/profesional"                              element={<ProfesionalDashboard />} />
+        <Route path="/profesional/:seccion"                     element={<ProfesionalDashboard />} />
+
+        <Route path="/asistente"                                element={<AsistenteDashboard />} />
+        <Route path="/asistente/:seccion"                       element={<AsistenteDashboard />} />
+      </Route>
 
       <Route path="*" element={<NotFound />} />
     </Routes>

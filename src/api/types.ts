@@ -1,6 +1,6 @@
 // Espejo de los DTOs del backend.
 
-export type Rol = 'ADMIN' | 'PROFESIONAL' | 'ASISTENTE' | 'CLIENTE'
+export type Rol = 'ADMIN' | 'PROFESIONAL' | 'ASISTENTE' | 'CLIENTE' | 'SIN_DEFINIR'
 
 export type Usuario = {
   id: number
@@ -11,6 +11,12 @@ export type Usuario = {
   roles: Rol[]
   perfilProfesionalId: number | null
   perfilClienteId: number | null
+  requiereSeleccionRol: boolean
+}
+
+export type AuthResponse = {
+  token: string
+  usuario: Usuario
 }
 
 export type AgendaResumen = {
@@ -180,11 +186,17 @@ export type AsistenteAsignacion = {
 }
 
 export type LoginRequest  = { email: string; password: string }
+export type GoogleLoginRequest = { credential: string }
 export type RegistroRequest = {
   email: string
   password: string
   nombreCompleto: string
   telefono: string
   rol: Rol
+  especialidad?: string
+}
+
+export type SeleccionRolRequest = {
+  rol: Exclude<Rol, 'ADMIN' | 'SIN_DEFINIR'>
   especialidad?: string
 }

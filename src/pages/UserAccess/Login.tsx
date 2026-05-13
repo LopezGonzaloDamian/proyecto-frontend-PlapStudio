@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom'
 
 import InputGenerico from '../../components/AccesoUsuario/InputGenerico'
 import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcceso'
+import GoogleLoginButton from '../../components/AccesoUsuario/GoogleLoginButton'
 import { IconoEmail, IconoCandado } from '../../components/AccesoUsuario/IconosAcceso'
 import { BotonPrimario } from '../../components/common/ui'
 
@@ -10,7 +11,7 @@ import { addRememberedUser, getRememberedUsers, removeRememberedUser } from '../
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
 import { useSesion } from '../../customHooks/useSesion'
-import { login as loginApi } from '../../api/auth'
+import { login as loginApi, loginConGoogle } from '../../api/auth'
 import { extraerError } from '../../api/client'
 
 export default function Login() {
@@ -30,6 +31,13 @@ export default function Login() {
     const esAsistente   = location.pathname.startsWith('/asistente')
     const esLoginGeneral = location.pathname === '/login'
     const rolActual = esProfesional ? 'profesional' : esAsistente ? 'asistente' : 'cliente'
+
+    const destinoPorUsuario = (roles: string[], requiereSeleccionRol: boolean) => {
+        if (requiereSeleccionRol || roles.includes('SIN_DEFINIR')) return '/seleccionar-rol'
+        if (roles.includes('PROFESIONAL')) return '/profesional'
+        if (roles.includes('ASISTENTE')) return '/asistente'
+        return '/cliente'
+    }
 
     useEffect(() => {
         const handleClickAfuera = (e: MouseEvent) => {
@@ -75,21 +83,33 @@ export default function Login() {
 
         setEnviando(true)
         try {
-            const usuario = await loginApi({ email: emailTrim, password: passwordTrim })
+            const auth = await loginApi({ email: emailTrim, password: passwordTrim })
 
             if (recordarme) addRememberedUser(emailTrim)
             else            removeRememberedUser(emailTrim)
             setUsuariosRecordados(getRememberedUsers())
 
-            iniciar(usuario)
-            showToast(`Hola, ${usuario.nombreCompleto}`, 'success')
+            iniciar(auth)
+            showToast(`Hola, ${auth.usuario.nombreCompleto}`, 'success')
 
-            const destino = usuario.roles.includes('PROFESIONAL') ? '/profesional'
-                          : usuario.roles.includes('ASISTENTE')   ? '/asistente'
-                                                                  : '/cliente'
+            const destino = destinoPorUsuario(auth.usuario.roles, auth.usuario.requiereSeleccionRol)
             setTimeout(() => navigate(destino), 400)
         } catch (e) {
             showToast(extraerError(e), 'error')
+            setEnviando(false)
+        }
+    }
+
+    async function ingresarConGoogle(credential: string) {
+        if (enviando) return
+        setEnviando(true)
+        try {
+            const auth = await loginConGoogle({ credential })
+            iniciar(auth)
+            showToast(`Hola, ${auth.usuario.nombreCompleto}`, 'success')
+            setTimeout(() => navigate(destinoPorUsuario(auth.usuario.roles, auth.usuario.requiereSeleccionRol)), 300)
+        } catch (error) {
+            showToast(extraerError(error), 'error')
             setEnviando(false)
         }
     }
@@ -173,6 +193,15 @@ export default function Login() {
                     {enviando ? 'Ingresando...' : 'Ingresar'}
                 </BotonPrimario>
             </form>
+
+            <div className="w-full">
+                <div className="my-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-texto-suave">
+                    <span className="h-px flex-1 bg-borde" />
+                    <span>o continua con</span>
+                    <span className="h-px flex-1 bg-borde" />
+                </div>
+                <GoogleLoginButton onCredential={ingresarConGoogle} />
+            </div>
 
             <p className="text-xs text-texto-secundario text-center">
                 Aun no tienes una cuenta?{' '}

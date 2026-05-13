@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconBell, IconCalendar, IconCheck } from '../../components/LandingPage/Icons'
 import AccessChoiceModal from '../../components/LandingPage/AccessChoiceModal'
-import { login as loginApi } from '../../api/auth'
+import GoogleLoginButton from '../../components/AccesoUsuario/GoogleLoginButton'
+import { login as loginApi, loginConGoogle } from '../../api/auth'
 import { extraerError } from '../../api/client'
 import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
@@ -17,6 +18,12 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
   const [enviando, setEnviando] = useState(false)
 
   const puedeIngresar = email.trim().length > 0 && password.trim().length > 0 && !enviando
+  const destinoPorUsuario = (roles: string[], requiereSeleccionRol: boolean) => {
+    if (requiereSeleccionRol || roles.includes('SIN_DEFINIR')) return '/seleccionar-rol'
+    if (roles.includes('PROFESIONAL')) return '/profesional'
+    if (roles.includes('ASISTENTE')) return '/asistente'
+    return '/cliente'
+  }
 
   const enviar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -24,12 +31,22 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
 
     setEnviando(true)
     try {
-      const usuario = await loginApi({ email: email.trim(), password: password.trim() })
-      iniciar(usuario)
-      const destino = usuario.roles.includes('PROFESIONAL') ? '/profesional'
-                    : usuario.roles.includes('ASISTENTE') ? '/asistente'
-                    : '/cliente'
-      navigate(destino)
+      const auth = await loginApi({ email: email.trim(), password: password.trim() })
+      iniciar(auth)
+      navigate(destinoPorUsuario(auth.usuario.roles, auth.usuario.requiereSeleccionRol))
+    } catch (error) {
+      showToast(extraerError(error), 'error')
+      setEnviando(false)
+    }
+  }
+
+  const ingresarConGoogle = async (credential: string) => {
+    if (enviando) return
+    setEnviando(true)
+    try {
+      const auth = await loginConGoogle({ credential })
+      iniciar(auth)
+      navigate(destinoPorUsuario(auth.usuario.roles, auth.usuario.requiereSeleccionRol))
     } catch (error) {
       showToast(extraerError(error), 'error')
       setEnviando(false)
@@ -71,10 +88,19 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         Olvidaste tu contrasena?
       </button>
 
+      <div className="mt-8">
+        <div className="mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-texto-suave">
+          <span className="h-px flex-1 bg-borde" />
+          <span>o continua con</span>
+          <span className="h-px flex-1 bg-borde" />
+        </div>
+        <GoogleLoginButton onCredential={ingresarConGoogle} />
+      </div>
+
       <button
         type="button"
         onClick={onCrearCuenta}
-        className="mt-16 w-full rounded-full border border-primario bg-white px-5 py-4 text-base font-black text-primario transition-colors hover:bg-primario-claro"
+        className="mt-10 w-full rounded-full border border-primario bg-white px-5 py-4 text-base font-black text-primario transition-colors hover:bg-primario-claro"
       >
         Crear cuenta nueva
       </button>

@@ -1,18 +1,36 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { getSession } from '../lib/storage/session'
 
-/** Bloquea si NO hay sesión */
-export function RutaProtegida() {
-    const usuario = getSession()
-    const location = useLocation()
-    return usuario ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />
+function destinoPorRol() {
+  const usuario = getSession()
+  if (!usuario) return '/login'
+  if (usuario.requiereSeleccionRol || usuario.roles.includes('SIN_DEFINIR')) return '/seleccionar-rol'
+  if (usuario.roles.includes('PROFESIONAL')) return '/profesional'
+  if (usuario.roles.includes('ASISTENTE')) return '/asistente'
+  return '/cliente'
 }
 
-/** No deja ver login/registro si YA hay sesión */
+export function RutaProtegida() {
+  const usuario = getSession()
+  const location = useLocation()
+  if (!usuario) return <Navigate to="/login" replace state={{ from: location }} />
+  if (usuario.requiereSeleccionRol || usuario.roles.includes('SIN_DEFINIR')) {
+    return <Navigate to="/seleccionar-rol" replace />
+  }
+  return <Outlet />
+}
+
 export function RutaPublica() {
-    const usuario = getSession()
-    if (!usuario) return <Outlet />
-    if (usuario.roles.includes('PROFESIONAL')) return <Navigate to="/profesional" replace />
-    if (usuario.roles.includes('ASISTENTE'))   return <Navigate to="/asistente" replace />
-    return <Navigate to="/cliente" replace />
+  const usuario = getSession()
+  if (!usuario) return <Outlet />
+  return <Navigate to={destinoPorRol()} replace />
+}
+
+export function RutaSeleccionRol() {
+  const usuario = getSession()
+  if (!usuario) return <Navigate to="/login" replace />
+  if (!(usuario.requiereSeleccionRol || usuario.roles.includes('SIN_DEFINIR'))) {
+    return <Navigate to={destinoPorRol()} replace />
+  }
+  return <Outlet />
 }

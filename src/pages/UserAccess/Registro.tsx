@@ -51,7 +51,7 @@ export default function Registro() {
 
         setEnviando(true)
         try {
-            const usuario = await registroApi({
+            const auth = await registroApi({
                 email: form.email.trim(),
                 password: form.password,
                 nombreCompleto: `${form.nombre.trim()} ${form.apellido.trim()}`,
@@ -59,7 +59,7 @@ export default function Registro() {
                 rol: rolBack,
                 especialidad: esProfesional ? form.especialidad.trim() : undefined,
             })
-            iniciar(usuario)
+            iniciar(auth)
             showToast(
                 esProfesional ? 'Cuenta creada. Ya podes administrar tu agenda.'
               : esAsistente   ? 'Cuenta creada. Ya podes operar agendas asignadas.'
