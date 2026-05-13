@@ -41,7 +41,7 @@ export default function AccessChoiceModal({ mode, onClose }: AccessChoiceModalPr
 
   const goToAccess = (role: 'cliente' | 'profesional' | 'asistente') => {
     onClose()
-    navigate(`/${role}/${mode}`)
+    navigate(mode === 'login' ? '/landing' : `/${role}/registro`)
   }
 
   return (

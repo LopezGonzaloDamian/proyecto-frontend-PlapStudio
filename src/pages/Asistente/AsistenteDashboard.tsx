@@ -80,7 +80,7 @@ export default function AsistenteDashboard() {
   useEffect(() => {
     if (cerrandoSesionRef.current) return
     if (!usuario || !usuario.roles.includes('ASISTENTE')) {
-      navigate('/asistente/login', { replace: true })
+      navigate('/landing', { replace: true })
     }
   }, [usuario, navigate])
 

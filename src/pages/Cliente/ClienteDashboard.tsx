@@ -114,7 +114,7 @@ export default function ClienteDashboard() {
   useEffect(() => {
     if (cerrandoSesionRef.current) return
     if (!usuario || usuario.perfilClienteId == null) {
-      navigate('/cliente/login', { replace: true })
+      navigate('/landing', { replace: true })
     }
   }, [usuario, navigate])
 

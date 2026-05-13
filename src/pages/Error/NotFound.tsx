@@ -38,7 +38,7 @@ export default function NotFound() {
 
             {/* Acción */}
             <Link
-                to="/login"
+                to="/landing"
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primario
                     hover:bg-primario-hover text-white text-sm font-bold transition-colors shadow-sm"
             >

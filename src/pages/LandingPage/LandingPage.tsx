@@ -16,7 +16,8 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
   const [password, setPassword] = useState('')
   const [enviando, setEnviando] = useState(false)
 
-  const puedeIngresar = email.trim().length > 0 && password.trim().length > 0 && !enviando
+  const credencialesCompletas = email.trim().length > 0 && password.trim().length > 0
+  const puedeIngresar = credencialesCompletas && !enviando
 
   const enviar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -38,43 +39,49 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
 
   return (
     <section className="w-full">
-      <h2 className="text-2xl font-black text-texto-principal">Iniciar sesion en Agendify</h2>
+      <h2 className="text-2xl font-semibold text-texto-principal">Iniciar sesión en Agendify</h2>
 
       <form onSubmit={enviar} className="mt-8 grid gap-4">
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="Correo electronico"
+          placeholder="Correo electrónico"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Contrasena"
+          placeholder="Contraseña"
           type="password"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
 
-        <button
-          type="submit"
-          disabled={!puedeIngresar}
-          className="mt-3 w-full rounded-full bg-primario px-5 py-4 text-base font-black text-white transition-all hover:bg-primario-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {enviando ? 'Ingresando...' : 'Iniciar sesion'}
-        </button>
+        <div className={`mt-3 rounded-full ${puedeIngresar ? 'cursor-pointer' : enviando ? 'cursor-wait' : 'cursor-not-allowed'}`}>
+          <button
+            type="submit"
+            disabled={!puedeIngresar}
+            className={`w-full rounded-full px-5 py-4 text-base font-semibold text-white transition-all ${
+              puedeIngresar
+                ? 'bg-primario hover:bg-primario-hover'
+                : 'pointer-events-none bg-[#78B5F7]'
+            }`}
+          >
+            {enviando ? 'Ingresando...' : 'Iniciar sesión'}
+          </button>
+        </div>
       </form>
 
       <button
         type="button"
-        className="mx-auto mt-7 block text-sm font-black text-texto-principal hover:text-primario"
+        className="mx-auto mt-7 block text-base font-semibold text-[#111827] hover:text-primario"
       >
-        Olvidaste tu contrasena?
+        ¿Olvidaste tu contraseña?
       </button>
 
       <button
         type="button"
         onClick={onCrearCuenta}
-        className="mt-16 w-full rounded-full border border-primario bg-white px-5 py-4 text-base font-black text-primario transition-colors hover:bg-primario-claro"
+        className="mt-16 w-full rounded-full border border-primario bg-white px-5 py-4 text-base font-semibold text-primario transition-colors hover:bg-primario-claro"
       >
         Crear cuenta nueva
       </button>
@@ -88,7 +95,7 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
 
 function TurnoPreview() {
   return (
-    <div className="relative mx-auto h-[520px] w-full max-w-[520px]">
+    <div className="relative mx-auto h-[560px] w-full max-w-[600px]">
       <div className="absolute left-3 top-10 w-[270px] rounded-[2rem] border border-white/25 bg-white/15 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <span className="h-2 w-24 rounded-full bg-white/70" />
@@ -171,55 +178,33 @@ export default function LandingPage() {
   const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false)
 
   return (
-    <main className="min-h-screen bg-white text-texto-principal">
-      <div className="grid min-h-screen lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#111827] via-primario to-[#0F5EC7] px-8 py-8 text-white lg:px-12 xl:px-16">
-          <div className="relative z-10 flex h-full min-h-[720px] flex-col">
+    <main className="h-screen overflow-hidden bg-white text-texto-principal">
+      <div className="grid h-screen lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="relative overflow-hidden bg-gradient-to-br from-[#111827] via-primario to-[#0F5EC7] px-6 py-8 text-white lg:px-6 xl:px-8">
+          <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
                 <IconCalendar className="h-7 w-7" />
               </span>
-              <span className="text-3xl font-black">Agendify</span>
             </div>
 
-            <div className="grid flex-1 items-center gap-10 xl:grid-cols-[0.9fr_1.1fr]">
-              <div className="max-w-xl">
-                <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-bold backdrop-blur-md">
-                  Bienvenido a Agendify
-                </span>
-                <h1 className="mt-7 text-5xl font-black leading-[1.05] tracking-tight xl:text-6xl">
-                  Tu agenda,
-                  <span className="block text-white/70">mas simple</span>
-                  que nunca.
+            <div className="grid flex-1 items-start gap-8 py-10 xl:grid-cols-[0.75fr_1.25fr]">
+              <div className="max-w-lg pt-24 xl:pt-32">
+                <h1 className="max-w-md text-4xl font-bold leading-[1.14] tracking-normal text-white xl:text-5xl">
+                  Organiza tu agenda,
+                  <span className="block text-white/75">no tu caos.</span>
                 </h1>
-                <p className="mt-6 text-lg leading-8 text-white/85">
-                  Agendify es una plataforma SaaS de gestion de turnos orientada a profesionales,
-                  diseñada para automatizar la agenda, centralizar la gestion de clientes y
-                  simplificar reservas, notificaciones y cobros.
-                </p>
-                <div className="mt-8 grid max-w-lg gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                    <p className="text-2xl font-black">24/7</p>
-                    <p className="mt-1 text-xs text-white/75">Reservas online</p>
-                  </div>
-                  <div className="rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                    <p className="text-2xl font-black">3 roles</p>
-                    <p className="mt-1 text-xs text-white/75">Cliente, pro y asistente</p>
-                  </div>
-                  <div className="rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-md">
-                    <p className="text-2xl font-black">Todo</p>
-                    <p className="mt-1 text-xs text-white/75">En un solo panel</p>
-                  </div>
-                </div>
               </div>
 
-              <TurnoPreview />
+              <div className="-mt-10 xl:-mt-16">
+                <TurnoPreview />
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="flex min-h-screen items-center justify-center border-l border-borde bg-white px-5 py-10 sm:px-8 xl:px-12">
-          <div className="w-full max-w-xl">
+        <section className="flex h-screen items-center justify-center border-l border-borde bg-white px-5 py-8 sm:px-8 xl:px-12">
+          <div className="w-full max-w-xl translate-y-4 xl:translate-y-2">
             <LoginPanel onCrearCuenta={() => setModalRegistroAbierto(true)} />
           </div>
         </section>
