@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import Login from '../pages/UserAccess/Login'
 import Registro from '../pages/UserAccess/Registro'
 import NotFound from '../pages/Error/NotFound'
 import LandingPage from '../pages/LandingPage/LandingPage'
@@ -15,15 +14,16 @@ export default function RoutesApp() {
       <Route path="/landing" element={<LandingPage />} />
 
       <Route element={<RutaPublica />}>
-        <Route path="/cliente/login"      element={<Login />} />
         <Route path="/cliente/registro"   element={<Registro />} />
-        <Route path="/profesional/login"  element={<Login />} />
         <Route path="/profesional/registro" element={<Registro />} />
-        <Route path="/asistente/login"    element={<Login />} />
         <Route path="/asistente/registro" element={<Registro />} />
-        <Route path="/login"              element={<Login />} />
         <Route path="/registro"           element={<Registro />} />
       </Route>
+
+      <Route path="/login" element={<Navigate to="/landing" replace />} />
+      <Route path="/cliente/login" element={<Navigate to="/landing" replace />} />
+      <Route path="/profesional/login" element={<Navigate to="/landing" replace />} />
+      <Route path="/asistente/login" element={<Navigate to="/landing" replace />} />
 
       <Route path="/cliente"                                  element={<ClienteDashboard />} />
       <Route path="/cliente/:seccion"                         element={<ClienteDashboard />} />

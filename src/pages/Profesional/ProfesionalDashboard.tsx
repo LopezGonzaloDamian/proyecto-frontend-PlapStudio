@@ -104,7 +104,7 @@ export default function ProfesionalDashboard() {
   useEffect(() => {
     if (cerrandoSesionRef.current) return
     if (!usuario || !usuario.roles.includes('PROFESIONAL') || profesionalId == null) {
-      navigate('/profesional/login', { replace: true })
+      navigate('/landing', { replace: true })
     }
   }, [usuario, profesionalId, navigate])
 

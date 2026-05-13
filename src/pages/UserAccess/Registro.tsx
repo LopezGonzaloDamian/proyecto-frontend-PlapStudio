@@ -128,7 +128,7 @@ export default function Registro() {
                 />
 
                 <InputGenerico
-                    label="Contrasena"
+                    label="Contraseña"
                     name="password"
                     value={form.password}
                     onChange={onChange}
@@ -139,11 +139,11 @@ export default function Registro() {
 
                 {esProfesional && (
                     <InputGenerico
-                        label="Especialidad"
+                        label="Servicio"
                         name="especialidad"
                         value={form.especialidad}
                         onChange={onChange}
-                        placeholder="Ej: Kinesiologia"
+                        placeholder="Ej: Peluqueria"
                         type="text"
                     />
                 )}
@@ -160,7 +160,7 @@ export default function Registro() {
 
             <p className="text-xs text-texto-secundario text-center">
                 Ya tienes una cuenta?{' '}
-                <Link to={`/${rolActual}/login`} className="text-primario font-semibold hover:underline">
+                <Link to="/landing" className="text-primario font-semibold hover:underline">
                     Inicia sesion
                 </Link>
             </p>

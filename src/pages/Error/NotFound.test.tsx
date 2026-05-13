@@ -26,10 +26,10 @@ describe('NotFound', () => {
         expect(screen.queryByText('/una-ruta-que-no-existe')).not.toBeNull()
     })
 
-    test('el link apunta a /login', () => {
+    test('el link apunta a /landing', () => {
         renderError404()
         const link = screen.getByRole('link', { name: /volver al inicio/i }) as HTMLAnchorElement
-        expect(link.getAttribute('href')).toBe('/login')
+        expect(link.getAttribute('href')).toBe('/landing')
     })
 
     test('muestra el mensaje descriptivo', () => {
