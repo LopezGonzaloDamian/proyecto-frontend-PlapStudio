@@ -61,11 +61,15 @@ function horaDe(t: { iniciaEn: string }): string {
   return t.iniciaEn.slice(11, 16)
 }
 
-function AvatarProfesional({ nombre }: { nombre: string }) {
+function AvatarProfesional({ nombre, urlAvatar }: { nombre: string; urlAvatar?: string }) {
   const iniciales = nombre.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[18px] bg-primario text-2xl font-black text-white shadow-sm">
-      {iniciales}
+    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-primario text-2xl font-black text-white shadow-sm">
+      {urlAvatar ? (
+        <img src={urlAvatar} alt={nombre} className="block h-full w-full object-cover object-center" />
+      ) : (
+        iniciales
+      )}
     </div>
   )
 }
@@ -127,6 +131,18 @@ export default function ClienteDashboard() {
     void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.perfilClienteId])
+
+  useEffect(() => {
+    if (!usuario?.perfilClienteId) return
+
+    const refrescarDatosOperativos = () => {
+      void getTurnosCliente(usuario.perfilClienteId!).then(setTurnos).catch(() => undefined)
+      void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
+    }
+
+    const intervalo = window.setInterval(refrescarDatosOperativos, 1500)
+    return () => window.clearInterval(intervalo)
+  }, [usuario])
 
   // Filtros disparan búsqueda
   useEffect(() => {
@@ -272,7 +288,6 @@ export default function ClienteDashboard() {
   }
 
   const cancelar = async (id: string) => {
-    if (!confirm('¿Cancelar este turno?')) return
     try {
       const t = await cancelarTurno(id)
       setTurnos((actuales) => actuales.map((x) => (x.id === id ? t : x)))
@@ -350,15 +365,14 @@ export default function ClienteDashboard() {
                 </svg>
               </button>
               {menuUsuarioAbierto && (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-borde bg-white py-1 shadow-lg">
-                  <div className="px-4 py-2 border-b border-borde-suave">
-                    <p className="text-sm font-bold text-texto-principal">{usuario.nombreCompleto}</p>
-                    <p className="text-xs text-texto-secundario">{usuario.email}</p>
-                  </div>
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-borde bg-white p-1 shadow-lg">
                   <button
                     onClick={cerrarSesion}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-peligro transition-colors hover:bg-peligro-suave"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-peligro transition-colors hover:bg-peligro-suave"
                   >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                    </svg>
                     Cerrar sesion
                   </button>
                 </div>
@@ -591,7 +605,7 @@ export default function ClienteDashboard() {
               <div className="grid gap-4 xl:grid-cols-4">
                 <div><Label>Nombre</Label><Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Ej: Martina Rios" /></div>
                 <div><Label>Servicio</Label><Input value={rubroServicio} onChange={(e) => setRubroServicio(e.target.value)} placeholder="Ej: barberia, peluqueria" /></div>
-                <div><Label>Ubicacion</Label><Input value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Ej: Asuncion" /></div>
+                <div><Label>Ubicación</Label><Input value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Ej: San Martín" /></div>
                 <div><Label>Fecha deseada</Label><Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} /></div>
               </div>
               <div className="mt-6 grid gap-4">
@@ -600,7 +614,7 @@ export default function ClienteDashboard() {
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div className="flex gap-4">
-                          <AvatarProfesional nombre={p.nombreCompleto} />
+                          <AvatarProfesional nombre={p.nombreCompleto} urlAvatar={p.urlAvatar} />
                           <div className="min-w-0">
                             <h3 className="text-[1.45rem] leading-tight font-semibold text-texto-principal">{p.nombreCompleto}</h3>
                             <p className="mt-1.5 text-base text-texto-principal">{p.especialidad}</p>
@@ -650,12 +664,10 @@ export default function ClienteDashboard() {
             </button>
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} />
+                <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} urlAvatar={profesionalDetalle.urlAvatar} />
                 <div>
                   <span className="text-xs font-bold uppercase tracking-[0.12em] text-primario">Perfil profesional</span>
                   <h2 className="mt-1 text-3xl font-black text-texto-principal">{profesionalDetalle.nombreCompleto}</h2>
-                  <p className="mt-1 text-base text-texto-secundario">{profesionalDetalle.especialidad}</p>
-                  <p className="text-sm text-texto-secundario">{profesionalDetalle.ubicacion}</p>
                 </div>
               </div>
               <button
@@ -675,10 +687,9 @@ export default function ClienteDashboard() {
               <h3 className="text-lg font-black text-texto-principal">Detalles</h3>
               <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Rubro</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.especialidad}</p></div>
-                <div><span className="text-[11px] font-bold uppercase text-texto-suave">Ubicacion</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.ubicacion}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Telefono</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.telefono}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Mail</span><p className="mt-2 text-sm font-semibold break-all">{profesionalDetalle.email}</p></div>
-                <div className="sm:col-span-2 xl:col-span-4"><span className="text-[11px] font-bold uppercase text-texto-suave">Direccion</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.direccion}</p></div>
+                <div><span className="text-[11px] font-bold uppercase text-texto-suave">Direccion</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.direccion}</p></div>
                 <div className="sm:col-span-2 xl:col-span-4">
                   <span className="text-[11px] font-bold uppercase text-texto-suave">Slots disponibles para {fechaDeseada}</span>
                   <div className="mt-3 flex items-center gap-2 mb-3">
@@ -714,7 +725,7 @@ export default function ClienteDashboard() {
           <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
             <aside className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
-                <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} />
+                <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} urlAvatar={profesionalDetalle.urlAvatar} />
                 <div>
                   <h2 className="text-3xl font-black text-texto-principal">{profesionalDetalle.nombreCompleto}</h2>
                   <p className="mt-2 text-base text-texto-principal">{profesionalDetalle.especialidad}</p>
