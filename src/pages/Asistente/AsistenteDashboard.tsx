@@ -27,7 +27,7 @@ type SeccionAsistente = 'agenda' | 'clientes' | 'historial'
 const seccionesValidas: SeccionAsistente[] = ['agenda', 'clientes', 'historial']
 
 const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }> = [
-  { label: 'Dashboard', seccion: 'dashboard' },
+  { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
   { label: 'Clientes', seccion: 'clientes' },
   { label: 'Historial', seccion: 'historial' },
@@ -80,7 +80,7 @@ export default function AsistenteDashboard() {
   useEffect(() => {
     if (cerrandoSesionRef.current) return
     if (!usuario || !usuario.roles.includes('ASISTENTE')) {
-      navigate('/landing', { replace: true })
+      navigate('/login', { replace: true })
     }
   }, [usuario, navigate])
 
@@ -209,7 +209,7 @@ export default function AsistenteDashboard() {
   const cerrarSesion = () => {
     cerrandoSesionRef.current = true
     cerrar()
-    navigate('/landing', { replace: true })
+    navigate('/login', { replace: true })
   }
 
   const inicialesAsistente = (usuario?.nombreCompleto ?? '')
@@ -290,13 +290,16 @@ export default function AsistenteDashboard() {
 
   return (
     <div className="min-h-screen bg-fondo text-texto-principal">
-      <header className="sticky top-0 z-40 border-b border-primario-suave bg-white/95 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-[#BBD7FF] bg-[#EAF2FF]/95 text-[#111827] shadow-sm backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3 sm:px-8 xl:px-10">
           <Link to="/asistente" className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primario text-white">
               <IconCalendar className="h-5 w-5" />
             </span>
-            <span className="text-xl font-black text-texto-principal">Agendify Assist</span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-xl font-black text-[#111827]">Agendify</span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Asistente</span>
+            </span>
           </Link>
           <nav className="hidden items-center gap-3 text-sm font-semibold text-texto-secundario lg:flex">
             {navItems.map((item) => (
@@ -305,7 +308,7 @@ export default function AsistenteDashboard() {
                 to={item.seccion === 'dashboard' ? '/asistente' : `/asistente/${item.seccion}`}
                 end={item.seccion === 'dashboard'}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 ${isActive ? 'bg-primario-claro text-primario' : 'hover:bg-primario-claro hover:text-primario'}`
+                  `rounded-lg px-3 py-2 ${isActive ? 'bg-primario text-white' : 'hover:bg-white hover:text-primario'}`
                 }
               >
                 {item.label}
@@ -313,7 +316,7 @@ export default function AsistenteDashboard() {
             ))}
           </nav>
           <div ref={menuUsuarioRef} className="relative">
-            <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-borde bg-white px-2 py-1.5 shadow-sm hover:bg-primario-claro">
+            <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-[#BBD7FF] bg-[#F3F7FF] px-2 py-1.5 shadow-sm hover:bg-white">
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primario text-sm font-black text-white">{inicialesAsistente || 'A'}</span>
               <svg className={`h-4 w-4 text-texto-secundario transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clipRule="evenodd" />
@@ -692,3 +695,4 @@ export default function AsistenteDashboard() {
     </div>
   )
 }
+

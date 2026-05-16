@@ -174,7 +174,7 @@ function TurnoPreview() {
   )
 }
 
-export default function LandingPage() {
+export default function LoginPage() {
   const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false)
 
   return (

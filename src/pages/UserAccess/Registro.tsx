@@ -160,7 +160,7 @@ export default function Registro() {
 
             <p className="text-xs text-texto-secundario text-center">
                 Ya tienes una cuenta?{' '}
-                <Link to="/landing" className="text-primario font-semibold hover:underline">
+                <Link to="/login" className="text-primario font-semibold hover:underline">
                     Inicia sesion
                 </Link>
             </p>
@@ -171,3 +171,4 @@ export default function Registro() {
         </CardAcceso>
     )
 }
+

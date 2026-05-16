@@ -39,7 +39,7 @@ type SeccionProfesional = 'agenda' | 'clientes' | 'asistentes' | 'pagos' | 'noti
 const seccionesValidas: SeccionProfesional[] = ['agenda', 'clientes', 'asistentes', 'pagos', 'notificaciones']
 
 const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard' }> = [
-  { label: 'Dashboard', seccion: 'dashboard' },
+  { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
   { label: 'Clientes', seccion: 'clientes' },
   { label: 'Asistentes', seccion: 'asistentes' },
@@ -104,7 +104,7 @@ export default function ProfesionalDashboard() {
   useEffect(() => {
     if (cerrandoSesionRef.current) return
     if (!usuario || !usuario.roles.includes('PROFESIONAL') || profesionalId == null) {
-      navigate('/landing', { replace: true })
+      navigate('/login', { replace: true })
     }
   }, [usuario, profesionalId, navigate])
 
@@ -174,7 +174,7 @@ export default function ProfesionalDashboard() {
   const cerrarSesion = () => {
     cerrandoSesionRef.current = true
     cerrar()
-    navigate('/landing', { replace: true })
+    navigate('/login', { replace: true })
   }
 
   useEffect(() => {
@@ -298,22 +298,25 @@ export default function ProfesionalDashboard() {
 
   return (
     <div className="min-h-screen bg-fondo text-texto-principal">
-      <header className="sticky top-0 z-40 border-b border-primario-suave bg-white/95 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-[#0F5EC7] bg-primario text-white shadow-sm">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3 sm:px-8 xl:px-10">
           <Link to="/profesional" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primario text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-white ring-1 ring-white/25">
               <IconCalendar className="h-5 w-5" />
             </span>
-            <span className="text-xl font-black text-texto-principal">Agendify Pro</span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-xl font-black text-white">Agendify</span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/80">Profesional</span>
+            </span>
           </Link>
-          <nav className="hidden items-center gap-3 text-sm font-semibold text-texto-secundario lg:flex">
+          <nav className="hidden items-center gap-3 text-sm font-semibold text-white/80 lg:flex">
             {navItems.map((item) => (
               <NavLink
                 key={item.seccion}
                 to={pathDeSeccion(item)}
                 end={item.seccion === 'dashboard'}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 ${isActive ? 'bg-primario-claro text-primario' : 'hover:bg-primario-claro hover:text-primario'}`
+                  `rounded-lg px-3 py-2 ${isActive ? 'bg-white text-primario' : 'hover:bg-white/15 hover:text-white'}`
                 }
               >
                 {item.label}
@@ -321,15 +324,15 @@ export default function ProfesionalDashboard() {
             ))}
           </nav>
           <div ref={menuUsuarioRef} className="relative flex items-center justify-end">
-            <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-borde bg-white px-2 py-1.5 shadow-sm hover:bg-primario-claro">
-              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primario text-sm font-black text-white">
+            <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-white/25 bg-white/10 px-2 py-1.5 shadow-sm hover:bg-white/20">
+              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white text-sm font-black text-primario">
                 {perfil?.urlAvatar ? (
                   <img src={perfil.urlAvatar} alt={perfil.nombreCompleto} className="block h-full w-full object-cover object-center" />
                 ) : (
                   inicialesProf || 'P'
                 )}
               </span>
-              <svg className={`h-4 w-4 text-texto-secundario transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+              <svg className={`h-4 w-4 text-white/80 transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clipRule="evenodd" />
               </svg>
             </button>
@@ -650,3 +653,4 @@ export default function ProfesionalDashboard() {
     </div>
   )
 }
+

@@ -32,7 +32,7 @@ type SeccionCliente = typeof secciones[number]
 type ItemNavCliente = { label: string; seccion: SeccionCliente | 'dashboard' }
 
 const navItems: ItemNavCliente[] = [
-  { label: 'Dashboard', seccion: 'dashboard' },
+  { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Buscar', seccion: 'buscar' },
 ]
 
@@ -118,7 +118,7 @@ export default function ClienteDashboard() {
   useEffect(() => {
     if (cerrandoSesionRef.current) return
     if (!usuario || usuario.perfilClienteId == null) {
-      navigate('/landing', { replace: true })
+      navigate('/login', { replace: true })
     }
   }, [usuario, navigate])
 
@@ -300,7 +300,7 @@ export default function ClienteDashboard() {
   const cerrarSesion = () => {
     cerrandoSesionRef.current = true
     cerrar()
-    navigate('/landing', { replace: true })
+    navigate('/login', { replace: true })
   }
 
   const inicialesUsuario = (usuario?.nombreCompleto ?? '')
@@ -316,7 +316,10 @@ export default function ClienteDashboard() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primario text-white">
               <IconCalendar className="h-5 w-5" />
             </span>
-            <span className="text-xl font-black text-texto-principal">Agendify</span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-xl font-black text-texto-principal">Agendify</span>
+              <span className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Cliente</span>
+            </span>
           </Link>
           <nav className="hidden items-center gap-2 text-sm font-semibold text-texto-secundario md:flex">
             {navItems.map((item) => (
@@ -691,10 +694,13 @@ export default function ClienteDashboard() {
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Mail</span><p className="mt-2 text-sm font-semibold break-all">{profesionalDetalle.email}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Direccion</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.direccion}</p></div>
                 <div className="sm:col-span-2 xl:col-span-4">
-                  <span className="text-[11px] font-bold uppercase text-texto-suave">Slots disponibles para {fechaDeseada}</span>
+                  <span className="text-[11px] font-bold uppercase text-texto-suave">Turnos disponibles para:</span>
                   <div className="mt-3 flex items-center gap-2 mb-3">
                     <Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} className="max-w-[180px]" />
                   </div>
+                  {slots.filter((s) => s.disponible).length > 0 && (
+                    <p className="mb-3 text-[11px] font-bold uppercase text-texto-suave">Selecciona un horario disponible:</p>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {slots.filter((s) => s.disponible).map((s) => (
                       <span key={s.iniciaEn} className="rounded-lg border border-primario-suave bg-white px-3 py-2 text-sm font-bold text-primario">
@@ -702,7 +708,7 @@ export default function ClienteDashboard() {
                       </span>
                     ))}
                     {slots.filter((s) => s.disponible).length === 0 && (
-                      <span className="text-sm text-texto-secundario">Sin disponibilidad para esta fecha.</span>
+                      <span className="text-sm text-texto-secundario">No hay turnos disponibles para esta fecha.</span>
                     )}
                   </div>
                 </div>
@@ -858,3 +864,4 @@ export default function ClienteDashboard() {
     </div>
   )
 }
+

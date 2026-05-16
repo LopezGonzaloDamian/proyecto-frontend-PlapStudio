@@ -5,7 +5,7 @@ import { getSession } from '../lib/storage/session'
 export function RutaProtegida() {
     const usuario = getSession()
     const location = useLocation()
-    return usuario ? <Outlet /> : <Navigate to="/landing" replace state={{ from: location }} />
+    return usuario ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />
 }
 
 /** No deja ver login/registro si YA hay sesión */
