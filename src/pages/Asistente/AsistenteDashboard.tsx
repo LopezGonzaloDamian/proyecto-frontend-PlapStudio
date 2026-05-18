@@ -8,7 +8,6 @@ import { Toast } from '../../components/common/toast'
 import { extraerError } from '../../api/client'
 import { getAgendasDeProfesional } from '../../api/agendas'
 import {
-  actualizarNotasTurnoAsistente,
   cancelarTurnoAsistente,
   getProfesionalesDeAsistente,
   getTurnosDeAsistente,
@@ -34,17 +33,22 @@ const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }
 ]
 
 const estadoClass: Record<Turno['estado'], string> = {
-  PENDIENTE: 'bg-amber-100 text-amber-800 border-amber-200',
   CONFIRMADO: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   CANCELADO: 'bg-red-100 text-red-700 border-red-200',
-  COMPLETADO: 'bg-blue-100 text-blue-800 border-blue-200',
 }
 const estadoLabel: Record<Turno['estado'], string> = {
-  PENDIENTE: 'Reservado', CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado', COMPLETADO: 'Realizado',
+  CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado',
 }
 
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
+const abrirCalendario = (input: HTMLInputElement) => input.showPicker?.()
+const fechaCortaDe = (t: { iniciaEn: string }) =>
+  new Date(t.iniciaEn).toLocaleDateString('es-PY', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).replace('.', '')
 
 export default function AsistenteDashboard() {
   const { seccion } = useParams()
@@ -62,13 +66,23 @@ export default function AsistenteDashboard() {
   const [agendaPorProfesional, setAgendaPorProfesional] = useState<Record<number, Agenda | null>>({})
 
   const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', fechaDesde: '', fechaHasta: '' })
-  const [turnoNuevo, setTurnoNuevo] = useState({ profesionalId: '', clienteId: '', fecha: '', horario: '', duracion: '45', notas: '' })
+  const [turnoNuevo, setTurnoNuevo] = useState({
+    profesionalId: '',
+    tipoCliente: 'registrado' as 'registrado' | 'externo',
+    clienteEmail: '',
+    clienteExternoNombre: '',
+    clienteExternoTelefono: '',
+    clienteExternoDni: '',
+    clienteExternoEmail: '',
+    fecha: '',
+    horario: '',
+    duracion: '45',
+    notas: '',
+  })
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', duracion: '45', estado: 'CONFIRMADO' as Turno['estado'], notas: '' })
   const [turnoCancelarId, setTurnoCancelarId] = useState('')
   const [motivoCancelacion, setMotivoCancelacion] = useState('')
-  const [turnoObservacionId, setTurnoObservacionId] = useState('')
-  const [observacionTurno, setObservacionTurno] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
@@ -134,12 +148,6 @@ export default function AsistenteDashboard() {
   }, [turnoEditarId, turnos])
 
   useEffect(() => {
-    const t = turnos.find((x) => x.id === turnoObservacionId)
-    if (!t) return
-    setObservacionTurno(t.notas)
-  }, [turnoObservacionId, turnos])
-
-  useEffect(() => {
     const handleClickAfuera = (e: MouseEvent) => {
       if (menuUsuarioRef.current && !menuUsuarioRef.current.contains(e.target as Node)) {
         setMenuUsuarioAbierto(false)
@@ -161,8 +169,55 @@ export default function AsistenteDashboard() {
 
   const clientesFiltrados = useMemo(() => {
     const q = busquedaCliente.trim().toLowerCase()
-    return clientes.filter((c) => q.length === 0 || c.nombreCompleto.toLowerCase().includes(q))
-  }, [clientes, busquedaCliente])
+    const mapa = new Map<string, {
+      id: string
+      nombreCompleto: string
+      email: string | null
+      telefono: string | null
+      dni: string | null
+      externo: boolean
+      turnos: Turno[]
+    }>()
+
+    clientes.forEach((c) => {
+      const turnosCliente = turnos.filter((t) => t.clienteId === c.id)
+      if (turnosCliente.length === 0) return
+      mapa.set(`registrado-${c.id}`, {
+        id: `registrado-${c.id}`,
+        nombreCompleto: c.nombreCompleto,
+        email: c.email,
+        telefono: c.telefono,
+        dni: null,
+        externo: false,
+        turnos: turnosCliente,
+      })
+    })
+
+    turnos
+      .filter((t) => t.clienteId == null)
+      .forEach((t) => {
+        const clave = `externo-${(t.clienteDni || t.clienteEmail || t.clienteTelefono || t.clienteNombre).toLowerCase()}`
+        const existente = mapa.get(clave)
+        if (existente) {
+          existente.turnos.push(t)
+          return
+        }
+        mapa.set(clave, {
+          id: clave,
+          nombreCompleto: t.clienteNombre,
+          email: t.clienteEmail,
+          telefono: t.clienteTelefono,
+          dni: t.clienteDni,
+          externo: true,
+          turnos: [t],
+        })
+      })
+
+    return Array.from(mapa.values()).filter((c) => {
+      const texto = `${c.nombreCompleto} ${c.email ?? ''} ${c.telefono ?? ''}`.toLowerCase()
+      return q.length === 0 || texto.includes(q)
+    })
+  }, [clientes, turnos, busquedaCliente])
 
   const historialFiltrado = useMemo(() =>
     turnos.filter((t) => {
@@ -204,8 +259,6 @@ export default function AsistenteDashboard() {
     })
   }, [fechaSeleccionada])
 
-  const turnosFechaSeleccionada = turnosPorFecha[fechaCalendario] ?? []
-
   const cerrarSesion = () => {
     cerrandoSesionRef.current = true
     cerrar()
@@ -227,21 +280,42 @@ export default function AsistenteDashboard() {
       showToast('El profesional no tiene agenda activa', 'error')
       return
     }
-    if (!turnoNuevo.clienteId || !turnoNuevo.fecha || !turnoNuevo.horario) {
+    const esClienteExterno = turnoNuevo.tipoCliente === 'externo'
+    const clienteRegistrado = clientes.find((c) => c.email.toLowerCase() === turnoNuevo.clienteEmail.trim().toLowerCase())
+    const clienteIncompleto = esClienteExterno
+      ? !turnoNuevo.clienteExternoNombre.trim() || !turnoNuevo.clienteExternoTelefono.trim()
+      : !turnoNuevo.clienteEmail.trim()
+    if (clienteIncompleto || !turnoNuevo.fecha || !turnoNuevo.horario) {
       showToast('Completa cliente, fecha y horario', 'error')
+      return
+    }
+    if (!esClienteExterno && !clienteRegistrado) {
+      showToast('No encontramos un cliente registrado con ese email', 'error')
       return
     }
     try {
       if (!usuario) return
       await reservarTurnoAsistente(usuario.id, {
         agendaId: agenda.id,
-        clienteId: parseInt(turnoNuevo.clienteId, 10),
+        clienteId: esClienteExterno ? null : clienteRegistrado!.id,
+        clienteExternoNombre: esClienteExterno ? turnoNuevo.clienteExternoNombre : undefined,
+        clienteExternoTelefono: esClienteExterno ? turnoNuevo.clienteExternoTelefono : undefined,
+        clienteExternoDni: esClienteExterno ? turnoNuevo.clienteExternoDni : undefined,
+        clienteExternoEmail: esClienteExterno ? turnoNuevo.clienteExternoEmail : undefined,
         iniciaEn: `${turnoNuevo.fecha}T${turnoNuevo.horario}:00`,
         duracionMinutos: parseInt(turnoNuevo.duracion, 10),
         notas: turnoNuevo.notas,
       })
       refrescarTurnos()
-      setTurnoNuevo((n) => ({ ...n, notas: '' }))
+      setTurnoNuevo((n) => ({
+        ...n,
+        clienteEmail: '',
+        clienteExternoNombre: '',
+        clienteExternoTelefono: '',
+        clienteExternoDni: '',
+        clienteExternoEmail: '',
+        notas: '',
+      }))
       showToast('Turno creado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
@@ -254,9 +328,9 @@ export default function AsistenteDashboard() {
       if (!usuario) return
       await modificarTurnoAsistente(usuario.id, turnoEditarId, {
         iniciaEn: `${turnoEditar.fecha}T${turnoEditar.horario}:00`,
-        duracionMinutos: parseInt(turnoEditar.duracion, 10),
+        duracionMinutos: t.duracionMinutos,
         notas: turnoEditar.notas,
-        estado: turnoEditar.estado,
+        estado: t.estado,
       })
       refrescarTurnos()
       showToast('Turno actualizado', 'success')
@@ -272,17 +346,6 @@ export default function AsistenteDashboard() {
       refrescarTurnos()
       setMotivoCancelacion('')
       showToast('Turno cancelado', 'success')
-    } catch (err) { showToast(extraerError(err), 'error') }
-  }
-
-  const onGuardarObservacion = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!turnoObservacionId) return
-    try {
-      if (!usuario) return
-      await actualizarNotasTurnoAsistente(usuario.id, turnoObservacionId, observacionTurno)
-      refrescarTurnos()
-      showToast('Observacion guardada', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
@@ -347,15 +410,30 @@ export default function AsistenteDashboard() {
                 </div>
                 <BotonSecundario onClick={() => navigate('/asistente/agenda')}>Ver agenda</BotonSecundario>
               </div>
-              <div className="mt-5 grid gap-3">
+              <div className="mt-5 grid gap-4">
                 {turnosDelDia.map((t) => (
-                  <article key={t.id} className="rounded-lg border border-borde bg-fondo p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-black text-texto-principal">{horaDe(t)} - {t.profesionalNombre}</h3>
-                      <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                  <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha y hora</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                      </div>
+                      <span className={`inline-flex rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
                     </div>
-                    <p className="mt-1 text-sm text-texto-secundario">{t.clienteNombre}</p>
-                    <p className="mt-2 text-sm font-semibold text-texto-principal">{t.duracionMinutos} min</p>
+                    <div className="mt-5 grid gap-5">
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Profesional</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Cliente</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{t.clienteNombre}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{t.notas || `${t.duracionMinutos} min`}</p>
+                      </div>
+                    </div>
                   </article>
                 ))}
                 {turnosDelDia.length === 0 && <p className="text-sm text-texto-secundario">Sin turnos para hoy.</p>}
@@ -368,7 +446,7 @@ export default function AsistenteDashboard() {
                   <h2 className="text-2xl font-black text-texto-principal">Calendario</h2>
                   <p className="text-sm text-texto-secundario">Vista mensual de turnos asignados.</p>
                 </div>
-                <Input type="date" value={fechaCalendario} onChange={(e) => setFechaCalendario(e.target.value)} className="max-w-[190px]" />
+                <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="max-w-[190px]" />
               </div>
 
               <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
@@ -402,24 +480,6 @@ export default function AsistenteDashboard() {
                 })}
               </div>
 
-              <div className="mt-5 rounded-lg border border-borde bg-fondo p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="font-black text-texto-principal">Detalle del dia</h3>
-                  <span className="text-sm font-semibold text-texto-secundario">{fechaCalendario}</span>
-                </div>
-                <div className="mt-3 grid gap-2">
-                  {turnosFechaSeleccionada.length === 0 && <p className="text-sm text-texto-secundario">No hay turnos.</p>}
-                  {turnosFechaSeleccionada.map((t) => (
-                    <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
-                      <div>
-                        <p className="text-sm font-bold text-texto-principal">{horaDe(t)} - {t.profesionalNombre}</p>
-                        <p className="text-xs text-texto-secundario">{t.clienteNombre}</p>
-                      </div>
-                      <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </article>
           </section>
         )}
@@ -439,8 +499,18 @@ export default function AsistenteDashboard() {
                       {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                     </Select>
                   </div>
-                  <div><Label>Desde</Label><Input type="date" value={filtrosAgenda.fechaDesde} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, fechaDesde: e.target.value })} /></div>
-                  <div><Label>Hasta</Label><Input type="date" value={filtrosAgenda.fechaHasta} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, fechaHasta: e.target.value })} /></div>
+                  <div>
+                    <Label>Desde</Label>
+                    <div className="relative">
+                      <Input type="date" value={filtrosAgenda.fechaDesde} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, fechaDesde: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Hasta</Label>
+                    <div className="relative">
+                      <Input type="date" value={filtrosAgenda.fechaHasta} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, fechaHasta: e.target.value })} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -452,7 +522,6 @@ export default function AsistenteDashboard() {
                       <th className="px-3 py-2">Cliente</th>
                       <th className="px-3 py-2">Fecha</th>
                       <th className="px-3 py-2">Horario</th>
-                      <th className="px-3 py-2">Duracion</th>
                       <th className="px-3 py-2">Estado</th>
                       <th className="px-3 py-2">Notas</th>
                     </tr>
@@ -464,7 +533,6 @@ export default function AsistenteDashboard() {
                         <td className="px-3 py-3 text-texto-secundario">{t.clienteNombre}</td>
                         <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
                         <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{t.duracionMinutos} min</td>
                         <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
                         <td className="rounded-r-lg px-3 py-3 text-texto-secundario">{t.notas || 'Sin notas'}</td>
                       </tr>
@@ -478,35 +546,74 @@ export default function AsistenteDashboard() {
             </section>
 
             <section className="grid gap-6 xl:grid-cols-2">
-              <form onSubmit={onCrearTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <form onSubmit={onCrearTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:col-span-2 xl:p-7">
                 <h2 className="text-2xl font-black text-texto-principal">Crear turno</h2>
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <div>
+                <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
+                <div className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
+                  <div className="lg:max-w-[270px]">
                     <Label>Profesional</Label>
                     <Select value={turnoNuevo.profesionalId} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, profesionalId: e.target.value })}>
                       {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                     </Select>
                   </div>
-                  <div>
-                    <Label>Cliente</Label>
-                    <Select value={turnoNuevo.clienteId} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteId: e.target.value })}>
-                      <option value="">Seleccionar...</option>
-                      {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombreCompleto}</option>)}
-                    </Select>
+                  <div className="lg:col-span-4">
+                    <Label>Tipo de cliente</Label>
+                    <div className="mt-2 inline-flex rounded-xl border border-borde bg-white p-1">
+                      {(['registrado', 'externo'] as const).map((tipo) => (
+                        <button
+                          key={tipo}
+                          type="button"
+                          onClick={() => setTurnoNuevo({
+                            ...turnoNuevo,
+                            tipoCliente: tipo,
+                            clienteEmail: '',
+                            clienteExternoNombre: '',
+                            clienteExternoTelefono: '',
+                            clienteExternoDni: '',
+                            clienteExternoEmail: '',
+                          })}
+                          className={`rounded-lg px-4 py-2 text-sm font-bold ${turnoNuevo.tipoCliente === tipo ? 'bg-primario text-white' : 'text-texto-secundario hover:bg-primario-claro hover:text-primario'}`}
+                        >
+                          {tipo === 'registrado' ? 'Cliente registrado' : 'Cliente no registrado'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div><Label>Fecha</Label><Input type="date" value={turnoNuevo.fecha} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, fecha: e.target.value })} /></div>
-                  <div><Label>Horario</Label><Input type="time" value={turnoNuevo.horario} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, horario: e.target.value })} /></div>
-                  <div>
-                    <Label>Duracion</Label>
-                    <Select value={turnoNuevo.duracion} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, duracion: e.target.value })}>
-                      <option value="30">30 minutos</option>
-                      <option value="45">45 minutos</option>
-                      <option value="60">60 minutos</option>
-                      <option value="90">90 minutos</option>
-                    </Select>
+                  {turnoNuevo.tipoCliente === 'registrado' ? (
+                    <div className="lg:max-w-[270px]">
+                      <Label>Email del cliente</Label>
+                      <Input
+                        type="email"
+                        value={turnoNuevo.clienteEmail}
+                        onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteEmail: e.target.value })}
+                        placeholder="cliente@agendify.com"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="lg:max-w-[270px]"><Label>Nombre completo</Label><Input value={turnoNuevo.clienteExternoNombre} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteExternoNombre: e.target.value })} /></div>
+                      <div className="lg:row-start-4 lg:max-w-[270px]"><Label>Telefono</Label><Input value={turnoNuevo.clienteExternoTelefono} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteExternoTelefono: e.target.value })} /></div>
+                      <div className="lg:row-start-4 lg:max-w-[270px]"><Label>DNI</Label><Input value={turnoNuevo.clienteExternoDni} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteExternoDni: e.target.value })} /></div>
+                      <div className="lg:row-start-4 lg:max-w-[270px]"><Label>Email opcional</Label><Input value={turnoNuevo.clienteExternoEmail} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteExternoEmail: e.target.value })} /></div>
+                    </>
+                  )}
+                  <div className={`lg:col-span-2 lg:max-w-[560px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}`}>
+                    <Label>Servicio (notas)</Label>
+                    <Input value={turnoNuevo.notas} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, notas: e.target.value })} />
                   </div>
-                  <div className="lg:col-span-2"><Label>Notas opcionales</Label><Textarea rows={4} value={turnoNuevo.notas} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, notas: e.target.value })} /></div>
-                  <BotonPrimario type="submit" className="lg:col-span-2">Registrar turno</BotonPrimario>
+                  <div className={`lg:max-w-[270px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
+                    <Label>Fecha</Label>
+                    <div className="relative">
+                      <Input type="date" value={turnoNuevo.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, fecha: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className={`lg:max-w-[270px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
+                    <Label>Horario</Label>
+                    <Input type="time" value={turnoNuevo.horario} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, horario: e.target.value })} />
+                  </div>
+                  <div className={`flex justify-end lg:col-span-4 ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-6' : 'lg:row-start-7'}`}>
+                    <BotonPrimario type="submit" className="min-w-[220px]">Crear turno</BotonPrimario>
+                  </div>
                 </div>
               </form>
 
@@ -514,7 +621,7 @@ export default function AsistenteDashboard() {
                 <form onSubmit={onModificarTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
                   <h2 className="text-2xl font-black text-texto-principal">Modificar turno</h2>
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                    <div className="lg:col-span-2">
+                    <div className="lg:max-w-[270px]">
                       <Label>Seleccionar turno</Label>
                       <Select value={turnoEditarId} onChange={(e) => setTurnoEditarId(e.target.value)}>
                         <option value="">Seleccionar...</option>
@@ -523,26 +630,8 @@ export default function AsistenteDashboard() {
                         ))}
                       </Select>
                     </div>
-                    <div><Label>Fecha</Label><Input type="date" value={turnoEditar.fecha} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} /></div>
+                    <div><Label>Fecha</Label><Input type="date" value={turnoEditar.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} /></div>
                     <div><Label>Horario</Label><Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} /></div>
-                    <div>
-                      <Label>Duracion</Label>
-                      <Select value={turnoEditar.duracion} onChange={(e) => setTurnoEditar({ ...turnoEditar, duracion: e.target.value })}>
-                        <option value="30">30 minutos</option>
-                        <option value="45">45 minutos</option>
-                        <option value="60">60 minutos</option>
-                        <option value="90">90 minutos</option>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Estado</Label>
-                      <Select value={turnoEditar.estado} onChange={(e) => setTurnoEditar({ ...turnoEditar, estado: e.target.value as Turno['estado'] })}>
-                        <option value="PENDIENTE">Reservado</option>
-                        <option value="CONFIRMADO">Confirmado</option>
-                        <option value="COMPLETADO">Realizado</option>
-                        <option value="CANCELADO">Cancelado</option>
-                      </Select>
-                    </div>
                     <div className="lg:col-span-2"><Label>Notas</Label><Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} /></div>
                     <BotonPrimario type="submit" className="lg:col-span-2" disabled={!turnoEditarId}>Actualizar turno</BotonPrimario>
                   </div>
@@ -565,23 +654,6 @@ export default function AsistenteDashboard() {
                       <BotonSecundario type="submit" disabled={!turnoCancelarId}>Cancelar turno</BotonSecundario>
                     </div>
                   </form>
-
-                  <form onSubmit={onGuardarObservacion} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm">
-                    <h2 className="text-xl font-black text-texto-principal">Registrar observacion</h2>
-                    <div className="mt-5 grid gap-4">
-                      <div>
-                        <Label>Seleccionar turno</Label>
-                        <Select value={turnoObservacionId} onChange={(e) => setTurnoObservacionId(e.target.value)}>
-                          <option value="">Seleccionar...</option>
-                          {turnos.map((t) => (
-                            <option key={t.id} value={t.id}>{t.profesionalNombre} - {fechaIsoDe(t)} {horaDe(t)}</option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div><Label>Observacion</Label><Textarea rows={3} value={observacionTurno} onChange={(e) => setObservacionTurno(e.target.value)} /></div>
-                      <BotonPrimario type="submit" disabled={!turnoObservacionId}>Guardar observacion</BotonPrimario>
-                    </div>
-                  </form>
                 </div>
               </div>
             </section>
@@ -602,17 +674,43 @@ export default function AsistenteDashboard() {
             </div>
             <div className="mt-6 grid gap-4 xl:grid-cols-2">
               {clientesFiltrados.map((c) => {
-                const turnosCliente = turnos.filter((t) => t.clienteId === c.id)
                 return (
                   <article key={c.id} className="rounded-lg border border-borde bg-fondo p-5">
-                    <h3 className="text-lg font-black text-texto-principal">{c.nombreCompleto}</h3>
-                    <p className="mt-1 text-sm text-texto-secundario">{c.telefono}</p>
-                    <p className="text-sm text-texto-secundario">{c.email}</p>
-                    <div className="mt-4 grid gap-2">
-                      {turnosCliente.map((t) => (
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="text-lg font-black text-texto-principal">{c.nombreCompleto}</h3>
+                      {c.externo && (
+                        <span className="rounded-lg bg-primario-claro px-2 py-1 text-xs font-bold text-primario">No registrado</span>
+                      )}
+                      {!c.externo && (
+                        <span className="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">Registrado</span>
+                      )}
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {c.externo && (
+                        <div>
+                          <p className="text-xs font-bold uppercase text-texto-secundario">DNI</p>
+                          <p className="mt-1 text-sm text-texto-principal">{c.dni || 'Sin DNI'}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Email</p>
+                        <p className="mt-1 text-sm text-texto-principal">{c.email || 'Sin email'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Telefono</p>
+                        <p className="mt-1 text-sm text-texto-principal">{c.telefono || 'Sin telefono'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-5 border-t border-borde-suave pt-4">
+                      <span className="text-xs font-bold uppercase text-texto-secundario">Historial de turnos</span>
+                    </div>
+                    <div className="mt-2 grid gap-2">
+                      {c.turnos.map((t) => (
                         <div key={t.id} className="rounded-lg border border-borde-suave bg-white px-3 py-2">
                           <p className="text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
-                          <p className="text-sm text-texto-secundario">{fechaIsoDe(t)} {horaDe(t)} - {estadoLabel[t.estado]}</p>
+                          <p className="text-sm text-texto-secundario">
+                            {fechaIsoDe(t)} - {horaDe(t)} · {estadoLabel[t.estado]}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -639,14 +737,12 @@ export default function AsistenteDashboard() {
                     {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                   </Select>
                 </div>
-                <div><Label>Fecha</Label><Input type="date" value={filtrosHistorial.fecha} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, fecha: e.target.value })} /></div>
+                <div><Label>Fecha</Label><Input type="date" value={filtrosHistorial.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, fecha: e.target.value })} /></div>
                 <div>
                   <Label>Estado</Label>
                   <Select value={filtrosHistorial.estado} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, estado: e.target.value as typeof filtrosHistorial.estado })}>
                     <option value="Todos">Todos</option>
-                    <option value="PENDIENTE">Reservado</option>
                     <option value="CONFIRMADO">Confirmado</option>
-                    <option value="COMPLETADO">Realizado</option>
                     <option value="CANCELADO">Cancelado</option>
                   </Select>
                 </div>

@@ -106,7 +106,7 @@ export type Slot = {
   disponible: boolean
 }
 
-export type EstadoTurno = 'PENDIENTE' | 'CONFIRMADO' | 'CANCELADO' | 'COMPLETADO'
+export type EstadoTurno = 'CONFIRMADO' | 'CANCELADO'
 
 export type Pago = {
   id: string
@@ -114,6 +114,7 @@ export type Pago = {
   monto: number
   moneda: string
   estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'REEMBOLSADO'
+  origen: 'ONLINE' | 'EXTERNO'
   referenciaProveedorMock: string | null
   pagadoEn: string | null
 }
@@ -124,8 +125,11 @@ export type Turno = {
   agendaNombre: string
   profesionalId: number
   profesionalNombre: string
-  clienteId: number
+  clienteId: number | null
   clienteNombre: string
+  clienteTelefono: string | null
+  clienteDni: string | null
+  clienteEmail: string | null
   iniciaEn: string  // ISO datetime
   duracionMinutos: number
   estado: EstadoTurno
@@ -135,7 +139,11 @@ export type Turno = {
 
 export type TurnoCreate = {
   agendaId: string
-  clienteId: number
+  clienteId?: number | null
+  clienteExternoNombre?: string
+  clienteExternoTelefono?: string
+  clienteExternoDni?: string
+  clienteExternoEmail?: string
   iniciaEn: string
   duracionMinutos: number
   notas?: string

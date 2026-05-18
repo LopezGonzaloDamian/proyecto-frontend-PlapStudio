@@ -39,7 +39,7 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
 
   return (
     <section className="w-full">
-      <h2 className="text-2xl font-semibold text-texto-principal">Iniciar sesión en Agendify</h2>
+      <h2 className="text-2xl font-semibold text-texto-principal">Agendify</h2>
 
       <form onSubmit={enviar} className="mt-8 grid gap-4">
         <input

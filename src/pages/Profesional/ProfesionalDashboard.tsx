@@ -15,12 +15,10 @@ import {
 import { getProfesional } from '../../api/profesionales'
 import {
   cancelarTurno,
-  completarTurno,
-  confirmarTurno,
   getTurnosProfesional,
   reservarTurno,
 } from '../../api/turnos'
-import { getClientesDeProfesional } from '../../api/clientes'
+import { getClientes, getClientesDeProfesional } from '../../api/clientes'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import { asignarAsistente, desasignarAsistente, getAsistentesDeProfesional } from '../../api/asistentes'
 import { getUsuarios } from '../../api/usuarios'
@@ -47,14 +45,12 @@ const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard'
 ]
 
 const estadoClass: Record<Turno['estado'], string> = {
-  PENDIENTE: 'bg-amber-100 text-amber-800 border-amber-200',
   CONFIRMADO: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   CANCELADO: 'bg-red-100 text-red-700 border-red-200',
-  COMPLETADO: 'bg-blue-100 text-blue-800 border-blue-200',
 }
 
 const estadoLabel: Record<Turno['estado'], string> = {
-  PENDIENTE: 'Pendiente', CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado', COMPLETADO: 'Realizado',
+  CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado',
 }
 
 const diasLabels: Record<DiaSemana, string> = {
@@ -63,10 +59,16 @@ const diasLabels: Record<DiaSemana, string> = {
 }
 
 const formatPrecio = (precio: number) =>
-  new Intl.NumberFormat('es-PY', { style: 'currency', currency: 'PYG', maximumFractionDigits: 0 }).format(precio)
+  `$ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(precio)}`
 
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
+const fechaCortaDe = (t: { iniciaEn: string }) =>
+  new Date(t.iniciaEn).toLocaleDateString('es-PY', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).replace('.', '')
 
 export default function ProfesionalDashboard() {
   const { seccion } = useParams()
@@ -82,12 +84,23 @@ export default function ProfesionalDashboard() {
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clientesRegistrados, setClientesRegistrados] = useState<Cliente[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
   const [usuariosAsistentes, setUsuariosAsistentes] = useState<Usuario[]>([])
 
   const [filtros, setFiltros] = useState<{ fecha: string; estado: 'Todos' | Turno['estado'] }>({ fecha: '', estado: 'Todos' })
-  const [nuevoTurno, setNuevoTurno] = useState({ clienteId: '', servicio: '', fecha: '', horario: '' })
+  const [nuevoTurno, setNuevoTurno] = useState({
+    tipoCliente: 'registrado' as 'registrado' | 'externo',
+    clienteEmail: '',
+    clienteExternoNombre: '',
+    clienteExternoTelefono: '',
+    clienteExternoDni: '',
+    clienteExternoEmail: '',
+    servicio: '',
+    fecha: '',
+    horario: '',
+  })
 
   const [nuevaAgenda, setNuevaAgenda] = useState({ nombre: 'Agenda principal', descripcion: 'Atencion presencial' })
   const [disponibilidad, setDisponibilidad] = useState({
@@ -114,19 +127,23 @@ export default function ProfesionalDashboard() {
     void getAgendasDeProfesional(profesionalId).then(setAgendas).catch((e) => showToast(extraerError(e), 'error'))
     void getTurnosProfesional(profesionalId).then(setTurnos).catch((e) => showToast(extraerError(e), 'error'))
     void getClientesDeProfesional(profesionalId).then(setClientes).catch((e) => showToast(extraerError(e), 'error'))
+    void getClientes().then(setClientesRegistrados).catch((e) => showToast(extraerError(e), 'error'))
     void getAsistentesDeProfesional(profesionalId).then(setAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     void getUsuarios('ASISTENTE').then(setUsuariosAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalId, usuario?.id])
 
+  const refrescarDatosOperativos = () => {
+    if (!profesionalId) return
+    void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
+    void getClientesDeProfesional(profesionalId).then(setClientes).catch(() => undefined)
+    void getClientes().then(setClientesRegistrados).catch(() => undefined)
+    if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
+  }
+
   useEffect(() => {
     if (!profesionalId || !usuario) return
-
-    const refrescarDatosOperativos = () => {
-      void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
-      void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
-    }
 
     const intervalo = window.setInterval(refrescarDatosOperativos, 1500)
     return () => window.clearInterval(intervalo)
@@ -157,6 +174,9 @@ export default function ProfesionalDashboard() {
         agendaNombre: t.agendaNombre,
         fecha: fechaIsoDe(t),
         monto: t.pago!.monto,
+        origen: t.pago!.origen,
+        comisionAgendify: t.pago!.origen === 'ONLINE' ? Math.round(t.pago!.monto * 0.05) : 0,
+        netoProfesional: t.pago!.origen === 'ONLINE' ? t.pago!.monto - Math.round(t.pago!.monto * 0.05) : t.pago!.monto,
         estado: t.pago!.estado,
         notas: t.notas,
       })),
@@ -167,6 +187,54 @@ export default function ProfesionalDashboard() {
     const asignados = new Set(asistentes.map((a) => a.asistenteId))
     return usuariosAsistentes.filter((u) => u.activo && !asignados.has(u.id))
   }, [asistentes, usuariosAsistentes])
+
+  const clientesConTurnos = useMemo(() => {
+    const mapa = new Map<string, {
+      id: string
+      nombreCompleto: string
+      email: string | null
+      telefono: string | null
+      dni: string | null
+      externo: boolean
+      turnos: Turno[]
+    }>()
+
+    clientes.forEach((c) => {
+      const turnosCliente = turnos.filter((t) => t.clienteId === c.id)
+      if (turnosCliente.length === 0) return
+      mapa.set(`registrado-${c.id}`, {
+        id: `registrado-${c.id}`,
+        nombreCompleto: c.nombreCompleto,
+        email: c.email,
+        telefono: c.telefono,
+        dni: null,
+        externo: false,
+        turnos: turnosCliente,
+      })
+    })
+
+    turnos
+      .filter((t) => t.clienteId == null)
+      .forEach((t) => {
+        const clave = `externo-${(t.clienteDni || t.clienteEmail || t.clienteTelefono || t.clienteNombre).toLowerCase()}`
+        const existente = mapa.get(clave)
+        if (existente) {
+          existente.turnos.push(t)
+          return
+        }
+        mapa.set(clave, {
+          id: clave,
+          nombreCompleto: t.clienteNombre,
+          email: t.clienteEmail,
+          telefono: t.clienteTelefono,
+          dni: t.clienteDni,
+          externo: true,
+          turnos: [t],
+        })
+      })
+
+    return Array.from(mapa.values())
+  }, [clientes, turnos])
 
   const pathDeSeccion = (item: { seccion: SeccionProfesional | 'dashboard' }) =>
     item.seccion === 'dashboard' ? '/profesional' : `/profesional/${item.seccion}`
@@ -235,29 +303,53 @@ export default function ProfesionalDashboard() {
       showToast('No hay agenda activa', 'error')
       return
     }
-    if (!nuevoTurno.clienteId || !nuevoTurno.fecha || !nuevoTurno.horario) {
+    const esClienteExterno = nuevoTurno.tipoCliente === 'externo'
+    const clienteRegistrado = clientesRegistrados.find((c) => c.email.toLowerCase() === nuevoTurno.clienteEmail.trim().toLowerCase())
+    const clienteIncompleto = esClienteExterno
+      ? !nuevoTurno.clienteExternoNombre.trim() || !nuevoTurno.clienteExternoTelefono.trim()
+      : !nuevoTurno.clienteEmail.trim()
+    if (clienteIncompleto || !nuevoTurno.fecha || !nuevoTurno.horario) {
       showToast('Completa cliente, fecha y horario', 'error')
+      return
+    }
+    if (!esClienteExterno && !clienteRegistrado) {
+      showToast('No encontramos un cliente registrado con ese email', 'error')
       return
     }
     try {
       const turno = await reservarTurno({
         agendaId: agendaPrincipal.id,
-        clienteId: parseInt(nuevoTurno.clienteId, 10),
+        clienteId: esClienteExterno ? null : clienteRegistrado!.id,
+        clienteExternoNombre: esClienteExterno ? nuevoTurno.clienteExternoNombre : undefined,
+        clienteExternoTelefono: esClienteExterno ? nuevoTurno.clienteExternoTelefono : undefined,
+        clienteExternoDni: esClienteExterno ? nuevoTurno.clienteExternoDni : undefined,
+        clienteExternoEmail: esClienteExterno ? nuevoTurno.clienteExternoEmail : undefined,
         iniciaEn: `${nuevoTurno.fecha}T${nuevoTurno.horario}:00`,
         duracionMinutos: 45,
         notas: nuevoTurno.servicio,
       })
       setTurnos((act) => [turno, ...act])
+      refrescarDatosOperativos()
       showToast('Turno creado', 'success')
-      setNuevoTurno({ clienteId: '', servicio: '', fecha: '', horario: '' })
+      setNuevoTurno({
+        tipoCliente: nuevoTurno.tipoCliente,
+        clienteEmail: '',
+        clienteExternoNombre: '',
+        clienteExternoTelefono: '',
+        clienteExternoDni: '',
+        clienteExternoEmail: '',
+        servicio: '',
+        fecha: '',
+        horario: '',
+      })
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
-  const onCambiarEstado = async (id: string, accion: 'confirmar' | 'cancelar' | 'completar') => {
+  const onCancelarTurno = async (id: string) => {
     try {
-      const fn = accion === 'confirmar' ? confirmarTurno : accion === 'completar' ? completarTurno : cancelarTurno
-      const t = await fn(id)
+      const t = await cancelarTurno(id)
       setTurnos((act) => act.map((x) => (x.id === id ? t : x)))
+      refrescarDatosOperativos()
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
@@ -354,12 +446,26 @@ export default function ProfesionalDashboard() {
         {seccionActual === 'dashboard' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {turnosDeHoy.map((t) => (
-                <article key={t.id} className="rounded-lg border border-borde bg-fondo p-4">
-                  <h3 className="font-black text-texto-principal">{horaDe(t)} - {t.clienteNombre}</h3>
-                  <p className="text-sm text-texto-secundario">{t.notas || 'Sin notas'}</p>
-                  <span className={`mt-3 inline-flex rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha y hora</span>
+                      <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                    </div>
+                    <span className={`inline-flex rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                  </div>
+                  <div className="mt-5 grid gap-5">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Cliente</span>
+                      <p className="mt-1 text-sm font-semibold text-texto-principal">{t.clienteNombre}</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
+                      <p className="mt-1 text-sm font-semibold text-texto-principal">{t.notas || 'Sin notas'}</p>
+                    </div>
+                  </div>
                 </article>
               ))}
               {turnosDeHoy.length === 0 && (
@@ -383,19 +489,23 @@ export default function ProfesionalDashboard() {
                 </form>
               ) : (
                 <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-                  <h2 className="text-2xl font-black text-texto-principal">Mi agenda</h2>
-                  <p className="mt-1 text-sm text-texto-secundario">{agendaPrincipal.nombre}</p>
-                  <p className="mt-1 text-xs text-texto-secundario">{agendaPrincipal.descripcion}</p>
+                  <div className="rounded-lg bg-white p-5">
+                    <h2 className="text-2xl font-black text-texto-principal">Mi agenda</h2>
+                    <p className="mt-3 text-base font-semibold text-texto-principal">{agendaPrincipal.nombre}</p>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-texto-secundario">{agendaPrincipal.descripcion}</p>
+                  </div>
 
-                  <h3 className="mt-6 text-lg font-bold text-texto-principal">Configuraciones horarias</h3>
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-7 flex items-center justify-between gap-3">
+                    <h3 className="text-lg font-black text-texto-principal">Configuraciones horarias</h3>
+                  </div>
+                  <div className="mt-4 space-y-3">
                     {agendaPrincipal.configuraciones.length === 0 && (
                       <p className="text-sm text-texto-secundario">Aun no agregaste disponibilidades.</p>
                     )}
                     {agendaPrincipal.configuraciones.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between rounded-lg border border-borde bg-fondo px-4 py-2">
+                      <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border border-borde bg-fondo px-4 py-3">
                         <div className="text-sm text-texto-principal">
-                          <span className="font-bold">{diasLabels[c.diaSemana]}</span> · {c.inicioSlot.slice(0,5)} a {c.finSlot.slice(0,5)} · cada {c.duracionSlotMinutos} min
+                          <span className="font-bold">{diasLabels[c.diaSemana]}</span><span className="mx-2 text-texto-suave">-</span>{c.inicioSlot.slice(0,5)} a {c.finSlot.slice(0,5)}<span className="mx-2 text-texto-suave">-</span>cada {c.duracionSlotMinutos} min
                         </div>
                         {c.id && (
                           <button onClick={() => onEliminarConfig(c.id!)} className="text-xs font-bold text-peligro hover:underline">Eliminar</button>
@@ -432,41 +542,87 @@ export default function ProfesionalDashboard() {
               </form>
             </section>
 
-            <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <section className="order-3 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <div>
+                <h2 className="text-2xl font-black text-texto-principal">Crear turno</h2>
+                <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
+              </div>
+
+              <form onSubmit={onCrearTurno} className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
+                <div className="lg:col-span-4">
+                  <Label>Tipo de cliente</Label>
+                  <div className="mt-2 inline-flex rounded-xl border border-borde bg-white p-1">
+                    {(['registrado', 'externo'] as const).map((tipo) => (
+                      <button
+                        key={tipo}
+                        type="button"
+                        onClick={() => setNuevoTurno({ ...nuevoTurno, tipoCliente: tipo, clienteEmail: '', clienteExternoNombre: '', clienteExternoTelefono: '', clienteExternoDni: '', clienteExternoEmail: '' })}
+                        className={`rounded-lg px-4 py-2 text-sm font-bold ${nuevoTurno.tipoCliente === tipo ? 'bg-primario text-white' : 'text-texto-secundario hover:bg-primario-claro hover:text-primario'}`}
+                      >
+                        {tipo === 'registrado' ? 'Cliente registrado' : 'Cliente no registrado'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {nuevoTurno.tipoCliente === 'registrado' ? (
+                  <div>
+                    <Label>Email del cliente</Label>
+                    <Input
+                      type="email"
+                      value={nuevoTurno.clienteEmail}
+                      onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteEmail: e.target.value })}
+                      placeholder="cliente@agendify.com"
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="lg:row-start-2"><Label>Nombre completo</Label><Input value={nuevoTurno.clienteExternoNombre} onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteExternoNombre: e.target.value })} /></div>
+                    <div className="lg:row-start-3"><Label>Telefono</Label><Input value={nuevoTurno.clienteExternoTelefono} onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteExternoTelefono: e.target.value })} /></div>
+                    <div className="lg:row-start-3"><Label>DNI</Label><Input value={nuevoTurno.clienteExternoDni} onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteExternoDni: e.target.value })} /></div>
+                    <div className="lg:row-start-3"><Label>Email opcional</Label><Input value={nuevoTurno.clienteExternoEmail} onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteExternoEmail: e.target.value })} /></div>
+                  </>
+                )}
+                <div className={`lg:col-span-2 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-3' : 'lg:row-start-4'}`}><Label>Servicio (notas)</Label><Input value={nuevoTurno.servicio} onChange={(e) => setNuevoTurno({ ...nuevoTurno, servicio: e.target.value })} /></div>
+                <div className={nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}>
+                  <Label>Fecha</Label>
+                  <div className="relative">
+                    <Input type="date" value={nuevoTurno.fecha} onChange={(e) => setNuevoTurno({ ...nuevoTurno, fecha: e.target.value })} />
+                  </div>
+                </div>
+                <div className={nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}>
+                  <Label>Horario</Label>
+                  <Input type="time" value={nuevoTurno.horario} onChange={(e) => setNuevoTurno({ ...nuevoTurno, horario: e.target.value })} />
+                </div>
+                <div className={`flex justify-end lg:col-span-4 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
+                  <BotonPrimario type="submit" className="min-w-[220px]">Crear turno</BotonPrimario>
+                </div>
+              </form>
+            </section>
+
+            <section className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
-                  <h2 className="text-2xl font-black text-texto-principal">Gestionar turnos</h2>
-                  <p className="text-sm text-texto-secundario">Confirmar, cancelar o marcar como realizados.</p>
+                  <h2 className="text-2xl font-black text-texto-principal">Turnos</h2>
+                  <p className="text-sm text-texto-secundario">Consulta, filtra y cancela los turnos registrados.</p>
                 </div>
                 <div className="grid gap-3 lg:grid-cols-3 xl:min-w-[620px]">
-                  <div><Label>Fecha</Label><Input type="date" value={filtros.fecha} onChange={(e) => setFiltros({ ...filtros, fecha: e.target.value })} /></div>
+                  <div>
+                    <Label>Fecha</Label>
+                    <div className="relative">
+                      <Input type="date" value={filtros.fecha} onChange={(e) => setFiltros({ ...filtros, fecha: e.target.value })} />
+                    </div>
+                  </div>
                   <div>
                     <Label>Estado</Label>
                     <Select value={filtros.estado} onChange={(e) => setFiltros({ ...filtros, estado: e.target.value as typeof filtros.estado })}>
                       <option value="Todos">Todos</option>
-                      <option value="PENDIENTE">Pendiente</option>
                       <option value="CONFIRMADO">Confirmado</option>
                       <option value="CANCELADO">Cancelado</option>
-                      <option value="COMPLETADO">Realizado</option>
                     </Select>
                   </div>
                   <BotonSecundario type="button" className="self-end" onClick={() => setFiltros({ fecha: '', estado: 'Todos' })}>Limpiar filtros</BotonSecundario>
                 </div>
               </div>
-
-              <form onSubmit={onCrearTurno} className="mt-6 grid gap-3 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-[1.1fr_1.1fr_0.9fr_0.8fr_auto]">
-                <div>
-                  <Label>Cliente</Label>
-                  <Select value={nuevoTurno.clienteId} onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteId: e.target.value })}>
-                    <option value="">Seleccionar...</option>
-                    {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombreCompleto}</option>)}
-                  </Select>
-                </div>
-                <div><Label>Servicio (notas)</Label><Input value={nuevoTurno.servicio} onChange={(e) => setNuevoTurno({ ...nuevoTurno, servicio: e.target.value })} /></div>
-                <div><Label>Fecha</Label><Input type="date" value={nuevoTurno.fecha} onChange={(e) => setNuevoTurno({ ...nuevoTurno, fecha: e.target.value })} /></div>
-                <div><Label>Horario</Label><Input type="time" value={nuevoTurno.horario} onChange={(e) => setNuevoTurno({ ...nuevoTurno, horario: e.target.value })} /></div>
-                <BotonPrimario type="submit" className="self-end">Crear turno</BotonPrimario>
-              </form>
 
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full min-w-[820px] border-separate border-spacing-y-2 text-left text-sm">
@@ -476,7 +632,6 @@ export default function ProfesionalDashboard() {
                       <th className="px-3 py-2">Notas</th>
                       <th className="px-3 py-2">Fecha</th>
                       <th className="px-3 py-2">Estado</th>
-                      <th className="px-3 py-2">Pago</th>
                       <th className="px-3 py-2">Acciones</th>
                     </tr>
                   </thead>
@@ -487,18 +642,15 @@ export default function ProfesionalDashboard() {
                         <td className="px-3 py-3 text-texto-secundario">{t.notas || '-'}</td>
                         <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)} - {horaDe(t)}</td>
                         <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
-                        <td className="px-3 py-3 font-semibold text-texto-principal">{t.pago?.estado ?? '-'}</td>
                         <td className="rounded-r-lg px-3 py-3">
                           <div className="flex flex-wrap gap-2">
-                            {t.estado === 'PENDIENTE' && <button onClick={() => onCambiarEstado(t.id, 'confirmar')} className="rounded-lg border border-primario-suave bg-white px-3 py-2 text-xs font-bold text-primario hover:bg-primario-claro">Confirmar</button>}
-                            {t.estado === 'CONFIRMADO' && <button onClick={() => onCambiarEstado(t.id, 'completar')} className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50">Realizado</button>}
-                            {t.estado !== 'CANCELADO' && t.estado !== 'COMPLETADO' && <button onClick={() => onCambiarEstado(t.id, 'cancelar')} className="rounded-lg border border-peligro-suave bg-white px-3 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar</button>}
+                            {t.estado !== 'CANCELADO' && <button onClick={() => onCancelarTurno(t.id)} className="rounded-lg border border-peligro-suave bg-white px-3 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar</button>}
                           </div>
                         </td>
                       </tr>
                     ))}
                     {turnosFiltrados.length === 0 && (
-                      <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+                      <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -512,24 +664,49 @@ export default function ProfesionalDashboard() {
             <h2 className="text-2xl font-black text-texto-principal">Clientes</h2>
             <p className="text-sm text-texto-secundario">Personas que reservaron turnos contigo.</p>
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
-              {clientes.map((c) => {
-                const turnosCliente = turnos.filter((t) => t.clienteId === c.id)
+              {clientesConTurnos.map((c) => {
                 return (
-                  <div key={c.id} className="rounded-lg border border-borde bg-fondo p-4">
-                    <h3 className="font-black text-texto-principal">{c.nombreCompleto}</h3>
-                    <p className="text-sm text-texto-secundario">{c.email} - {c.telefono}</p>
-                    <div className="mt-3">
-                      <span className="text-xs font-bold uppercase text-texto-secundario">Historial</span>
-                      <ul className="mt-1 list-inside list-disc text-sm text-texto-secundario">
-                        {turnosCliente.map((t) => (
-                          <li key={t.id}>{fechaIsoDe(t)} {horaDe(t)} - {estadoLabel[t.estado]} {t.notas && `(${t.notas})`}</li>
+                  <div key={c.id} className="rounded-lg border border-borde bg-fondo p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="text-lg font-black text-texto-principal">{c.nombreCompleto}</h3>
+                      {c.externo && (
+                        <span className="rounded-lg bg-primario-claro px-2 py-1 text-xs font-bold text-primario">No registrado</span>
+                      )}
+                      {!c.externo && (
+                        <span className="rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">Registrado</span>
+                      )}
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {c.externo && (
+                        <div>
+                          <p className="text-xs font-bold uppercase text-texto-secundario">DNI</p>
+                          <p className="mt-1 text-sm text-texto-principal">{c.dni || 'Sin DNI'}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Email</p>
+                        <p className="mt-1 text-sm text-texto-principal">{c.email || 'Sin email'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Telefono</p>
+                        <p className="mt-1 text-sm text-texto-principal">{c.telefono || 'Sin telefono'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-5 border-t border-borde-suave pt-4">
+                      <span className="text-xs font-bold uppercase text-texto-secundario">Historial de turnos</span>
+                      <ul className="mt-2 grid gap-2 text-sm text-texto-secundario">
+                        {c.turnos.map((t) => (
+                          <li key={t.id} className="rounded-lg border border-borde-suave bg-white px-3 py-2">
+                            <p className="font-semibold text-texto-principal">{fechaIsoDe(t)} - {horaDe(t)}</p>
+                            <p>{estadoLabel[t.estado]}</p>
+                          </li>
                         ))}
                       </ul>
                     </div>
                   </div>
                 )
               })}
-              {clientes.length === 0 && <p className="text-sm text-texto-secundario">Aun no tenes clientes con turnos.</p>}
+              {clientesConTurnos.length === 0 && <p className="text-sm text-texto-secundario">Aun no tenes clientes con turnos.</p>}
             </div>
           </section>
         )}
@@ -587,16 +764,18 @@ export default function ProfesionalDashboard() {
         {seccionActual === 'pagos' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Pagos</h2>
-            <p className="mt-1 text-sm text-texto-secundario">Pagos asociados a tus turnos.</p>
+            <p className="mt-1 text-sm text-texto-secundario">Agendify retiene una comision del 5% solo sobre pagos online. Los cobros externos quedan sin descuento.</p>
             <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-left text-sm">
+              <table className="w-full min-w-[880px] border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
                   <tr className="text-xs uppercase text-texto-secundario">
                     <th className="px-3 py-2">Cliente</th>
                     <th className="px-3 py-2">Turno</th>
                     <th className="px-3 py-2">Fecha</th>
-                    <th className="px-3 py-2">Monto</th>
-                    <th className="px-3 py-2">Estado</th>
+                    <th className="px-3 py-2">Tipo</th>
+                    <th className="px-3 py-2">Monto pagado</th>
+                    <th className="px-3 py-2">Comision Agendify</th>
+                    <th className="px-3 py-2">Neto profesional</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -605,12 +784,14 @@ export default function ProfesionalDashboard() {
                       <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{p.clienteNombre}</td>
                       <td className="px-3 py-3 text-texto-secundario">{p.notas || p.agendaNombre}</td>
                       <td className="px-3 py-3 text-texto-secundario">{p.fecha}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{p.origen === 'ONLINE' ? 'Pago online' : 'Cobro externo'}</td>
                       <td className="px-3 py-3 font-bold text-primario">{formatPrecio(p.monto)}</td>
-                      <td className="rounded-r-lg px-3 py-3">{p.estado}</td>
+                      <td className="px-3 py-3 font-semibold text-texto-secundario">{formatPrecio(p.comisionAgendify)}</td>
+                      <td className="rounded-r-lg px-3 py-3 font-black text-texto-principal">{formatPrecio(p.netoProfesional)}</td>
                     </tr>
                   ))}
                   {pagosTabla.length === 0 && (
-                    <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin pagos registrados.</td></tr>
+                    <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin pagos registrados.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -653,4 +834,5 @@ export default function ProfesionalDashboard() {
     </div>
   )
 }
+
 
