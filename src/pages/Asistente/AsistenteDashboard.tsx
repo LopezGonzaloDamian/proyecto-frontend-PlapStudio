@@ -586,7 +586,7 @@ export default function AsistenteDashboard() {
                         type="email"
                         value={turnoNuevo.clienteEmail}
                         onChange={(e) => setTurnoNuevo({ ...turnoNuevo, clienteEmail: e.target.value })}
-                        placeholder="cliente@agendify.com"
+                        placeholder="cliente@gmail.com"
                       />
                     </div>
                   ) : (

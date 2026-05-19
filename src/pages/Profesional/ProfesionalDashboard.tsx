@@ -571,7 +571,7 @@ export default function ProfesionalDashboard() {
                       type="email"
                       value={nuevoTurno.clienteEmail}
                       onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteEmail: e.target.value })}
-                      placeholder="cliente@agendify.com"
+                      placeholder="cliente@gmail.com"
                     />
                   </div>
                 ) : (

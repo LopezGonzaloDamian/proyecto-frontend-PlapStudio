@@ -112,7 +112,7 @@ export default function Registro() {
                     name="email"
                     value={form.email}
                     onChange={onChange}
-                    placeholder="cliente@agendify.com"
+                    placeholder="cliente@gmail.com"
                     type="text"
                     icono={<IconoEmail />}
                 />
