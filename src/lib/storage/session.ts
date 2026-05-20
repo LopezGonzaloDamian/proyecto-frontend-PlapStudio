@@ -1,22 +1,28 @@
-import type { Usuario } from '../../api/types'
+import type { AuthResponse, Usuario } from '../../api/types'
 
-const KEY_SESION   = 'agendifySession'
+const KEY_SESION = 'agendifySession'
 const KEY_RECORDAR = 'rememberedUsers'
 
-// ── Sesión ────────────────────────────────────────────────────────────────────
-
-export function setSession(usuario: Usuario) {
-  localStorage.setItem(KEY_SESION, JSON.stringify(usuario))
+export function setSession(session: AuthResponse) {
+  localStorage.setItem(KEY_SESION, JSON.stringify(session))
 }
 
-export function getSession(): Usuario | null {
+export function getSessionData(): AuthResponse | null {
   const raw = localStorage.getItem(KEY_SESION)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as Usuario
+    return JSON.parse(raw) as AuthResponse
   } catch {
     return null
   }
+}
+
+export function getSession(): Usuario | null {
+  return getSessionData()?.usuario ?? null
+}
+
+export function getAuthToken(): string | null {
+  return getSessionData()?.token ?? null
 }
 
 export function clearSession() {
@@ -24,10 +30,8 @@ export function clearSession() {
 }
 
 export function isLoggedIn(): boolean {
-  return getSession() != null
+  return getSessionData() != null
 }
-
-// ── Recordar usuarios ─────────────────────────────────────────────────────────
 
 export function addRememberedUser(email: string) {
   const lista = getRememberedUsers()
@@ -47,6 +51,6 @@ export function getRememberedUsers(): string[] {
 }
 
 export function removeRememberedUser(email: string) {
-  const lista = getRememberedUsers().filter(e => e !== email)
+  const lista = getRememberedUsers().filter((e) => e !== email)
   localStorage.setItem(KEY_RECORDAR, JSON.stringify(lista))
 }

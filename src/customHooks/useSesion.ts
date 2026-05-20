@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { Usuario } from '../api/types'
-import { getSession, clearSession, setSession } from '../lib/storage/session'
+import type { AuthResponse, Usuario } from '../api/types'
+import { getSession, getSessionData, clearSession, setSession } from '../lib/storage/session'
 
 const KEY_EVENT = 'agendify:sesion'
 
@@ -19,9 +19,10 @@ export function useSesion() {
 
   return {
     usuario,
-    iniciar: (u: Usuario) => {
-      setSession(u)
-      setUsuario(u)
+    sesion: getSessionData(),
+    iniciar: (auth: AuthResponse) => {
+      setSession(auth)
+      setUsuario(auth.usuario)
       window.dispatchEvent(new Event(KEY_EVENT))
     },
     cerrar: () => {

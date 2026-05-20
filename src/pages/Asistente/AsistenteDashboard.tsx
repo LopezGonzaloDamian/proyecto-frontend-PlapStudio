@@ -14,7 +14,7 @@ import {
   modificarTurnoAsistente,
   reservarTurnoAsistente,
 } from '../../api/asistentes'
-import { getClientesDeProfesional } from '../../api/clientes'
+import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -281,7 +281,6 @@ export default function AsistenteDashboard() {
       return
     }
     const esClienteExterno = turnoNuevo.tipoCliente === 'externo'
-    const clienteRegistrado = clientes.find((c) => c.email.toLowerCase() === turnoNuevo.clienteEmail.trim().toLowerCase())
     const clienteIncompleto = esClienteExterno
       ? !turnoNuevo.clienteExternoNombre.trim() || !turnoNuevo.clienteExternoTelefono.trim()
       : !turnoNuevo.clienteEmail.trim()
@@ -289,15 +288,14 @@ export default function AsistenteDashboard() {
       showToast('Completa cliente, fecha y horario', 'error')
       return
     }
-    if (!esClienteExterno && !clienteRegistrado) {
-      showToast('No encontramos un cliente registrado con ese email', 'error')
-      return
-    }
     try {
       if (!usuario) return
+      const clienteRegistrado = esClienteExterno
+        ? null
+        : await buscarClientePorEmail(turnoNuevo.clienteEmail.trim())
       await reservarTurnoAsistente(usuario.id, {
         agendaId: agenda.id,
-        clienteId: esClienteExterno ? null : clienteRegistrado!.id,
+        clienteId: clienteRegistrado?.id ?? null,
         clienteExternoNombre: esClienteExterno ? turnoNuevo.clienteExternoNombre : undefined,
         clienteExternoTelefono: esClienteExterno ? turnoNuevo.clienteExternoTelefono : undefined,
         clienteExternoDni: esClienteExterno ? turnoNuevo.clienteExternoDni : undefined,
@@ -547,7 +545,7 @@ export default function AsistenteDashboard() {
 
             <section className="grid gap-6 xl:grid-cols-2">
               <form onSubmit={onCrearTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:col-span-2 xl:p-7">
-                <h2 className="text-2xl font-black text-texto-principal">Crear turno</h2>
+                <h2 className="text-2xl font-black text-texto-principal">Asignar turno</h2>
                 <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
                 <div className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
                   <div className="lg:max-w-[270px]">
@@ -612,7 +610,7 @@ export default function AsistenteDashboard() {
                     <Input type="time" value={turnoNuevo.horario} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, horario: e.target.value })} />
                   </div>
                   <div className={`flex justify-end lg:col-span-4 ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-6' : 'lg:row-start-7'}`}>
-                    <BotonPrimario type="submit" className="min-w-[220px]">Crear turno</BotonPrimario>
+                    <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>
                   </div>
                 </div>
               </form>

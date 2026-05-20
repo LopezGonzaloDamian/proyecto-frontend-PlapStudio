@@ -18,10 +18,9 @@ import {
   getTurnosProfesional,
   reservarTurno,
 } from '../../api/turnos'
-import { getClientes, getClientesDeProfesional } from '../../api/clientes'
+import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import { asignarAsistente, desasignarAsistente, getAsistentesDeProfesional } from '../../api/asistentes'
-import { getUsuarios } from '../../api/usuarios'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -30,7 +29,6 @@ import type {
   Notificacion,
   Profesional,
   Turno,
-  Usuario,
 } from '../../api/types'
 
 type SeccionProfesional = 'agenda' | 'clientes' | 'asistentes' | 'pagos' | 'notificaciones'
@@ -84,10 +82,8 @@ export default function ProfesionalDashboard() {
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [clientesRegistrados, setClientesRegistrados] = useState<Cliente[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
-  const [usuariosAsistentes, setUsuariosAsistentes] = useState<Usuario[]>([])
 
   const [filtros, setFiltros] = useState<{ fecha: string; estado: 'Todos' | Turno['estado'] }>({ fecha: '', estado: 'Todos' })
   const [nuevoTurno, setNuevoTurno] = useState({
@@ -106,7 +102,7 @@ export default function ProfesionalDashboard() {
   const [disponibilidad, setDisponibilidad] = useState({
     diaSemana: 'MONDAY' as DiaSemana, inicio: '09:00', fin: '18:00', duracion: '30',
   })
-  const [asistenteSeleccionadoId, setAsistenteSeleccionadoId] = useState('')
+  const [asistenteEmail, setAsistenteEmail] = useState('')
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -127,9 +123,7 @@ export default function ProfesionalDashboard() {
     void getAgendasDeProfesional(profesionalId).then(setAgendas).catch((e) => showToast(extraerError(e), 'error'))
     void getTurnosProfesional(profesionalId).then(setTurnos).catch((e) => showToast(extraerError(e), 'error'))
     void getClientesDeProfesional(profesionalId).then(setClientes).catch((e) => showToast(extraerError(e), 'error'))
-    void getClientes().then(setClientesRegistrados).catch((e) => showToast(extraerError(e), 'error'))
     void getAsistentesDeProfesional(profesionalId).then(setAsistentes).catch((e) => showToast(extraerError(e), 'error'))
-    void getUsuarios('ASISTENTE').then(setUsuariosAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalId, usuario?.id])
@@ -138,7 +132,6 @@ export default function ProfesionalDashboard() {
     if (!profesionalId) return
     void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
     void getClientesDeProfesional(profesionalId).then(setClientes).catch(() => undefined)
-    void getClientes().then(setClientesRegistrados).catch(() => undefined)
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
   }
 
@@ -182,11 +175,6 @@ export default function ProfesionalDashboard() {
       })),
     [turnos],
   )
-
-  const asistentesDisponibles = useMemo(() => {
-    const asignados = new Set(asistentes.map((a) => a.asistenteId))
-    return usuariosAsistentes.filter((u) => u.activo && !asignados.has(u.id))
-  }, [asistentes, usuariosAsistentes])
 
   const clientesConTurnos = useMemo(() => {
     const mapa = new Map<string, {
@@ -304,7 +292,6 @@ export default function ProfesionalDashboard() {
       return
     }
     const esClienteExterno = nuevoTurno.tipoCliente === 'externo'
-    const clienteRegistrado = clientesRegistrados.find((c) => c.email.toLowerCase() === nuevoTurno.clienteEmail.trim().toLowerCase())
     const clienteIncompleto = esClienteExterno
       ? !nuevoTurno.clienteExternoNombre.trim() || !nuevoTurno.clienteExternoTelefono.trim()
       : !nuevoTurno.clienteEmail.trim()
@@ -312,14 +299,13 @@ export default function ProfesionalDashboard() {
       showToast('Completa cliente, fecha y horario', 'error')
       return
     }
-    if (!esClienteExterno && !clienteRegistrado) {
-      showToast('No encontramos un cliente registrado con ese email', 'error')
-      return
-    }
     try {
+      const clienteRegistrado = esClienteExterno
+        ? null
+        : await buscarClientePorEmail(nuevoTurno.clienteEmail.trim())
       const turno = await reservarTurno({
         agendaId: agendaPrincipal.id,
-        clienteId: esClienteExterno ? null : clienteRegistrado!.id,
+        clienteId: clienteRegistrado?.id ?? null,
         clienteExternoNombre: esClienteExterno ? nuevoTurno.clienteExternoNombre : undefined,
         clienteExternoTelefono: esClienteExterno ? nuevoTurno.clienteExternoTelefono : undefined,
         clienteExternoDni: esClienteExterno ? nuevoTurno.clienteExternoDni : undefined,
@@ -360,14 +346,18 @@ export default function ProfesionalDashboard() {
 
   const onAsignarAsistente = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!profesionalId || !asistenteSeleccionadoId) {
-      showToast('Selecciona un asistente', 'error')
+    if (!profesionalId || !asistenteEmail.trim()) {
+      showToast('Ingresa el email del asistente', 'error')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(asistenteEmail.trim())) {
+      showToast('Ingresa un email valido', 'error')
       return
     }
     try {
-      const asignacion = await asignarAsistente(profesionalId, parseInt(asistenteSeleccionadoId, 10))
+      const asignacion = await asignarAsistente(profesionalId, asistenteEmail.trim())
       setAsistentes((act) => [...act, asignacion])
-      setAsistenteSeleccionadoId('')
+      setAsistenteEmail('')
       showToast('Asistente asignado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
@@ -544,7 +534,7 @@ export default function ProfesionalDashboard() {
 
             <section className="order-3 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div>
-                <h2 className="text-2xl font-black text-texto-principal">Crear turno</h2>
+                <h2 className="text-2xl font-black text-texto-principal">Asignar turno</h2>
                 <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
               </div>
 
@@ -594,7 +584,7 @@ export default function ProfesionalDashboard() {
                   <Input type="time" value={nuevoTurno.horario} onChange={(e) => setNuevoTurno({ ...nuevoTurno, horario: e.target.value })} />
                 </div>
                 <div className={`flex justify-end lg:col-span-4 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
-                  <BotonPrimario type="submit" className="min-w-[220px]">Crear turno</BotonPrimario>
+                  <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>
                 </div>
               </form>
             </section>
@@ -743,19 +733,16 @@ export default function ProfesionalDashboard() {
               <div className="mt-6 grid gap-4">
                 <div>
                   <Label>Asistente</Label>
-                  <Select value={asistenteSeleccionadoId} onChange={(e) => setAsistenteSeleccionadoId(e.target.value)}>
-                    <option value="">Seleccionar...</option>
-                    {asistentesDisponibles.map((a) => (
-                      <option key={a.id} value={a.id}>{a.nombreCompleto}</option>
-                    ))}
-                  </Select>
+                  <Input
+                    type="email"
+                    value={asistenteEmail}
+                    onChange={(e) => setAsistenteEmail(e.target.value)}
+                    placeholder="asistente@gmail.com"
+                  />
                 </div>
-                <BotonPrimario type="submit" disabled={!asistenteSeleccionadoId}>
+                <BotonPrimario type="submit" disabled={!asistenteEmail.trim()}>
                   Asignar asistente
                 </BotonPrimario>
-                {asistentesDisponibles.length === 0 && (
-                  <p className="text-sm text-texto-secundario">No hay asistentes disponibles para asignar.</p>
-                )}
               </div>
             </form>
           </section>

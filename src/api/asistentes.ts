@@ -36,8 +36,8 @@ export async function getAsistentesDeProfesional(profesionalId: number): Promise
   return data
 }
 
-export async function asignarAsistente(profesionalId: number, asistenteId: number): Promise<AsistenteAsignacion> {
-  const { data } = await api.post<AsistenteAsignacion>('/asistentes', { profesionalId, asistenteId })
+export async function asignarAsistente(profesionalId: number, asistenteEmail: string): Promise<AsistenteAsignacion> {
+  const { data } = await api.post<AsistenteAsignacion>('/asistentes', { profesionalId, asistenteEmail })
   return data
 }
 
