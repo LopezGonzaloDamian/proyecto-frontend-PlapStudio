@@ -539,7 +539,7 @@ export default function ProfesionalDashboard() {
 
             <section className="order-3 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div>
-                <h2 className="text-2xl font-black text-texto-principal">Crear turno</h2>
+                <h2 className="text-2xl font-black text-texto-principal">Asignar turno</h2>
                 <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
               </div>
 
@@ -589,7 +589,7 @@ export default function ProfesionalDashboard() {
                   <Input type="time" value={nuevoTurno.horario} onChange={(e) => setNuevoTurno({ ...nuevoTurno, horario: e.target.value })} />
                 </div>
                 <div className={`flex justify-end lg:col-span-4 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
-                  <BotonPrimario type="submit" className="min-w-[220px]">Crear turno</BotonPrimario>
+                  <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>
                 </div>
               </form>
             </section>

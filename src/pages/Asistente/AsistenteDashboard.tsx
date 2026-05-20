@@ -545,7 +545,7 @@ export default function AsistenteDashboard() {
 
             <section className="grid gap-6 xl:grid-cols-2">
               <form onSubmit={onCrearTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:col-span-2 xl:p-7">
-                <h2 className="text-2xl font-black text-texto-principal">Crear turno</h2>
+                <h2 className="text-2xl font-black text-texto-principal">Asignar turno</h2>
                 <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
                 <div className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
                   <div className="lg:max-w-[270px]">
@@ -610,7 +610,7 @@ export default function AsistenteDashboard() {
                     <Input type="time" value={turnoNuevo.horario} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, horario: e.target.value })} />
                   </div>
                   <div className={`flex justify-end lg:col-span-4 ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-6' : 'lg:row-start-7'}`}>
-                    <BotonPrimario type="submit" className="min-w-[220px]">Crear turno</BotonPrimario>
+                    <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>
                   </div>
                 </div>
               </form>
