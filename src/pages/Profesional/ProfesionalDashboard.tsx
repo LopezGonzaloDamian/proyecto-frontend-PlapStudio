@@ -18,7 +18,7 @@ import {
   getTurnosProfesional,
   reservarTurno,
 } from '../../api/turnos'
-import { getClientes, getClientesDeProfesional } from '../../api/clientes'
+import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import { asignarAsistente, desasignarAsistente, getAsistentesDeProfesional } from '../../api/asistentes'
 import { getUsuarios } from '../../api/usuarios'
@@ -84,7 +84,6 @@ export default function ProfesionalDashboard() {
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
-  const [clientesRegistrados, setClientesRegistrados] = useState<Cliente[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
   const [usuariosAsistentes, setUsuariosAsistentes] = useState<Usuario[]>([])
@@ -127,7 +126,6 @@ export default function ProfesionalDashboard() {
     void getAgendasDeProfesional(profesionalId).then(setAgendas).catch((e) => showToast(extraerError(e), 'error'))
     void getTurnosProfesional(profesionalId).then(setTurnos).catch((e) => showToast(extraerError(e), 'error'))
     void getClientesDeProfesional(profesionalId).then(setClientes).catch((e) => showToast(extraerError(e), 'error'))
-    void getClientes().then(setClientesRegistrados).catch((e) => showToast(extraerError(e), 'error'))
     void getAsistentesDeProfesional(profesionalId).then(setAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     void getUsuarios('ASISTENTE').then(setUsuariosAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
@@ -138,7 +136,6 @@ export default function ProfesionalDashboard() {
     if (!profesionalId) return
     void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
     void getClientesDeProfesional(profesionalId).then(setClientes).catch(() => undefined)
-    void getClientes().then(setClientesRegistrados).catch(() => undefined)
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
   }
 
@@ -304,7 +301,6 @@ export default function ProfesionalDashboard() {
       return
     }
     const esClienteExterno = nuevoTurno.tipoCliente === 'externo'
-    const clienteRegistrado = clientesRegistrados.find((c) => c.email.toLowerCase() === nuevoTurno.clienteEmail.trim().toLowerCase())
     const clienteIncompleto = esClienteExterno
       ? !nuevoTurno.clienteExternoNombre.trim() || !nuevoTurno.clienteExternoTelefono.trim()
       : !nuevoTurno.clienteEmail.trim()
@@ -312,14 +308,13 @@ export default function ProfesionalDashboard() {
       showToast('Completa cliente, fecha y horario', 'error')
       return
     }
-    if (!esClienteExterno && !clienteRegistrado) {
-      showToast('No encontramos un cliente registrado con ese email', 'error')
-      return
-    }
     try {
+      const clienteRegistrado = esClienteExterno
+        ? null
+        : await buscarClientePorEmail(nuevoTurno.clienteEmail.trim())
       const turno = await reservarTurno({
         agendaId: agendaPrincipal.id,
-        clienteId: esClienteExterno ? null : clienteRegistrado!.id,
+        clienteId: clienteRegistrado?.id ?? null,
         clienteExternoNombre: esClienteExterno ? nuevoTurno.clienteExternoNombre : undefined,
         clienteExternoTelefono: esClienteExterno ? nuevoTurno.clienteExternoTelefono : undefined,
         clienteExternoDni: esClienteExterno ? nuevoTurno.clienteExternoDni : undefined,

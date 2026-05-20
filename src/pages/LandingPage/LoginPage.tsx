@@ -69,13 +69,13 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="Correo electronico"
+          placeholder="Correo electrónico"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Contrasena"
+          placeholder="Contraseña"
           type="password"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
@@ -90,7 +90,7 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
                 : 'pointer-events-none bg-[#78B5F7]'
             }`}
           >
-            {enviando ? 'Ingresando...' : 'Iniciar sesion'}
+            {enviando ? 'Ingresando...' : 'Iniciar sesión'}
           </button>
         </div>
       </form>
@@ -107,7 +107,7 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         type="button"
         className="mx-auto mt-7 block text-base font-semibold text-[#111827] hover:text-primario"
       >
-        Olvidaste tu contrasena?
+        ¿Olvidaste tu contraseña?
       </button>
 
       <button

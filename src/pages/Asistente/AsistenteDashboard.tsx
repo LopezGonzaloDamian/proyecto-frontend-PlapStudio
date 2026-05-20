@@ -14,7 +14,7 @@ import {
   modificarTurnoAsistente,
   reservarTurnoAsistente,
 } from '../../api/asistentes'
-import { getClientesDeProfesional } from '../../api/clientes'
+import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -281,7 +281,6 @@ export default function AsistenteDashboard() {
       return
     }
     const esClienteExterno = turnoNuevo.tipoCliente === 'externo'
-    const clienteRegistrado = clientes.find((c) => c.email.toLowerCase() === turnoNuevo.clienteEmail.trim().toLowerCase())
     const clienteIncompleto = esClienteExterno
       ? !turnoNuevo.clienteExternoNombre.trim() || !turnoNuevo.clienteExternoTelefono.trim()
       : !turnoNuevo.clienteEmail.trim()
@@ -289,15 +288,14 @@ export default function AsistenteDashboard() {
       showToast('Completa cliente, fecha y horario', 'error')
       return
     }
-    if (!esClienteExterno && !clienteRegistrado) {
-      showToast('No encontramos un cliente registrado con ese email', 'error')
-      return
-    }
     try {
       if (!usuario) return
+      const clienteRegistrado = esClienteExterno
+        ? null
+        : await buscarClientePorEmail(turnoNuevo.clienteEmail.trim())
       await reservarTurnoAsistente(usuario.id, {
         agendaId: agenda.id,
-        clienteId: esClienteExterno ? null : clienteRegistrado!.id,
+        clienteId: clienteRegistrado?.id ?? null,
         clienteExternoNombre: esClienteExterno ? turnoNuevo.clienteExternoNombre : undefined,
         clienteExternoTelefono: esClienteExterno ? turnoNuevo.clienteExternoTelefono : undefined,
         clienteExternoDni: esClienteExterno ? turnoNuevo.clienteExternoDni : undefined,
