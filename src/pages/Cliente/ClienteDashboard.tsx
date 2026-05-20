@@ -75,36 +75,40 @@ function textoPdfSeguro(texto: string): string {
     .replace(/\)/g, '\\)')
 }
 
-function descargarPdfSimple(nombreArchivo: string, lineas: string[]) {
-  const contenido = [
-    'BT',
-    '/F1 18 Tf',
-    `1 0 0 1 50 790 Tm (${textoPdfSeguro(lineas[0])}) Tj`,
-    '/F1 11 Tf',
-    ...lineas.slice(1).map((linea, index) => `1 0 0 1 50 ${750 - index * 22} Tm (${textoPdfSeguro(linea)}) Tj`),
-    'ET',
-  ].join('\n')
-  const objetos = [
-    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
-    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
-    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n',
-    '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
-    `5 0 obj\n<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream\nendobj\n`,
-  ]
-  let pdf = '%PDF-1.4\n'
-  const offsets = [0]
-  objetos.forEach((objeto) => {
-    offsets.push(pdf.length)
-    pdf += objeto
-  })
-  const xrefOffset = pdf.length
-  pdf += `xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`
-  offsets.slice(1).forEach((offset) => {
-    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
-  })
-  pdf += `trailer\n<< /Size ${objetos.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+type PdfObjeto = string | Uint8Array
+type PdfObjetoCompleto = PdfObjeto | PdfObjeto[]
 
-  const url = globalThis.URL.createObjectURL(new globalThis.Blob([pdf], { type: 'application/pdf' }))
+function asciiBytes(texto: string) {
+  return Uint8Array.from(texto, (char) => char.charCodeAt(0))
+}
+
+function descargarBlobPdf(nombreArchivo: string, objetos: PdfObjetoCompleto[]) {
+  const chunks: Uint8Array[] = []
+  const offsets = [0]
+  let length = 0
+
+  const push = (parte: PdfObjeto) => {
+    const bytes = typeof parte === 'string' ? asciiBytes(parte) : parte
+    chunks.push(bytes)
+    length += bytes.length
+  }
+
+  push('%PDF-1.4\n')
+  objetos.forEach((objeto) => {
+    offsets.push(length)
+    const partes = Array.isArray(objeto) ? objeto : [objeto]
+    partes.forEach(push)
+  })
+
+  const xrefOffset = length
+  push(`xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`)
+  offsets.slice(1).forEach((offset) => {
+    push(`${String(offset).padStart(10, '0')} 00000 n \n`)
+  })
+  push(`trailer\n<< /Size ${objetos.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`)
+
+  const blob = new Blob(chunks as unknown as BlobPart[], { type: 'application/pdf' })
+  const url = globalThis.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = nombreArchivo
@@ -112,28 +116,128 @@ function descargarPdfSimple(nombreArchivo: string, lineas: string[]) {
   globalThis.URL.revokeObjectURL(url)
 }
 
-function descargarComprobanteReserva(params: {
+function descargarPdf(nombreArchivo: string, contenido: string, logo?: { bytes: Uint8Array; width: number; height: number }) {
+  const recursosImagen = logo ? ' /XObject << /Im1 6 0 R >>' : ''
+  const contenidoObjetoId = logo ? 7 : 6
+  const objetos: PdfObjetoCompleto[] = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >>${recursosImagen} >> /Contents ${contenidoObjetoId} 0 R >>\nendobj\n`,
+    '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n',
+  ]
+
+  if (logo) {
+    objetos.push([
+      `6 0 obj\n<< /Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.bytes.length} >>\nstream\n`,
+      logo.bytes,
+      '\nendstream\nendobj\n',
+    ])
+  }
+
+  objetos.push(`${contenidoObjetoId} 0 obj\n<< /Length ${asciiBytes(contenido).length} >>\nstream\n${contenido}\nendstream\nendobj\n`)
+  descargarBlobPdf(nombreArchivo, objetos)
+}
+
+async function cargarImagenPdf(src: string) {
+  const respuesta = await fetch(src)
+  const blob = await respuesta.blob()
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const url = globalThis.URL.createObjectURL(blob)
+  try {
+    const dimensiones = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      img.onerror = () => reject(new Error('No se pudo cargar el logo'))
+      img.src = url
+    })
+    return { bytes, ...dimensiones }
+  } finally {
+    globalThis.URL.revokeObjectURL(url)
+  }
+}
+
+function textoPdf(x: number, y: number, texto: string, size = 11, bold = false) {
+  return `BT /${bold ? 'F2' : 'F1'} ${size} Tf 1 0 0 1 ${x} ${y} Tm (${textoPdfSeguro(texto)}) Tj ET`
+}
+
+function color(r: number, g: number, b: number) {
+  return `${r} ${g} ${b} rg ${r} ${g} ${b} RG`
+}
+
+function linea(x1: number, y1: number, x2: number, y2: number, gris = 0.88) {
+  return `${gris} ${gris} ${gris} RG ${x1} ${y1} m ${x2} ${y2} l S`
+}
+
+function circulo(x: number, y: number, radio: number) {
+  return `${x - radio} ${y - radio} ${radio * 2} ${radio * 2} re f`
+}
+
+function cvuFicticio(seed: string) {
+  const soloNumeros = seed.replace(/\D/g, '')
+  return `00000031000${soloNumeros.padEnd(11, '0').slice(0, 11)}`
+}
+
+function numeroOperacion(seed: string) {
+  return seed.replace(/\D/g, '').padEnd(12, '0').slice(0, 12)
+}
+
+function fechaComprobante(turno: Turno) {
+  return `${fechaCortaDe(turno)} a las ${horaDe(turno)} hs`
+}
+
+async function descargarComprobanteReserva(params: {
   turno: Turno
   clienteNombre: string
+  clienteEmail: string
   profesional: Profesional
   servicio: string
   valorTurno: number
   senaReserva: number
   medioPago: string
 }) {
-  descargarPdfSimple(`comprobante-agendify-${params.turno.id}.pdf`, [
-    'Agendify - Comprobante de reserva',
-    `Comprobante: ${params.turno.id}`,
-    `Cliente: ${params.clienteNombre}`,
-    `Profesional: ${params.profesional.nombreCompleto}`,
-    `Servicio: ${params.servicio}`,
-    `Fecha y horario: ${fechaIsoDe(params.turno)} ${horaDe(params.turno)}`,
-    `Valor del turno: ${formatPrecio(params.valorTurno)}`,
-    `Sena pagada: ${formatPrecio(params.senaReserva)}`,
-    `Medio de pago: ${params.medioPago}`,
-    'Estado del pago: APROBADO',
-    'Este comprobante fue generado por Agendify como pago mock.',
-  ])
+  const motivo = params.servicio.trim() || 'Varios'
+  const logo = await cargarImagenPdf('/img/mercado-pago.jpg').catch(() => undefined)
+  const contenido = [
+    logo ? 'q 92 0 0 47 55 775 cm /Im1 Do Q' : [
+      color(0.0, 0.35, 0.85),
+      circulo(70, 805, 14),
+      textoPdf(92, 805, 'mercado', 16, true),
+      textoPdf(92, 788, 'pago', 16, true),
+    ].join('\n'),
+
+    color(0, 0, 0),
+    textoPdf(55, 748, 'Comprobante de transferencia', 18, true),
+    textoPdf(55, 726, fechaComprobante(params.turno), 10),
+    linea(55, 700, 430, 700),
+
+    textoPdf(55, 662, formatPrecio(params.senaReserva), 25, true),
+    textoPdf(55, 642, `Motivo: ${motivo}`, 10),
+
+    color(0.12, 0.48, 1),
+    circulo(58, 590, 3),
+    linea(58, 586, 58, 476, 0.75),
+    circulo(58, 472, 3),
+
+    color(0, 0, 0),
+    textoPdf(72, 582, 'De', 11),
+    textoPdf(72, 562, params.clienteNombre, 14, true),
+    textoPdf(72, 542, `Email: ${params.clienteEmail}`, 10),
+    textoPdf(72, 524, 'Mercado Pago', 10),
+    textoPdf(72, 506, `CVU: ${cvuFicticio(params.clienteEmail)}`, 10),
+
+    textoPdf(72, 462, 'Para', 11),
+    textoPdf(72, 442, params.profesional.nombreCompleto, 14, true),
+    textoPdf(72, 422, `Email: ${params.profesional.email}`, 10),
+    textoPdf(72, 404, 'Mercado Pago', 10),
+    textoPdf(72, 386, `CVU: ${cvuFicticio(params.profesional.email)}`, 10),
+
+    linea(55, 350, 430, 350),
+    textoPdf(55, 316, 'Numero de operacion de Mercado Pago', 10),
+    textoPdf(55, 294, numeroOperacion(params.turno.id), 11, true),
+  ].join('\n')
+
+  descargarPdf(`comprobante-mercado-pago-${params.turno.id}.pdf`, contenido, logo)
 }
 
 function AvatarProfesional({ nombre, urlAvatar }: { nombre: string; urlAvatar?: string }) {
@@ -379,6 +483,7 @@ export default function ClienteDashboard() {
     descargarComprobanteReserva({
       turno: turnoConfirmado,
       clienteNombre: usuario.nombreCompleto,
+      clienteEmail: usuario.email,
       profesional: profesionalDetalle,
       servicio,
       valorTurno: precioTurno,
