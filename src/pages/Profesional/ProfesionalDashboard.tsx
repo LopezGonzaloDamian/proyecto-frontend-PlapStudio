@@ -11,6 +11,7 @@ import {
   crearAgenda,
   eliminarConfiguracion,
   getAgendasDeProfesional,
+  getSlots,
 } from '../../api/agendas'
 import { getProfesional } from '../../api/profesionales'
 import {
@@ -28,6 +29,7 @@ import type {
   DiaSemana,
   Notificacion,
   Profesional,
+  Slot,
   Turno,
 } from '../../api/types'
 
@@ -68,6 +70,9 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
     year: 'numeric',
   }).replace('.', '')
 
+const slotReservable = (slot: Slot) =>
+  slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
+
 export default function ProfesionalDashboard() {
   const { seccion } = useParams()
   const navigate = useNavigate()
@@ -82,6 +87,7 @@ export default function ProfesionalDashboard() {
   const [agendas, setAgendas] = useState<Agenda[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [slotsNuevoTurno, setSlotsNuevoTurno] = useState<Slot[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
 
@@ -143,6 +149,35 @@ export default function ProfesionalDashboard() {
   }, [profesionalId, usuario])
 
   const agendaPrincipal = agendas[0] ?? null
+
+  const slotsReservablesNuevoTurno = useMemo(
+    () => slotsNuevoTurno.filter(slotReservable),
+    [slotsNuevoTurno],
+  )
+
+  useEffect(() => {
+    if (!agendaPrincipal || !nuevoTurno.fecha) {
+      setSlotsNuevoTurno([])
+      setNuevoTurno((actual) => actual.horario ? { ...actual, horario: '' } : actual)
+      return
+    }
+
+    void getSlots(agendaPrincipal.id, nuevoTurno.fecha)
+      .then((slots) => {
+        const disponibles = slots.filter(slotReservable)
+        setSlotsNuevoTurno(slots)
+        setNuevoTurno((actual) => {
+          if (actual.horario && disponibles.some((slot) => horaDe(slot) === actual.horario)) return actual
+          return { ...actual, horario: disponibles[0] ? horaDe(disponibles[0]) : '' }
+        })
+      })
+      .catch((e) => {
+        setSlotsNuevoTurno([])
+        setNuevoTurno((actual) => ({ ...actual, horario: '' }))
+        showToast(extraerError(e), 'error')
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaPrincipal?.id, nuevoTurno.fecha])
 
   const turnosFiltrados = useMemo(() =>
     turnos.filter((t) => {
@@ -579,9 +614,33 @@ export default function ProfesionalDashboard() {
                     <Input type="date" value={nuevoTurno.fecha} onChange={(e) => setNuevoTurno({ ...nuevoTurno, fecha: e.target.value })} />
                   </div>
                 </div>
-                <div className={nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}>
+                <div className={`lg:col-span-2 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}`}>
                   <Label>Horario</Label>
-                  <Input type="time" value={nuevoTurno.horario} onChange={(e) => setNuevoTurno({ ...nuevoTurno, horario: e.target.value })} />
+                  <div className="mt-2 flex min-h-[52px] flex-wrap gap-2">
+                    {!nuevoTurno.fecha && (
+                      <span className="px-2 py-2 text-sm text-texto-secundario">Selecciona una fecha</span>
+                    )}
+                    {nuevoTurno.fecha && slotsReservablesNuevoTurno.length === 0 && (
+                      <span className="px-2 py-2 text-sm text-texto-secundario">Sin horarios disponibles.</span>
+                    )}
+                    {slotsReservablesNuevoTurno.map((slot) => {
+                      const hora = horaDe(slot)
+                      return (
+                        <button
+                          key={slot.iniciaEn}
+                          type="button"
+                          onClick={() => setNuevoTurno({ ...nuevoTurno, horario: hora })}
+                          className={`rounded-lg border px-3 py-2 text-sm font-bold ${
+                            nuevoTurno.horario === hora
+                              ? 'border-primario bg-primario text-white'
+                              : 'border-primario-suave bg-primario-claro text-primario'
+                          }`}
+                        >
+                          {hora}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
                 <div className={`flex justify-end lg:col-span-4 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
                   <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>

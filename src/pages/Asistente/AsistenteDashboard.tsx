@@ -6,7 +6,7 @@ import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
 import { extraerError } from '../../api/client'
-import { getAgendasDeProfesional } from '../../api/agendas'
+import { getAgendasDeProfesional, getSlots } from '../../api/agendas'
 import {
   cancelarTurnoAsistente,
   getProfesionalesDeAsistente,
@@ -19,6 +19,7 @@ import type {
   Agenda,
   AsistenteAsignacion,
   Cliente,
+  Slot,
   Turno,
 } from '../../api/types'
 
@@ -43,6 +44,8 @@ const estadoLabel: Record<Turno['estado'], string> = {
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
 const abrirCalendario = (input: HTMLInputElement) => input.showPicker?.()
+const slotReservable = (slot: Slot) =>
+  slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
 const fechaCortaDe = (t: { iniciaEn: string }) =>
   new Date(t.iniciaEn).toLocaleDateString('es-PY', {
     day: '2-digit',
@@ -64,6 +67,7 @@ export default function AsistenteDashboard() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [agendaPorProfesional, setAgendaPorProfesional] = useState<Record<number, Agenda | null>>({})
+  const [slotsTurnoNuevo, setSlotsTurnoNuevo] = useState<Slot[]>([])
 
   const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', fechaDesde: '', fechaHasta: '' })
   const [turnoNuevo, setTurnoNuevo] = useState({
@@ -140,6 +144,37 @@ export default function AsistenteDashboard() {
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionales])
+
+  const slotsReservablesTurnoNuevo = useMemo(
+    () => slotsTurnoNuevo.filter(slotReservable),
+    [slotsTurnoNuevo],
+  )
+
+  useEffect(() => {
+    const profId = Number(turnoNuevo.profesionalId)
+    const agenda = agendaPorProfesional[profId]
+    if (!agenda || !turnoNuevo.fecha) {
+      setSlotsTurnoNuevo([])
+      setTurnoNuevo((actual) => actual.horario ? { ...actual, horario: '' } : actual)
+      return
+    }
+
+    void getSlots(agenda.id, turnoNuevo.fecha)
+      .then((slots) => {
+        const disponibles = slots.filter(slotReservable)
+        setSlotsTurnoNuevo(slots)
+        setTurnoNuevo((actual) => {
+          if (actual.horario && disponibles.some((slot) => horaDe(slot) === actual.horario)) return actual
+          return { ...actual, horario: disponibles[0] ? horaDe(disponibles[0]) : '' }
+        })
+      })
+      .catch((e) => {
+        setSlotsTurnoNuevo([])
+        setTurnoNuevo((actual) => ({ ...actual, horario: '' }))
+        showToast(extraerError(e), 'error')
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnoNuevo.profesionalId, turnoNuevo.fecha, agendaPorProfesional])
 
   useEffect(() => {
     const t = turnos.find((x) => x.id === turnoEditarId)
@@ -605,9 +640,33 @@ export default function AsistenteDashboard() {
                       <Input type="date" value={turnoNuevo.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, fecha: e.target.value })} />
                     </div>
                   </div>
-                  <div className={`lg:max-w-[270px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
+                  <div className={`lg:col-span-2 lg:max-w-[560px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
                     <Label>Horario</Label>
-                    <Input type="time" value={turnoNuevo.horario} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, horario: e.target.value })} />
+                    <div className="mt-2 flex min-h-[52px] flex-wrap gap-2">
+                      {!turnoNuevo.fecha && (
+                        <span className="px-2 py-2 text-sm text-texto-secundario">Selecciona una fecha</span>
+                      )}
+                      {turnoNuevo.fecha && slotsReservablesTurnoNuevo.length === 0 && (
+                        <span className="px-2 py-2 text-sm text-texto-secundario">Sin horarios disponibles.</span>
+                      )}
+                      {slotsReservablesTurnoNuevo.map((slot) => {
+                        const hora = horaDe(slot)
+                        return (
+                          <button
+                            key={slot.iniciaEn}
+                            type="button"
+                            onClick={() => setTurnoNuevo({ ...turnoNuevo, horario: hora })}
+                            className={`rounded-lg border px-3 py-2 text-sm font-bold ${
+                              turnoNuevo.horario === hora
+                                ? 'border-primario bg-primario text-white'
+                                : 'border-primario-suave bg-primario-claro text-primario'
+                            }`}
+                          >
+                            {hora}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                   <div className={`flex justify-end lg:col-span-4 ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-6' : 'lg:row-start-7'}`}>
                     <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>

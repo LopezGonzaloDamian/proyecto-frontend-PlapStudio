@@ -186,6 +186,10 @@ function fechaComprobante(turno: Turno) {
   return `${fechaCortaDe(turno)} a las ${horaDe(turno)} hs`
 }
 
+function slotReservable(slot: Slot, ahora = Date.now()) {
+  return slot.disponible && new Date(slot.iniciaEn).getTime() > ahora
+}
+
 async function descargarComprobanteReserva(params: {
   turno: Turno
   clienteNombre: string
@@ -267,6 +271,7 @@ export default function ClienteDashboard() {
   const [resultados, setResultados] = useState<ProfesionalSummary[]>([])
   const [profesionalDetalle, setProfesionalDetalle] = useState<Profesional | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
+  const [ahora, setAhora] = useState(() => Date.now())
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [favoritos, setFavoritos] = useState<Favorito[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
@@ -296,6 +301,10 @@ export default function ClienteDashboard() {
   const cantidadNotificaciones = notificaciones.length > 9 ? '9+' : String(notificaciones.length)
   const precioTurno = profesionalDetalle?.precio ?? 0
   const senaReserva = Math.max(Math.round(precioTurno * 0.5), 500)
+  const slotsReservables = useMemo(
+    () => slots.filter((slot) => slotReservable(slot, ahora)),
+    [slots, ahora],
+  )
 
   useEffect(() => {
     if (cerrandoSesionRef.current) return
@@ -303,6 +312,11 @@ export default function ClienteDashboard() {
       navigate('/login', { replace: true })
     }
   }, [usuario, navigate])
+
+  useEffect(() => {
+    const intervalo = window.setInterval(() => setAhora(Date.now()), 30000)
+    return () => window.clearInterval(intervalo)
+  }, [])
 
   // Carga inicial de catálogo de profesionales, turnos, favoritos, notifs
   useEffect(() => {
@@ -359,7 +373,7 @@ export default function ClienteDashboard() {
     void getSlots(agenda.id, fechaDeseada)
       .then((slots) => {
         setSlots(slots)
-        const primero = slots.find((s) => s.disponible)
+        const primero = slots.find((s) => slotReservable(s))
         if (primero) setHorarioSeleccionado(primero.iniciaEn)
         else         setHorarioSeleccionado('')
       })
@@ -960,16 +974,16 @@ export default function ClienteDashboard() {
                   <div className="mt-3 flex items-center gap-2 mb-3">
                     <Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} className="max-w-[180px]" />
                   </div>
-                  {slots.filter((s) => s.disponible).length > 0 && (
+                  {slotsReservables.length > 0 && (
                     <p className="mb-3 text-[11px] font-bold uppercase text-texto-suave">Selecciona un horario disponible:</p>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {slots.filter((s) => s.disponible).map((s) => (
+                    {slotsReservables.map((s) => (
                       <span key={s.iniciaEn} className="rounded-lg border border-primario-suave bg-white px-3 py-2 text-sm font-bold text-primario">
                         {s.iniciaEn.slice(11, 16)}
                       </span>
                     ))}
-                    {slots.filter((s) => s.disponible).length === 0 && (
+                    {slotsReservables.length === 0 && (
                       <span className="text-sm text-texto-secundario">No hay turnos disponibles para esta fecha.</span>
                     )}
                   </div>
@@ -1033,7 +1047,7 @@ export default function ClienteDashboard() {
                     <div className="xl:col-span-2 rounded-2xl bg-fondo p-4">
                       <span className="text-xs font-bold uppercase text-texto-secundario">Seleccione un horario para la fecha {fechaDeseada}</span>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {slots.filter((s) => s.disponible).map((s) => (
+                        {slotsReservables.map((s) => (
                           <button
                             key={s.iniciaEn}
                             type="button"
@@ -1047,7 +1061,7 @@ export default function ClienteDashboard() {
                             {s.iniciaEn.slice(11, 16)}
                           </button>
                         ))}
-                        {slots.filter((s) => s.disponible).length === 0 && (
+                        {slotsReservables.length === 0 && (
                           <span className="text-sm text-texto-secundario">Sin disponibilidad.</span>
                         )}
                       </div>
