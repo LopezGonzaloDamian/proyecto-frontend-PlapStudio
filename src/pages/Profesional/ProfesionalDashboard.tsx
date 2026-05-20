@@ -21,7 +21,6 @@ import {
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import { asignarAsistente, desasignarAsistente, getAsistentesDeProfesional } from '../../api/asistentes'
-import { getUsuarios } from '../../api/usuarios'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -30,7 +29,6 @@ import type {
   Notificacion,
   Profesional,
   Turno,
-  Usuario,
 } from '../../api/types'
 
 type SeccionProfesional = 'agenda' | 'clientes' | 'asistentes' | 'pagos' | 'notificaciones'
@@ -86,7 +84,6 @@ export default function ProfesionalDashboard() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
-  const [usuariosAsistentes, setUsuariosAsistentes] = useState<Usuario[]>([])
 
   const [filtros, setFiltros] = useState<{ fecha: string; estado: 'Todos' | Turno['estado'] }>({ fecha: '', estado: 'Todos' })
   const [nuevoTurno, setNuevoTurno] = useState({
@@ -105,7 +102,7 @@ export default function ProfesionalDashboard() {
   const [disponibilidad, setDisponibilidad] = useState({
     diaSemana: 'MONDAY' as DiaSemana, inicio: '09:00', fin: '18:00', duracion: '30',
   })
-  const [asistenteSeleccionadoId, setAsistenteSeleccionadoId] = useState('')
+  const [asistenteEmail, setAsistenteEmail] = useState('')
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -127,7 +124,6 @@ export default function ProfesionalDashboard() {
     void getTurnosProfesional(profesionalId).then(setTurnos).catch((e) => showToast(extraerError(e), 'error'))
     void getClientesDeProfesional(profesionalId).then(setClientes).catch((e) => showToast(extraerError(e), 'error'))
     void getAsistentesDeProfesional(profesionalId).then(setAsistentes).catch((e) => showToast(extraerError(e), 'error'))
-    void getUsuarios('ASISTENTE').then(setUsuariosAsistentes).catch((e) => showToast(extraerError(e), 'error'))
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalId, usuario?.id])
@@ -179,11 +175,6 @@ export default function ProfesionalDashboard() {
       })),
     [turnos],
   )
-
-  const asistentesDisponibles = useMemo(() => {
-    const asignados = new Set(asistentes.map((a) => a.asistenteId))
-    return usuariosAsistentes.filter((u) => u.activo && !asignados.has(u.id))
-  }, [asistentes, usuariosAsistentes])
 
   const clientesConTurnos = useMemo(() => {
     const mapa = new Map<string, {
@@ -355,14 +346,18 @@ export default function ProfesionalDashboard() {
 
   const onAsignarAsistente = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!profesionalId || !asistenteSeleccionadoId) {
-      showToast('Selecciona un asistente', 'error')
+    if (!profesionalId || !asistenteEmail.trim()) {
+      showToast('Ingresa el email del asistente', 'error')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(asistenteEmail.trim())) {
+      showToast('Ingresa un email valido', 'error')
       return
     }
     try {
-      const asignacion = await asignarAsistente(profesionalId, parseInt(asistenteSeleccionadoId, 10))
+      const asignacion = await asignarAsistente(profesionalId, asistenteEmail.trim())
       setAsistentes((act) => [...act, asignacion])
-      setAsistenteSeleccionadoId('')
+      setAsistenteEmail('')
       showToast('Asistente asignado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
@@ -738,19 +733,16 @@ export default function ProfesionalDashboard() {
               <div className="mt-6 grid gap-4">
                 <div>
                   <Label>Asistente</Label>
-                  <Select value={asistenteSeleccionadoId} onChange={(e) => setAsistenteSeleccionadoId(e.target.value)}>
-                    <option value="">Seleccionar...</option>
-                    {asistentesDisponibles.map((a) => (
-                      <option key={a.id} value={a.id}>{a.nombreCompleto}</option>
-                    ))}
-                  </Select>
+                  <Input
+                    type="email"
+                    value={asistenteEmail}
+                    onChange={(e) => setAsistenteEmail(e.target.value)}
+                    placeholder="asistente@gmail.com"
+                  />
                 </div>
-                <BotonPrimario type="submit" disabled={!asistenteSeleccionadoId}>
+                <BotonPrimario type="submit" disabled={!asistenteEmail.trim()}>
                   Asignar asistente
                 </BotonPrimario>
-                {asistentesDisponibles.length === 0 && (
-                  <p className="text-sm text-texto-secundario">No hay asistentes disponibles para asignar.</p>
-                )}
               </div>
             </form>
           </section>
