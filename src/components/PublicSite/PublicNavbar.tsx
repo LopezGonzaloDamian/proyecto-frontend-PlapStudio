@@ -212,11 +212,8 @@ export default function PublicNavbar() {
           >
             <span className="text-lg font-black">?</span>
           </Link>
-          <Link to="/login" className="hidden rounded-full border border-borde px-5 py-2.5 text-sm font-bold text-texto-principal transition-colors hover:border-primario hover:bg-fondo md:inline-flex">
-            Iniciar sesion
-          </Link>
-          <Link to="/landing?modal=registro" className="rounded-full bg-primario px-5 py-2.5 text-sm font-black text-white transition-colors hover:bg-primario-hover">
-            Comenzar gratis
+          <Link to="/login" className="hidden rounded-full bg-primario px-5 py-2.5 text-sm font-black text-white transition-colors hover:bg-primario-hover md:inline-flex">
+            Ingresar
           </Link>
         </div>
       </div>

@@ -95,6 +95,13 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         </div>
       </form>
 
+      <button
+        type="button"
+        className="mx-auto mt-7 block text-base font-semibold text-[#111827] hover:text-primario"
+      >
+        ¿Olvidaste tu contraseña?
+      </button>
+
       <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-texto-suave">
         <span className="h-px flex-1 bg-borde" />
         <span>o continua con</span>
@@ -102,13 +109,6 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
       </div>
 
       <GoogleLoginButton onCredential={ingresarConGoogle} />
-
-      <button
-        type="button"
-        className="mx-auto mt-7 block text-base font-semibold text-[#111827] hover:text-primario"
-      >
-        ¿Olvidaste tu contraseña?
-      </button>
 
       <button
         type="button"
