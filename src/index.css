@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
 @import "tailwindcss";
 
 /* ============================================================
@@ -6,16 +7,16 @@
    ============================================================ */
 @theme {
   /* Primary — Modern Violet */
-  --color-primario:            #1877F2;
-  --color-primario-hover:      #166FE5;
-  --color-primario-suave:      #DCEBFF;
-  --color-primario-suave-hover:#C8DFFF;
-  --color-primario-claro:      #F0F6FF;
-  --color-primario-oscuro:     #0F5EC7;
+  --color-primario:            #176BFF;
+  --color-primario-hover:      #0F5ED7;
+  --color-primario-suave:      #D9E8FF;
+  --color-primario-suave-hover:#C9DEFF;
+  --color-primario-claro:      #EEF5FF;
+  --color-primario-oscuro:     #123E8F;
 
   /* Accent — Purple (gradient partner) */
-  --color-acento:              #4C8FF7;
-  --color-acento-hover:        #1877F2;
+  --color-acento:              #5A96FF;
+  --color-acento-hover:        #176BFF;
 
   /* Semantic states */
   --color-confirmacion:        #10b981;
@@ -26,34 +27,37 @@
   --color-advertencia:         #f59e0b;
 
   /* Surfaces */
-  --color-fondo:               #fafafa;
-  --color-fondo-violeta:       #F0F6FF;
-  --color-borde:               #e5e7eb;
-  --color-borde-suave:         #f3f4f6;
+  --color-fondo:               #F7FAFC;
+  --color-fondo-violeta:       #EEF5FF;
+  --color-borde:               #DCE5F0;
+  --color-borde-suave:         #ECF1F7;
 
   /* Text */
-  --color-texto-principal:     #111827;
-  --color-texto-secundario:    #6b7280;
-  --color-texto-suave:         #9ca3af;
+  --color-texto-principal:     #14213D;
+  --color-texto-secundario:    #5F6F87;
+  --color-texto-suave:         #96A3B6;
 }
 
 /* ============================================================
    CSS VARIABLES — runtime theming (dark mode compatible)
    ============================================================ */
 :root {
-  --text:         #6b7280;
-  --text-h:       #111827;
+  --text:         #5F6F87;
+  --text-h:       #14213D;
   --bg:           #fff;
-  --border:       #e5e7eb;
-  --accent:       #1877F2;
-  --accent-bg:    rgba(24, 119, 242, 0.08);
-  --accent-border:rgba(24, 119, 242, 0.3);
+  --border:       #DCE5F0;
+  --accent:       #176BFF;
+  --accent-bg:    rgba(23, 107, 255, 0.08);
+  --accent-border:rgba(23, 107, 255, 0.26);
   --shadow:
-    rgba(0, 0, 0, 0.1)  0 10px 15px -3px,
-    rgba(0, 0, 0, 0.05) 0  4px  6px -2px;
+    rgba(20, 33, 61, 0.08)  0 18px 36px -18px,
+    rgba(20, 33, 61, 0.06) 0  10px 16px -12px;
 
-  --sans:    system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-card-body: 'Manrope', system-ui, sans-serif;
+  --font-card-title: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-hero: 'Sora', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --sans:    var(--font-card-body);
+  --heading: var(--font-card-title);
   --mono:    ui-monospace, Consolas, monospace;
 
   font: 16px/160% var(--sans);
@@ -68,15 +72,15 @@
 }
 
 html.theme-dark {
-  --color-primario:            #62A8FF;
-  --color-primario-hover:      #1877F2;
+  --color-primario:            #78B6FF;
+  --color-primario-hover:      #4C9DFF;
   --color-primario-suave:      #18365F;
   --color-primario-suave-hover:#214A82;
   --color-primario-claro:      #10233D;
-  --color-primario-oscuro:     #9AC7FF;
+  --color-primario-oscuro:     #D2E7FF;
 
-  --color-acento:              #8BC0FF;
-  --color-acento-hover:        #62A8FF;
+  --color-acento:              #A2CBFF;
+  --color-acento-hover:        #78B6FF;
 
   --color-confirmacion:        #34d399;
   --color-confirmacion-hover:  #10b981;
@@ -85,22 +89,22 @@ html.theme-dark {
   --color-peligro-suave:       #3f1d25;
   --color-advertencia:         #fbbf24;
 
-  --color-fondo:               #0B1220;
-  --color-fondo-violeta:       #111827;
-  --color-borde:               #30324a;
-  --color-borde-suave:         #22243a;
+  --color-fondo:               #09111E;
+  --color-fondo-violeta:       #101B2E;
+  --color-borde:               #25324A;
+  --color-borde-suave:         #1A2639;
 
-  --color-texto-principal:     #F9FAFB;
-  --color-texto-secundario:    #CBD5E1;
-  --color-texto-suave:         #94A3B8;
+  --color-texto-principal:     #F7FAFF;
+  --color-texto-secundario:    #C4D2E5;
+  --color-texto-suave:         #8FA2BD;
 
-  --text:         #CBD5E1;
-  --text-h:       #F9FAFB;
+  --text:         #C4D2E5;
+  --text-h:       #F7FAFF;
   --bg:           #111827;
-  --border:       #30324a;
-  --accent:       #62A8FF;
-  --accent-bg:    rgba(98, 168, 255, 0.14);
-  --accent-border:rgba(98, 168, 255, 0.4);
+  --border:       #25324A;
+  --accent:       #78B6FF;
+  --accent-bg:    rgba(120, 182, 255, 0.14);
+  --accent-border:rgba(120, 182, 255, 0.4);
   --shadow:
     rgba(0, 0, 0, 0.5) 0 10px 15px -3px,
     rgba(0, 0, 0, 0.3) 0  4px  6px -2px;
@@ -136,6 +140,45 @@ html.theme-dark .shadow-lg,
 html.theme-dark .shadow-xl,
 html.theme-dark .shadow-2xl {
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28) !important;
+}
+
+html.theme-dark .chatbot-shell,
+html.theme-dark .chatbot-scroll,
+html.theme-dark .chatbot-input-shell,
+html.theme-dark .chatbot-chip {
+  background-color: #111827 !important;
+}
+
+html.theme-dark .chatbot-assistant-bubble {
+  background-color: #1b2536 !important;
+  color: #f8fafc !important;
+}
+
+html.theme-dark .chatbot-input-shell {
+  border-color: #62A8FF !important;
+  box-shadow: 0 8px 24px rgba(14, 24, 44, 0.35) !important;
+}
+
+html.theme-dark .chatbot-trigger {
+  box-shadow: 0 18px 42px rgba(12, 20, 36, 0.42) !important;
+}
+
+html.theme-dark .bg-white\/92 {
+  background-color: rgba(17, 24, 39, 0.92) !important;
+}
+
+.font-hero {
+  font-family: var(--font-hero);
+  letter-spacing: -0.06em;
+}
+
+.font-card-title {
+  font-family: var(--font-card-title);
+  letter-spacing: -0.035em;
+}
+
+.font-card-body {
+  font-family: var(--font-card-body);
 }
 
 /* ============================================================

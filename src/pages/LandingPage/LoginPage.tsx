@@ -2,11 +2,21 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IconBell, IconCalendar, IconCheck } from '../../components/LandingPage/Icons'
 import AccessChoiceModal from '../../components/LandingPage/AccessChoiceModal'
-import { login as loginApi } from '../../api/auth'
+import GoogleLoginButton from '../../components/AccesoUsuario/GoogleLoginButton'
+import { login as loginApi, loginConGoogle } from '../../api/auth'
 import { extraerError } from '../../api/client'
 import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
+import type { AuthResponse } from '../../api/types'
+
+function destinoPorUsuario(auth: AuthResponse) {
+  const roles = auth.usuario.roles
+  if (auth.usuario.requiereSeleccionRol || roles.includes('SIN_DEFINIR')) return '/seleccionar-rol'
+  if (roles.includes('PROFESIONAL')) return '/profesional'
+  if (roles.includes('ASISTENTE')) return '/asistente'
+  return '/cliente'
+}
 
 function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
   const navigate = useNavigate()
@@ -19,18 +29,32 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
   const credencialesCompletas = email.trim().length > 0 && password.trim().length > 0
   const puedeIngresar = credencialesCompletas && !enviando
 
+  const completarIngreso = (auth: AuthResponse) => {
+    iniciar(auth)
+    navigate(destinoPorUsuario(auth))
+  }
+
   const enviar = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!puedeIngresar) return
 
     setEnviando(true)
     try {
-      const usuario = await loginApi({ email: email.trim(), password: password.trim() })
-      iniciar(usuario)
-      const destino = usuario.roles.includes('PROFESIONAL') ? '/profesional'
-                    : usuario.roles.includes('ASISTENTE') ? '/asistente'
-                    : '/cliente'
-      navigate(destino)
+      const auth = await loginApi({ email: email.trim(), password: password.trim() })
+      completarIngreso(auth)
+    } catch (error) {
+      showToast(extraerError(error), 'error')
+      setEnviando(false)
+    }
+  }
+
+  const ingresarConGoogle = async (credential: string) => {
+    if (enviando) return
+
+    setEnviando(true)
+    try {
+      const auth = await loginConGoogle({ credential })
+      completarIngreso(auth)
     } catch (error) {
       showToast(extraerError(error), 'error')
       setEnviando(false)
@@ -45,13 +69,13 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         <input
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="Correo electrónico"
+          placeholder="Correo electronico"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="Contraseña"
+          placeholder="Contrasena"
           type="password"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
@@ -66,16 +90,24 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
                 : 'pointer-events-none bg-[#78B5F7]'
             }`}
           >
-            {enviando ? 'Ingresando...' : 'Iniciar sesión'}
+            {enviando ? 'Ingresando...' : 'Iniciar sesion'}
           </button>
         </div>
       </form>
+
+      <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-texto-suave">
+        <span className="h-px flex-1 bg-borde" />
+        <span>o continua con</span>
+        <span className="h-px flex-1 bg-borde" />
+      </div>
+
+      <GoogleLoginButton onCredential={ingresarConGoogle} />
 
       <button
         type="button"
         className="mx-auto mt-7 block text-base font-semibold text-[#111827] hover:text-primario"
       >
-        ¿Olvidaste tu contraseña?
+        Olvidaste tu contrasena?
       </button>
 
       <button
@@ -103,7 +135,7 @@ function TurnoPreview() {
         </div>
         <div className="mt-5 rounded-2xl bg-white p-4 text-texto-principal shadow-lg">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-primario-claro text-2xl">✂</span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-primario-claro text-2xl">*</span>
             <div>
               <h3 className="font-black">Barberia Leo</h3>
               <p className="text-xs text-texto-secundario">Corte y barba</p>
