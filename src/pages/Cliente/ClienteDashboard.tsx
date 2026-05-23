@@ -27,13 +27,14 @@ import type {
   Turno,
 } from '../../api/types'
 
-const secciones = ['buscar', 'profesional', 'reservar', 'notificaciones'] as const
+const secciones = ['buscar', 'profesional', 'reservar', 'historial', 'notificaciones'] as const
 type SeccionCliente = typeof secciones[number]
 type ItemNavCliente = { label: string; seccion: SeccionCliente | 'dashboard' }
 
 const navItems: ItemNavCliente[] = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Buscar', seccion: 'buscar' },
+  { label: 'Historial', seccion: 'historial' },
 ]
 
 const formatPrecio = (precio: number) =>
@@ -290,9 +291,9 @@ export default function ClienteDashboard() {
 
   const [vistaCalendario, setVistaCalendario] = useState<'dia' | 'semana' | 'mes'>('mes')
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
+  const [filtrosHistorial, setFiltrosHistorial] = useState({ profesional: 'Todos', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
-  const turnosDetalleRef = useRef<HTMLElement>(null)
   const cerrandoSesionRef = useRef(false)
 
   const seccionActual = secciones.includes(seccion as SeccionCliente)
@@ -399,6 +400,35 @@ export default function ClienteDashboard() {
     const hoy = new Date().toISOString().slice(0, 10)
     return turnos.filter((t) => fechaIsoDe(t) === hoy && t.estado !== 'CANCELADO')
   }, [turnos])
+
+  const turnosProximos = useMemo(() =>
+    turnos
+      .filter((t) => turnoPuedeCancelarse(t, ahora))
+      .sort((a, b) => new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()),
+    [turnos, ahora],
+  )
+
+  const turnosHistorial = useMemo(() =>
+    turnos
+      .filter((t) => !turnoPuedeCancelarse(t, ahora))
+      .filter((t) => {
+        const okProfesional = filtrosHistorial.profesional === 'Todos' || t.profesionalNombre === filtrosHistorial.profesional
+        const okFecha = filtrosHistorial.fecha.length === 0 || fechaIsoDe(t) === filtrosHistorial.fecha
+        const okEstado = filtrosHistorial.estado === 'Todos' || t.estado === filtrosHistorial.estado
+        return okProfesional && okFecha && okEstado
+      })
+      .sort((a, b) => new Date(b.iniciaEn).getTime() - new Date(a.iniciaEn).getTime()),
+    [turnos, ahora, filtrosHistorial],
+  )
+
+  const profesionalesHistorial = useMemo(() =>
+    Array.from(new Set(
+      turnos
+        .filter((t) => !turnoPuedeCancelarse(t, ahora))
+        .map((t) => t.profesionalNombre),
+    )).sort((a, b) => a.localeCompare(b)),
+    [turnos, ahora],
+  )
 
   const turnosPorFecha = useMemo(
     () => turnos.reduce<Record<string, Turno[]>>((acc, t) => {
@@ -611,7 +641,7 @@ export default function ClienteDashboard() {
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-6 py-8 xl:px-10">
         {seccionActual === 'dashboard' && (
           <>
-            <section>
+            <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
               <article className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -619,7 +649,7 @@ export default function ClienteDashboard() {
                     <h2 className="mt-2 text-3xl font-black text-texto-principal">Turnos del dia</h2>
                   </div>
                 </div>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-5 grid gap-4">
                   {turnosHoy.length > 0 ? turnosHoy.map((t) => (
                     <div key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
                       <div className="flex items-start justify-between gap-4">
@@ -643,15 +673,14 @@ export default function ClienteDashboard() {
                       </div>
                     </div>
                   )) : (
-                    <div className="rounded-2xl border border-dashed border-borde bg-fondo px-4 py-8 text-sm text-texto-secundario sm:col-span-2 xl:col-span-3">
+                    <div className="rounded-2xl border border-dashed border-borde bg-fondo px-4 py-8 text-sm text-texto-secundario">
                       No tenes turnos para hoy.
                     </div>
                   )}
                 </div>
               </article>
-            </section>
 
-            <section className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
+              <section className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <h2 className="text-3xl font-black text-texto-principal">Mi agenda</h2>
@@ -781,17 +810,18 @@ export default function ClienteDashboard() {
                 </div>
               )}
             </section>
+            </section>
 
-            <section ref={turnosDetalleRef} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-              <h2 className="text-2xl font-black text-texto-principal">Mis turnos</h2>
-              <p className="text-sm text-texto-secundario">Historial completo y proximos turnos.</p>
+            <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <h2 className="text-2xl font-black text-texto-principal">Turnos proximos</h2>
+              <p className="text-sm text-texto-secundario">Reservas futuras confirmadas.</p>
               <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                {turnos.length === 0 && (
+                {turnosProximos.length === 0 && (
                   <div className="rounded-2xl border border-dashed border-borde px-4 py-8 text-sm text-texto-secundario md:col-span-2 2xl:col-span-3">
-                    Aun no tenes turnos.
+                    No tenes turnos proximos.
                   </div>
                 )}
-                {turnos.map((t) => (
+                {turnosProximos.map((t) => (
                   <div key={t.id} className="rounded-2xl border border-borde bg-fondo p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -814,11 +844,9 @@ export default function ClienteDashboard() {
                         <p className="mt-2 text-sm font-semibold text-texto-principal">{t.pago ? formatPrecio(t.pago.monto) : '-'}</p>
                       </div>
                     </div>
-                    {turnoPuedeCancelarse(t, ahora) && (
-                      <div className="mt-6 flex justify-end">
-                        <button onClick={() => cancelar(t.id)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
-                      </div>
-                    )}
+                    <div className="mt-6 flex justify-end">
+                      <button onClick={() => cancelar(t.id)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
+                    </div>
                     </div>
                 ))}
               </div>
@@ -875,6 +903,76 @@ export default function ClienteDashboard() {
               </div>
             </section>
           </>
+        )}
+
+        {seccionActual === 'historial' && (
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <div className="flex flex-col gap-5">
+              <div>
+                <h2 className="text-2xl font-black text-texto-principal">Historial de turnos</h2>
+                <p className="text-sm text-texto-secundario">Turnos pasados y cancelados.</p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-4 xl:max-w-5xl">
+                <div>
+                  <Label>Profesional</Label>
+                  <Select value={filtrosHistorial.profesional} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, profesional: e.target.value })}>
+                    <option value="Todos">Todos</option>
+                    {profesionalesHistorial.map((nombre) => (
+                      <option key={nombre} value={nombre}>{nombre}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <Label>Fecha</Label>
+                  <Input type="date" value={filtrosHistorial.fecha} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, fecha: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Estado</Label>
+                  <Select value={filtrosHistorial.estado} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, estado: e.target.value as typeof filtrosHistorial.estado })}>
+                    <option value="Todos">Todos</option>
+                    <option value="CONFIRMADO">Confirmado</option>
+                    <option value="CANCELADO">Cancelado</option>
+                  </Select>
+                </div>
+                <BotonSecundario type="button" className="self-end" onClick={() => setFiltrosHistorial({ profesional: 'Todos', fecha: '', estado: 'Todos' })}>
+                  Limpiar filtros
+                </BotonSecundario>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              {turnosHistorial.map((t) => (
+                <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-texto-secundario">Fecha y hora</p>
+                      <p className="mt-2 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                    </div>
+                    <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                  </div>
+                  <div className="mt-5 grid gap-5">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-texto-secundario">Profesional</p>
+                      <p className="mt-2 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase text-texto-secundario">Motivo / servicio</p>
+                      <p className="mt-2 text-sm font-semibold text-texto-principal">{t.notas || t.agendaNombre}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase text-texto-secundario">Monto</p>
+                      <p className="mt-2 text-sm font-semibold text-texto-principal">{t.pago ? formatPrecio(t.pago.monto) : '-'}</p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {turnosHistorial.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-borde px-4 py-8 text-sm text-texto-secundario md:col-span-2 2xl:col-span-3">
+                  No hay turnos en el historial.
+                </p>
+              )}
+            </div>
+          </section>
         )}
 
         {seccionActual === 'buscar' && (

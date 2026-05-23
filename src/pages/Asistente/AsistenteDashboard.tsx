@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, useNavigate, useParams } from 'react-router-dom'
 import { IconCalendar } from '../../components/LandingPage/Icons'
-import { BotonPrimario, BotonSecundario, Input, Label, Select, Textarea } from '../../components/common/ui'
+import { BotonPrimario, Input, Label, Select, Textarea } from '../../components/common/ui'
 import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
@@ -46,6 +46,8 @@ const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
 const abrirCalendario = (input: HTMLInputElement) => input.showPicker?.()
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
+const turnoAccionable = (turno: Turno) =>
+  turno.estado !== 'CANCELADO' && new Date(turno.iniciaEn).getTime() > Date.now()
 const ordenarTurnosAsc = (a: Turno, b: Turno) =>
   new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()
 function dividirTurnosCliente(turnos: Turno[]) {
@@ -99,8 +101,6 @@ export default function AsistenteDashboard() {
   })
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', duracion: '45', estado: 'CONFIRMADO' as Turno['estado'], notas: '' })
-  const [turnoCancelarId, setTurnoCancelarId] = useState('')
-  const [motivoCancelacion, setMotivoCancelacion] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
@@ -212,7 +212,8 @@ export default function AsistenteDashboard() {
       const okEmail = filtrosAgenda.clienteEmail.trim().length === 0 || (t.clienteEmail ?? '').toLowerCase().includes(filtrosAgenda.clienteEmail.trim().toLowerCase())
       const okDesde = !filtrosAgenda.fechaDesde || fechaIsoDe(t) >= filtrosAgenda.fechaDesde
       const okHasta = !filtrosAgenda.fechaHasta || fechaIsoDe(t) <= filtrosAgenda.fechaHasta
-      return okProf && okEmail && okDesde && okHasta
+      const okActual = new Date(t.iniciaEn).getTime() >= Date.now()
+      return okActual && okProf && okEmail && okDesde && okHasta
     }),
     [turnos, filtrosAgenda],
   )
@@ -386,14 +387,11 @@ export default function AsistenteDashboard() {
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
-  const onCancelarTurno = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!turnoCancelarId) return
+  const onCancelarTurnoDirecto = async (id: string) => {
     try {
       if (!usuario) return
-      await cancelarTurnoAsistente(usuario.id, turnoCancelarId, motivoCancelacion || undefined)
+      await cancelarTurnoAsistente(usuario.id, id)
       refrescarTurnos()
-      setMotivoCancelacion('')
       showToast('Turno cancelado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
@@ -535,12 +533,12 @@ export default function AsistenteDashboard() {
         {seccionActual === 'agenda' && (
           <>
             <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div className="flex flex-col gap-5">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Agenda asignada</h2>
                   <p className="text-sm text-texto-secundario">Filtra por profesional y rango de fechas.</p>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-4 xl:min-w-[980px]">
+                <div className="grid gap-3 lg:grid-cols-4 xl:max-w-5xl">
                   <div>
                     <Label>Profesional</Label>
                     <Select value={filtrosAgenda.profesionalId} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, profesionalId: e.target.value })}>
@@ -566,42 +564,59 @@ export default function AsistenteDashboard() {
                 </div>
               </div>
 
-              <div className="mt-6 overflow-x-auto">
-                <table className="w-full min-w-[1080px] border-separate border-spacing-y-2 text-left text-sm">
-                  <thead>
-                    <tr className="text-xs uppercase text-texto-secundario">
-                      <th className="px-3 py-2">Profesional</th>
-                      <th className="px-3 py-2">Cliente</th>
-                      <th className="px-3 py-2">Tipo de cliente</th>
-                      <th className="px-3 py-2">Mail cliente</th>
-                      <th className="px-3 py-2">Fecha</th>
-                      <th className="px-3 py-2">Horario</th>
-                      <th className="px-3 py-2">Estado</th>
-                      <th className="px-3 py-2">Notas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {turnosAgenda.map((t) => (
-                      <tr key={t.id} className="bg-fondo">
-                        <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.profesionalNombre}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{t.clienteNombre}</td>
-                        <td className="px-3 py-3">
-                          <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${t.clienteId ? 'bg-emerald-50 text-emerald-700' : 'bg-primario-claro text-primario'}`}>
-                            {t.clienteId ? 'Registrado' : 'No registrado'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
-                        <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
-                        <td className="rounded-r-lg px-3 py-3 text-texto-secundario">{t.notas || 'Sin notas'}</td>
-                      </tr>
-                    ))}
-                    {turnosAgenda.length === 0 && (
-                      <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                {turnosAgenda.map((t) => (
+                  <article key={t.id} className="rounded-lg border border-borde bg-fondo p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-black text-texto-principal">{t.clienteNombre}</h3>
+                      </div>
+                      <span className={`rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                    </div>
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Profesional</p>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Fecha</p>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaIsoDe(t)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Horario</p>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{horaDe(t)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Tipo de cliente</p>
+                        <span className={`mt-1 inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${t.clienteId ? 'bg-emerald-50 text-emerald-700' : 'bg-primario-claro text-primario'}`}>
+                          {t.clienteId ? 'Registrado' : 'No registrado'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Motivo</p>
+                        <p className="mt-1 text-sm text-texto-principal">{t.notas || 'Sin notas'}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Mail cliente</p>
+                        <p className="mt-1 text-sm text-texto-principal">{t.clienteEmail || 'Sin mail'}</p>
+                      </div>
+                    </div>
+                    {turnoAccionable(t) && (
+                      <div className="mt-5 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => onCancelarTurnoDirecto(t.id)}
+                          className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-sm font-bold text-peligro hover:bg-peligro-suave"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     )}
-                  </tbody>
-                </table>
+                  </article>
+                ))}
+                {turnosAgenda.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-borde bg-fondo px-4 py-6 text-center text-sm text-texto-secundario xl:col-span-2">Sin turnos.</p>
+                )}
               </div>
             </section>
           </>
@@ -708,41 +723,25 @@ export default function AsistenteDashboard() {
               <div className="grid gap-6 xl:col-span-2">
                 <form onSubmit={onModificarTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
                   <h2 className="text-2xl font-black text-texto-principal">Modificar turno</h2>
-                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                  <div className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
                     <div className="lg:max-w-[270px]">
                       <Label>Seleccionar turno</Label>
                       <Select value={turnoEditarId} onChange={(e) => setTurnoEditarId(e.target.value)}>
                         <option value="">Seleccionar...</option>
-                        {turnos.filter((t) => t.estado !== 'CANCELADO').map((t) => (
-                          <option key={t.id} value={t.id}>{t.profesionalNombre} - {fechaIsoDe(t)} {horaDe(t)}</option>
+                        {turnos.filter(turnoAccionable).map((t) => (
+                          <option key={t.id} value={t.id}>{fechaCortaDe(t)} - {horaDe(t)} | {t.profesionalNombre}</option>
                         ))}
                       </Select>
                     </div>
-                    <div><Label>Fecha</Label><Input type="date" value={turnoEditar.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} /></div>
-                    <div><Label>Horario</Label><Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} /></div>
-                    <div className="lg:col-span-2"><Label>Notas</Label><Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} /></div>
-                    <BotonPrimario type="submit" className="lg:col-span-2" disabled={!turnoEditarId}>Actualizar turno</BotonPrimario>
+                    <div className="lg:max-w-[270px]"><Label>Fecha</Label><Input type="date" value={turnoEditar.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} /></div>
+                    <div className="lg:max-w-[270px]"><Label>Horario</Label><Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} /></div>
+                    <div className="lg:col-span-2 lg:max-w-[560px]"><Label>Notas</Label><Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} /></div>
+                    <div className="flex justify-end lg:col-span-4">
+                      <BotonPrimario type="submit" className="min-w-[220px]" disabled={!turnoEditarId}>Actualizar turno</BotonPrimario>
+                    </div>
                   </div>
                 </form>
 
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <form onSubmit={onCancelarTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm">
-                    <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
-                    <div className="mt-5 grid gap-4">
-                      <div>
-                        <Label>Seleccionar turno</Label>
-                        <Select value={turnoCancelarId} onChange={(e) => setTurnoCancelarId(e.target.value)}>
-                          <option value="">Seleccionar...</option>
-                          {turnos.filter((t) => t.estado !== 'CANCELADO').map((t) => (
-                            <option key={t.id} value={t.id}>{t.profesionalNombre} - {fechaIsoDe(t)} {horaDe(t)}</option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div><Label>Motivo opcional</Label><Textarea rows={3} value={motivoCancelacion} onChange={(e) => setMotivoCancelacion(e.target.value)} /></div>
-                      <BotonSecundario type="submit" disabled={!turnoCancelarId}>Cancelar turno</BotonSecundario>
-                    </div>
-                  </form>
-                </div>
               </div>
             </section>
           </>
