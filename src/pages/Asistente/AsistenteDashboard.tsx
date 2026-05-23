@@ -23,13 +23,13 @@ import type {
   Turno,
 } from '../../api/types'
 
-type SeccionAsistente = 'agenda' | 'clientes' | 'historial'
-const seccionesValidas: SeccionAsistente[] = ['agenda', 'clientes', 'historial']
+type SeccionAsistente = 'agenda' | 'turnos' | 'clientes' | 'historial'
+const seccionesValidas: SeccionAsistente[] = ['agenda', 'turnos', 'historial']
 
 const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }> = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
-  { label: 'Clientes', seccion: 'clientes' },
+  { label: 'Turnos', seccion: 'turnos' },
   { label: 'Historial', seccion: 'historial' },
 ]
 
@@ -46,6 +46,20 @@ const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
 const abrirCalendario = (input: HTMLInputElement) => input.showPicker?.()
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
+const ordenarTurnosAsc = (a: Turno, b: Turno) =>
+  new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()
+function dividirTurnosCliente(turnos: Turno[]) {
+  const ahora = Date.now()
+  const futuros = turnos
+    .filter((t) => t.estado !== 'CANCELADO' && new Date(t.iniciaEn).getTime() > ahora)
+    .sort(ordenarTurnosAsc)
+  const proximoTurno = futuros[0] ?? null
+  const historial = turnos
+    .filter((t) => t.id !== proximoTurno?.id)
+    .sort((a, b) => ordenarTurnosAsc(b, a))
+
+  return { proximoTurno, historial }
+}
 const fechaCortaDe = (t: { iniciaEn: string }) =>
   new Date(t.iniciaEn).toLocaleDateString('es-PY', {
     day: '2-digit',
@@ -69,7 +83,7 @@ export default function AsistenteDashboard() {
   const [agendaPorProfesional, setAgendaPorProfesional] = useState<Record<number, Agenda | null>>({})
   const [slotsTurnoNuevo, setSlotsTurnoNuevo] = useState<Slot[]>([])
 
-  const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', fechaDesde: '', fechaHasta: '' })
+  const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', clienteEmail: '', fechaDesde: '', fechaHasta: '' })
   const [turnoNuevo, setTurnoNuevo] = useState({
     profesionalId: '',
     tipoCliente: 'registrado' as 'registrado' | 'externo',
@@ -88,7 +102,7 @@ export default function AsistenteDashboard() {
   const [turnoCancelarId, setTurnoCancelarId] = useState('')
   const [motivoCancelacion, setMotivoCancelacion] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
-  const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
+  const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
@@ -195,9 +209,10 @@ export default function AsistenteDashboard() {
   const turnosAgenda = useMemo(() =>
     turnos.filter((t) => {
       const okProf = !filtrosAgenda.profesionalId || t.profesionalId === Number(filtrosAgenda.profesionalId)
+      const okEmail = filtrosAgenda.clienteEmail.trim().length === 0 || (t.clienteEmail ?? '').toLowerCase().includes(filtrosAgenda.clienteEmail.trim().toLowerCase())
       const okDesde = !filtrosAgenda.fechaDesde || fechaIsoDe(t) >= filtrosAgenda.fechaDesde
       const okHasta = !filtrosAgenda.fechaHasta || fechaIsoDe(t) <= filtrosAgenda.fechaHasta
-      return okProf && okDesde && okHasta
+      return okProf && okEmail && okDesde && okHasta
     }),
     [turnos, filtrosAgenda],
   )
@@ -249,17 +264,18 @@ export default function AsistenteDashboard() {
       })
 
     return Array.from(mapa.values()).filter((c) => {
-      const texto = `${c.nombreCompleto} ${c.email ?? ''} ${c.telefono ?? ''}`.toLowerCase()
-      return q.length === 0 || texto.includes(q)
+      const email = (c.email ?? '').toLowerCase()
+      return q.length === 0 || email.includes(q)
     })
   }, [clientes, turnos, busquedaCliente])
 
   const historialFiltrado = useMemo(() =>
     turnos.filter((t) => {
       const okProf  = filtrosHistorial.profesionalId === 'Todos' || t.profesionalId === Number(filtrosHistorial.profesionalId)
+      const okEmail = filtrosHistorial.clienteEmail.trim().length === 0 || (t.clienteEmail ?? '').toLowerCase().includes(filtrosHistorial.clienteEmail.trim().toLowerCase())
       const okFecha = filtrosHistorial.fecha.length === 0 || fechaIsoDe(t) === filtrosHistorial.fecha
       const okEst   = filtrosHistorial.estado === 'Todos' || t.estado === filtrosHistorial.estado
-      return okProf && okFecha && okEst
+      return okProf && okEmail && okFecha && okEst
     }),
     [turnos, filtrosHistorial],
   )
@@ -434,14 +450,13 @@ export default function AsistenteDashboard() {
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 py-7 sm:px-8 xl:px-10">
         {seccionActual === 'dashboard' && (
-          <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-            <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <div>
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
                   <p className="text-sm text-texto-secundario">Agenda operativa para hoy.</p>
                 </div>
-                <BotonSecundario onClick={() => navigate('/asistente/agenda')}>Ver agenda</BotonSecundario>
               </div>
               <div className="mt-5 grid gap-4">
                 {turnosDelDia.map((t) => (
@@ -473,7 +488,7 @@ export default function AsistenteDashboard() {
               </div>
             </article>
 
-            <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <article className="order-1 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Calendario</h2>
@@ -525,12 +540,16 @@ export default function AsistenteDashboard() {
                   <h2 className="text-2xl font-black text-texto-principal">Agenda asignada</h2>
                   <p className="text-sm text-texto-secundario">Filtra por profesional y rango de fechas.</p>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-3 xl:min-w-[760px]">
+                <div className="grid gap-3 lg:grid-cols-4 xl:min-w-[980px]">
                   <div>
                     <Label>Profesional</Label>
                     <Select value={filtrosAgenda.profesionalId} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, profesionalId: e.target.value })}>
                       {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                     </Select>
+                  </div>
+                  <div>
+                    <Label>Mail del cliente</Label>
+                    <Input value={filtrosAgenda.clienteEmail} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, clienteEmail: e.target.value })} placeholder="cliente@gmail.com" />
                   </div>
                   <div>
                     <Label>Desde</Label>
@@ -548,11 +567,13 @@ export default function AsistenteDashboard() {
               </div>
 
               <div className="mt-6 overflow-x-auto">
-                <table className="w-full min-w-[920px] border-separate border-spacing-y-2 text-left text-sm">
+                <table className="w-full min-w-[1080px] border-separate border-spacing-y-2 text-left text-sm">
                   <thead>
                     <tr className="text-xs uppercase text-texto-secundario">
                       <th className="px-3 py-2">Profesional</th>
                       <th className="px-3 py-2">Cliente</th>
+                      <th className="px-3 py-2">Tipo de cliente</th>
+                      <th className="px-3 py-2">Mail cliente</th>
                       <th className="px-3 py-2">Fecha</th>
                       <th className="px-3 py-2">Horario</th>
                       <th className="px-3 py-2">Estado</th>
@@ -564,6 +585,12 @@ export default function AsistenteDashboard() {
                       <tr key={t.id} className="bg-fondo">
                         <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.profesionalNombre}</td>
                         <td className="px-3 py-3 text-texto-secundario">{t.clienteNombre}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${t.clienteId ? 'bg-emerald-50 text-emerald-700' : 'bg-primario-claro text-primario'}`}>
+                            {t.clienteId ? 'Registrado' : 'No registrado'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
                         <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
                         <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
                         <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
@@ -571,13 +598,17 @@ export default function AsistenteDashboard() {
                       </tr>
                     ))}
                     {turnosAgenda.length === 0 && (
-                      <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+                      <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </section>
+          </>
+        )}
 
+        {seccionActual === 'turnos' && (
+          <>
             <section className="grid gap-6 xl:grid-cols-2">
               <form onSubmit={onCrearTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:col-span-2 xl:p-7">
                 <h2 className="text-2xl font-black text-texto-principal">Asignar turno</h2>
@@ -674,7 +705,7 @@ export default function AsistenteDashboard() {
                 </div>
               </form>
 
-              <div className="grid gap-6">
+              <div className="grid gap-6 xl:col-span-2">
                 <form onSubmit={onModificarTurno} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
                   <h2 className="text-2xl font-black text-texto-principal">Modificar turno</h2>
                   <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -725,12 +756,13 @@ export default function AsistenteDashboard() {
                 <p className="text-sm text-texto-secundario">Personas con turnos en agendas asignadas.</p>
               </div>
               <div className="w-full xl:max-w-sm">
-                <Label>Buscar cliente</Label>
-                <Input value={busquedaCliente} onChange={(e) => setBusquedaCliente(e.target.value)} placeholder="Ej: Ana Garcia" />
+                <Label>Buscar por mail</Label>
+                <Input value={busquedaCliente} onChange={(e) => setBusquedaCliente(e.target.value)} placeholder="Ej: cliente@gmail.com" />
               </div>
             </div>
             <div className="mt-6 grid gap-4 xl:grid-cols-2">
               {clientesFiltrados.map((c) => {
+                const { proximoTurno, historial } = dividirTurnosCliente(c.turnos)
                 return (
                   <article key={c.id} className="rounded-lg border border-borde bg-fondo p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -758,18 +790,63 @@ export default function AsistenteDashboard() {
                         <p className="mt-1 text-sm text-texto-principal">{c.telefono || 'Sin telefono'}</p>
                       </div>
                     </div>
-                    <div className="mt-5 border-t border-borde-suave pt-4">
-                      <span className="text-xs font-bold uppercase text-texto-secundario">Historial de turnos</span>
-                    </div>
-                    <div className="mt-2 grid gap-2">
-                      {c.turnos.map((t) => (
+                    <div className="mt-5 grid gap-4 border-t border-borde-suave pt-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-texto-secundario">Proximo turno</span>
+                        {proximoTurno ? (
+                          <div className="mt-2 rounded-lg border border-borde-suave bg-white px-3 py-2">
+                            <div>
+                              <p className="text-xs font-bold uppercase text-texto-secundario">Profesional</p>
+                              <p className="mt-1 text-sm font-semibold text-texto-principal">{proximoTurno.profesionalNombre}</p>
+                            </div>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <p className="text-xs font-bold uppercase text-texto-secundario">Fecha</p>
+                                <p className="mt-1 text-sm text-texto-principal">{fechaIsoDe(proximoTurno)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold uppercase text-texto-secundario">Horario</p>
+                                <p className="mt-1 text-sm text-texto-principal">{horaDe(proximoTurno)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-2 rounded-lg border border-dashed border-borde bg-white px-3 py-3 text-sm text-texto-secundario">Sin proximos turnos.</p>
+                        )}
+                      </div>
+                      <div>
+                      <span className="text-xs font-bold uppercase text-texto-secundario">Ultimos turnos</span>
+                      <div className="mt-2 grid gap-2">
+                      {historial.slice(0, 2).map((t) => (
                         <div key={t.id} className="rounded-lg border border-borde-suave bg-white px-3 py-2">
-                          <p className="text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
-                          <p className="text-sm text-texto-secundario">
-                            {fechaIsoDe(t)} - {horaDe(t)} · {estadoLabel[t.estado]}
-                          </p>
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-secundario">Profesional</p>
+                            <p className="mt-1 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
+                          </div>
+                          <div className="text-sm text-texto-secundario">
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <span className="block text-xs font-bold uppercase text-texto-secundario">Fecha</span>
+                                <span className="mt-1 block text-sm text-texto-principal">{fechaIsoDe(t)}</span>
+                              </div>
+                              <div>
+                                <span className="block text-xs font-bold uppercase text-texto-secundario">Horario</span>
+                                <span className="mt-1 block text-sm text-texto-principal">{horaDe(t)}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ))}
+                      </div>
+                      {historial.length === 0 && (
+                        <p className="mt-2 rounded-lg border border-dashed border-borde bg-white px-3 py-3 text-sm text-texto-secundario">Sin historial.</p>
+                      )}
+                      {historial.length > 2 && (
+                        <button type="button" onClick={() => navigate('/asistente/historial')} className="mt-2 text-sm font-bold text-primario hover:underline">
+                          Ver historial completo
+                        </button>
+                      )}
+                      </div>
                     </div>
                   </article>
                 )
@@ -786,13 +863,17 @@ export default function AsistenteDashboard() {
                 <h2 className="text-2xl font-black text-texto-principal">Historial de turnos</h2>
                 <p className="text-sm text-texto-secundario">Turnos pasados y actuales en agendas asignadas.</p>
               </div>
-              <div className="grid gap-3 lg:grid-cols-3 xl:max-w-4xl">
+              <div className="grid gap-3 lg:grid-cols-4 xl:max-w-5xl">
                 <div>
                   <Label>Profesional</Label>
                   <Select value={filtrosHistorial.profesionalId} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, profesionalId: e.target.value })}>
                     <option value="Todos">Todos</option>
                     {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                   </Select>
+                </div>
+                <div>
+                  <Label>Mail del cliente</Label>
+                  <Input value={filtrosHistorial.clienteEmail} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, clienteEmail: e.target.value })} placeholder="cliente@gmail.com" />
                 </div>
                 <div><Label>Fecha</Label><Input type="date" value={filtrosHistorial.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, fecha: e.target.value })} /></div>
                 <div>
@@ -807,11 +888,12 @@ export default function AsistenteDashboard() {
             </div>
 
             <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[940px] border-separate border-spacing-y-2 text-left text-sm">
+              <table className="w-full min-w-[1080px] border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
                   <tr className="text-xs uppercase text-texto-secundario">
                     <th className="px-3 py-2">Profesional</th>
                     <th className="px-3 py-2">Cliente</th>
+                    <th className="px-3 py-2">Mail cliente</th>
                     <th className="px-3 py-2">Fecha</th>
                     <th className="px-3 py-2">Horario</th>
                     <th className="px-3 py-2">Duracion</th>
@@ -824,6 +906,7 @@ export default function AsistenteDashboard() {
                     <tr key={t.id} className="bg-fondo">
                       <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.profesionalNombre}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.clienteNombre}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
                       <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
                       <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.duracionMinutos} min</td>
@@ -832,7 +915,7 @@ export default function AsistenteDashboard() {
                     </tr>
                   ))}
                   {historialFiltrado.length === 0 && (
-                    <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+                    <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
                   )}
                 </tbody>
               </table>
