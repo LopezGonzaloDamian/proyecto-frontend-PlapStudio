@@ -17,6 +17,7 @@ import { getProfesional } from '../../api/profesionales'
 import {
   cancelarTurno,
   getTurnosProfesional,
+  modificarTurno,
   reservarTurno,
 } from '../../api/turnos'
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
@@ -74,6 +75,8 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
 
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
+const turnoAccionable = (turno: Turno) =>
+  turno.estado !== 'CANCELADO' && new Date(turno.iniciaEn).getTime() > Date.now()
 
 const ordenarTurnosAsc = (a: Turno, b: Turno) =>
   new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()
@@ -122,6 +125,8 @@ export default function ProfesionalDashboard() {
     fecha: '',
     horario: '',
   })
+  const [turnoEditarId, setTurnoEditarId] = useState('')
+  const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', notas: '' })
 
   const [nuevaAgenda, setNuevaAgenda] = useState({ nombre: 'Agenda principal', descripcion: 'Atencion presencial' })
   const [disponibilidad, setDisponibilidad] = useState({
@@ -200,12 +205,23 @@ export default function ProfesionalDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agendaPrincipal?.id, nuevoTurno.fecha])
 
+  useEffect(() => {
+    const turno = turnos.find((t) => t.id === turnoEditarId)
+    if (!turno) return
+    setTurnoEditar({
+      fecha: fechaIsoDe(turno),
+      horario: horaDe(turno),
+      notas: turno.notas,
+    })
+  }, [turnoEditarId, turnos])
+
   const turnosFiltrados = useMemo(() =>
     turnos.filter((t) => {
       const okEmail = filtros.clienteEmail.trim().length === 0 || (t.clienteEmail ?? '').toLowerCase().includes(filtros.clienteEmail.trim().toLowerCase())
       const okFecha  = filtros.fecha.length === 0 || fechaIsoDe(t) === filtros.fecha
       const okEstado = filtros.estado === 'Todos' || t.estado === filtros.estado
-      return okEmail && okFecha && okEstado
+      const okActual = new Date(t.iniciaEn).getTime() >= Date.now()
+      return okActual && okEmail && okFecha && okEstado
     }),
     [turnos, filtros],
   )
@@ -433,6 +449,23 @@ export default function ProfesionalDashboard() {
       const t = await cancelarTurno(id)
       setTurnos((act) => act.map((x) => (x.id === id ? t : x)))
       refrescarDatosOperativos()
+    } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
+  const onModificarTurno = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const turno = turnos.find((t) => t.id === turnoEditarId)
+    if (!turno) return
+    try {
+      const actualizado = await modificarTurno(turnoEditarId, {
+        iniciaEn: `${turnoEditar.fecha}T${turnoEditar.horario}:00`,
+        duracionMinutos: turno.duracionMinutos,
+        notas: turnoEditar.notas,
+        estado: turno.estado,
+      })
+      setTurnos((act) => act.map((t) => (t.id === actualizado.id ? actualizado : t)))
+      refrescarDatosOperativos()
+      showToast('Turno actualizado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
@@ -763,6 +796,36 @@ export default function ProfesionalDashboard() {
               </form>
             </section>
 
+            <section className="order-3 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <h2 className="text-2xl font-black text-texto-principal">Modificar turno</h2>
+              <form onSubmit={onModificarTurno} className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
+                <div className="lg:max-w-[270px]">
+                  <Label>Seleccionar turno</Label>
+                  <Select value={turnoEditarId} onChange={(e) => setTurnoEditarId(e.target.value)}>
+                    <option value="">Seleccionar...</option>
+                    {turnos.filter(turnoAccionable).map((t) => (
+                      <option key={t.id} value={t.id}>{fechaCortaDe(t)} - {horaDe(t)} | {t.clienteNombre}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="lg:max-w-[270px]">
+                  <Label>Fecha</Label>
+                  <Input type="date" value={turnoEditar.fecha} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} />
+                </div>
+                <div className="lg:max-w-[270px]">
+                  <Label>Horario</Label>
+                  <Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} />
+                </div>
+                <div className="lg:col-span-2 lg:max-w-[560px]">
+                  <Label>Notas</Label>
+                  <Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} />
+                </div>
+                <div className="flex justify-end lg:col-span-4">
+                  <BotonPrimario type="submit" className="min-w-[220px]" disabled={!turnoEditarId}>Actualizar turno</BotonPrimario>
+                </div>
+              </form>
+            </section>
+
             <section className="order-1 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
@@ -792,46 +855,56 @@ export default function ProfesionalDashboard() {
                 </div>
               </div>
 
-              <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
-                  <thead>
-                    <tr className="text-xs uppercase text-texto-secundario">
-                      <th className="px-3 py-2">Cliente</th>
-                      <th className="px-3 py-2">Tipo de cliente</th>
-                      <th className="px-3 py-2">Mail cliente</th>
-                      <th className="px-3 py-2">Notas</th>
-                      <th className="px-3 py-2">Fecha</th>
-                      <th className="px-3 py-2">Horario</th>
-                      <th className="px-3 py-2">Estado</th>
-                      <th className="px-3 py-2">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {turnosFiltrados.map((t) => (
-                      <tr key={t.id} className="bg-fondo">
-                        <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.clienteNombre}</td>
-                        <td className="px-3 py-3">
-                          <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${t.clienteId ? 'bg-emerald-50 text-emerald-700' : 'bg-primario-claro text-primario'}`}>
-                            {t.clienteId ? 'Registrado' : 'No registrado'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{t.notas || '-'}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
-                        <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
-                        <td className="rounded-r-lg px-3 py-3">
-                          <div className="flex flex-wrap gap-2">
-                            {t.estado !== 'CANCELADO' && <button onClick={() => onCancelarTurno(t.id)} className="rounded-lg border border-peligro-suave bg-white px-3 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar</button>}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {turnosFiltrados.length === 0 && (
-                      <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+              <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                {turnosFiltrados.map((t) => (
+                  <article key={t.id} className="rounded-lg border border-borde bg-fondo p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-black text-texto-principal">{t.clienteNombre}</h3>
+                        <p className="mt-1 text-sm text-texto-secundario">{t.clienteEmail || 'Sin mail'}</p>
+                      </div>
+                      <span className={`rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                    </div>
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Fecha</p>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaIsoDe(t)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Horario</p>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{horaDe(t)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Tipo de cliente</p>
+                        <span className={`mt-1 inline-flex rounded-lg px-2.5 py-1 text-xs font-bold ${t.clienteId ? 'bg-emerald-50 text-emerald-700' : 'bg-primario-claro text-primario'}`}>
+                          {t.clienteId ? 'Registrado' : 'No registrado'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Motivo</p>
+                        <p className="mt-1 text-sm text-texto-principal">{t.notas || 'Sin notas'}</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Mail cliente</p>
+                        <p className="mt-1 text-sm text-texto-principal">{t.clienteEmail || 'Sin mail'}</p>
+                      </div>
+                    </div>
+                    {turnoAccionable(t) && (
+                      <div className="mt-5 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => onCancelarTurno(t.id)}
+                          className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-sm font-bold text-peligro hover:bg-peligro-suave"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     )}
-                  </tbody>
-                </table>
+                  </article>
+                ))}
+                {turnosFiltrados.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-borde bg-fondo px-4 py-6 text-center text-sm text-texto-secundario xl:col-span-2">Sin turnos.</p>
+                )}
               </div>
             </section>
           </>
