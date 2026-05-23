@@ -33,15 +33,16 @@ import type {
   Turno,
 } from '../../api/types'
 
-type SeccionProfesional = 'agenda' | 'clientes' | 'asistentes' | 'pagos' | 'notificaciones'
-const seccionesValidas: SeccionProfesional[] = ['agenda', 'clientes', 'asistentes', 'pagos', 'notificaciones']
+type SeccionProfesional = 'agenda' | 'turnos' | 'clientes' | 'asistentes' | 'pagos' | 'historial' | 'notificaciones'
+const seccionesValidas: SeccionProfesional[] = ['agenda', 'turnos', 'asistentes', 'pagos', 'historial', 'notificaciones']
 
 const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard' }> = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
-  { label: 'Clientes', seccion: 'clientes' },
+  { label: 'Turnos', seccion: 'turnos' },
   { label: 'Asistentes', seccion: 'asistentes' },
   { label: 'Pagos', seccion: 'pagos' },
+  { label: 'Historial', seccion: 'historial' },
 ]
 
 const estadoClass: Record<Turno['estado'], string> = {
@@ -63,6 +64,7 @@ const formatPrecio = (precio: number) =>
 
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
+const abrirCalendario = (input: globalThis.HTMLInputElement) => input.showPicker?.()
 const fechaCortaDe = (t: { iniciaEn: string }) =>
   new Date(t.iniciaEn).toLocaleDateString('es-PY', {
     day: '2-digit',
@@ -72,6 +74,22 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
 
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
+
+const ordenarTurnosAsc = (a: Turno, b: Turno) =>
+  new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()
+
+function dividirTurnosCliente(turnos: Turno[]) {
+  const ahora = Date.now()
+  const futuros = turnos
+    .filter((t) => t.estado !== 'CANCELADO' && new Date(t.iniciaEn).getTime() > ahora)
+    .sort(ordenarTurnosAsc)
+  const proximoTurno = futuros[0] ?? null
+  const historial = turnos
+    .filter((t) => t.id !== proximoTurno?.id)
+    .sort((a, b) => ordenarTurnosAsc(b, a))
+
+  return { proximoTurno, historial }
+}
 
 export default function ProfesionalDashboard() {
   const { seccion } = useParams()
@@ -91,7 +109,8 @@ export default function ProfesionalDashboard() {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
 
-  const [filtros, setFiltros] = useState<{ fecha: string; estado: 'Todos' | Turno['estado'] }>({ fecha: '', estado: 'Todos' })
+  const [filtros, setFiltros] = useState<{ clienteEmail: string; fecha: string; estado: 'Todos' | Turno['estado'] }>({ clienteEmail: '', fecha: '', estado: 'Todos' })
+  const [filtrosHistorial, setFiltrosHistorial] = useState({ clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [nuevoTurno, setNuevoTurno] = useState({
     tipoCliente: 'registrado' as 'registrado' | 'externo',
     clienteEmail: '',
@@ -109,6 +128,8 @@ export default function ProfesionalDashboard() {
     diaSemana: 'MONDAY' as DiaSemana, inicio: '09:00', fin: '18:00', duracion: '30',
   })
   const [asistenteEmail, setAsistenteEmail] = useState('')
+  const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -181,17 +202,54 @@ export default function ProfesionalDashboard() {
 
   const turnosFiltrados = useMemo(() =>
     turnos.filter((t) => {
+      const okEmail = filtros.clienteEmail.trim().length === 0 || (t.clienteEmail ?? '').toLowerCase().includes(filtros.clienteEmail.trim().toLowerCase())
       const okFecha  = filtros.fecha.length === 0 || fechaIsoDe(t) === filtros.fecha
       const okEstado = filtros.estado === 'Todos' || t.estado === filtros.estado
-      return okFecha && okEstado
+      return okEmail && okFecha && okEstado
     }),
     [turnos, filtros],
+  )
+
+  const historialFiltrado = useMemo(() =>
+    turnos.filter((t) => {
+      const okEmail = filtrosHistorial.clienteEmail.trim().length === 0 || (t.clienteEmail ?? '').toLowerCase().includes(filtrosHistorial.clienteEmail.trim().toLowerCase())
+      const okFecha = filtrosHistorial.fecha.length === 0 || fechaIsoDe(t) === filtrosHistorial.fecha
+      const okEstado = filtrosHistorial.estado === 'Todos' || t.estado === filtrosHistorial.estado
+      return okEmail && okFecha && okEstado
+    }),
+    [turnos, filtrosHistorial],
   )
 
   const turnosDeHoy = useMemo(() => {
     const hoy = new Date().toISOString().slice(0, 10)
     return turnos.filter((t) => fechaIsoDe(t) === hoy && t.estado !== 'CANCELADO')
   }, [turnos])
+
+  const turnosPorFecha = useMemo(
+    () => turnos.reduce<Record<string, Turno[]>>((acc, t) => {
+      const fecha = fechaIsoDe(t)
+      if (!acc[fecha]) acc[fecha] = []
+      acc[fecha].push(t)
+      return acc
+    }, {}),
+    [turnos],
+  )
+
+  const fechaSeleccionada = useMemo(() => new Date(`${fechaCalendario}T00:00:00`), [fechaCalendario])
+  const diasMes = useMemo(() => {
+    const year = fechaSeleccionada.getFullYear()
+    const month = fechaSeleccionada.getMonth()
+    const first = new Date(year, month, 1)
+    const startOffset = (first.getDay() + 6) % 7
+    const start = new Date(first)
+    start.setDate(first.getDate() - startOffset)
+
+    return Array.from({ length: 35 }, (_, i) => {
+      const fecha = new Date(start)
+      fecha.setDate(start.getDate() + i)
+      return fecha
+    })
+  }, [fechaSeleccionada])
 
   const pagosTabla = useMemo(() =>
     turnos
@@ -256,8 +314,12 @@ export default function ProfesionalDashboard() {
         })
       })
 
-    return Array.from(mapa.values())
-  }, [clientes, turnos])
+    const query = busquedaCliente.trim().toLowerCase()
+    return Array.from(mapa.values()).filter((cliente) => {
+      const email = (cliente.email ?? '').toLowerCase()
+      return query.length === 0 || email.includes(query)
+    })
+  }, [clientes, turnos, busquedaCliente])
 
   const pathDeSeccion = (item: { seccion: SeccionProfesional | 'dashboard' }) =>
     item.seccion === 'dashboard' ? '/profesional' : `/profesional/${item.seccion}`
@@ -469,34 +531,83 @@ export default function ProfesionalDashboard() {
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 py-7 sm:px-8 xl:px-10">
         {seccionActual === 'dashboard' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-            <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {turnosDeHoy.map((t) => (
-                <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha y hora</span>
-                      <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <div>
+                <div>
+                  <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
+                  <p className="text-sm text-texto-secundario">Agenda operativa para hoy.</p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-4">
+                {turnosDeHoy.map((t) => (
+                  <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha y hora</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                      </div>
+                      <span className={`inline-flex rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
                     </div>
-                    <span className={`inline-flex rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
-                  </div>
-                  <div className="mt-5 grid gap-5">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase text-texto-suave">Cliente</span>
-                      <p className="mt-1 text-sm font-semibold text-texto-principal">{t.clienteNombre}</p>
+                    <div className="mt-5 grid gap-5">
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Cliente</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{t.clienteNombre}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{t.notas || 'Sin notas'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
-                      <p className="mt-1 text-sm font-semibold text-texto-principal">{t.notas || 'Sin notas'}</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-              {turnosDeHoy.length === 0 && (
-                <p className="text-sm text-texto-secundario">No hay turnos para hoy.</p>
-              )}
-            </div>
+                  </article>
+                ))}
+                {turnosDeHoy.length === 0 && (
+                  <p className="text-sm text-texto-secundario">Sin turnos para hoy.</p>
+                )}
+              </div>
+            </article>
+
+            <article className="order-1 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-texto-principal">Calendario</h2>
+                  <p className="text-sm text-texto-secundario">Vista mensual de turnos asignados.</p>
+                </div>
+                <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="max-w-[190px]" />
+              </div>
+
+              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
+                {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((dia) => <span key={dia}>{dia}</span>)}
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-2">
+                {diasMes.map((dia) => {
+                  const fechaIso = dia.toISOString().slice(0, 10)
+                  const turnosDia = turnosPorFecha[fechaIso] ?? []
+                  const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
+                  const seleccionado = fechaIso === fechaCalendario
+                  return (
+                    <button
+                      key={fechaIso}
+                      type="button"
+                      onClick={() => setFechaCalendario(fechaIso)}
+                      className={`min-h-[86px] rounded-lg border p-2 text-left ${
+                        seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                      } ${esMes ? 'opacity-100' : 'opacity-45'}`}
+                    >
+                      <span className="text-sm font-black text-texto-principal">{dia.getDate()}</span>
+                      <div className="mt-2 grid gap-1">
+                        {turnosDia.slice(0, 2).map((t) => (
+                          <span key={t.id} className="truncate rounded bg-white px-1.5 py-1 text-[11px] font-bold text-primario">
+                            {horaDe(t)} {t.clienteNombre.split(' ')[0]}
+                          </span>
+                        ))}
+                        {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </article>
           </section>
         )}
 
@@ -566,8 +677,12 @@ export default function ProfesionalDashboard() {
                 </div>
               </form>
             </section>
+          </>
+        )}
 
-            <section className="order-3 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+        {seccionActual === 'turnos' && (
+          <>
+            <section className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div>
                 <h2 className="text-2xl font-black text-texto-principal">Asignar turno</h2>
                 <p className="text-sm text-texto-secundario">Registra un turno para un cliente registrado o no registrado.</p>
@@ -648,13 +763,17 @@ export default function ProfesionalDashboard() {
               </form>
             </section>
 
-            <section className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <section className="order-1 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Turnos</h2>
                   <p className="text-sm text-texto-secundario">Consulta, filtra y cancela los turnos registrados.</p>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-3 xl:min-w-[620px]">
+                <div className="grid gap-3 lg:grid-cols-4 xl:min-w-[820px]">
+                  <div>
+                    <Label>Mail del cliente</Label>
+                    <Input value={filtros.clienteEmail} onChange={(e) => setFiltros({ ...filtros, clienteEmail: e.target.value })} placeholder="cliente@gmail.com" />
+                  </div>
                   <div>
                     <Label>Fecha</Label>
                     <div className="relative">
@@ -669,17 +788,20 @@ export default function ProfesionalDashboard() {
                       <option value="CANCELADO">Cancelado</option>
                     </Select>
                   </div>
-                  <BotonSecundario type="button" className="self-end" onClick={() => setFiltros({ fecha: '', estado: 'Todos' })}>Limpiar filtros</BotonSecundario>
+                  <BotonSecundario type="button" className="self-end" onClick={() => setFiltros({ clienteEmail: '', fecha: '', estado: 'Todos' })}>Limpiar filtros</BotonSecundario>
                 </div>
               </div>
 
               <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[820px] border-separate border-spacing-y-2 text-left text-sm">
+                <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
                   <thead>
                     <tr className="text-xs uppercase text-texto-secundario">
                       <th className="px-3 py-2">Cliente</th>
+                      <th className="px-3 py-2">Tipo de cliente</th>
+                      <th className="px-3 py-2">Mail cliente</th>
                       <th className="px-3 py-2">Notas</th>
                       <th className="px-3 py-2">Fecha</th>
+                      <th className="px-3 py-2">Horario</th>
                       <th className="px-3 py-2">Estado</th>
                       <th className="px-3 py-2">Acciones</th>
                     </tr>
@@ -688,8 +810,15 @@ export default function ProfesionalDashboard() {
                     {turnosFiltrados.map((t) => (
                       <tr key={t.id} className="bg-fondo">
                         <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.clienteNombre}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${t.clienteId ? 'bg-emerald-50 text-emerald-700' : 'bg-primario-claro text-primario'}`}>
+                            {t.clienteId ? 'Registrado' : 'No registrado'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
                         <td className="px-3 py-3 text-texto-secundario">{t.notas || '-'}</td>
-                        <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)} - {horaDe(t)}</td>
+                        <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
+                        <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
                         <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
                         <td className="rounded-r-lg px-3 py-3">
                           <div className="flex flex-wrap gap-2">
@@ -699,7 +828,7 @@ export default function ProfesionalDashboard() {
                       </tr>
                     ))}
                     {turnosFiltrados.length === 0 && (
-                      <tr><td colSpan={5} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+                      <tr><td colSpan={8} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -710,10 +839,19 @@ export default function ProfesionalDashboard() {
 
         {seccionActual === 'clientes' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-            <h2 className="text-2xl font-black text-texto-principal">Clientes</h2>
-            <p className="text-sm text-texto-secundario">Personas que reservaron turnos contigo.</p>
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-texto-principal">Clientes</h2>
+                <p className="text-sm text-texto-secundario">Personas que reservaron turnos contigo.</p>
+              </div>
+              <div className="w-full xl:max-w-sm">
+                <Label>Buscar por mail</Label>
+                <Input value={busquedaCliente} onChange={(e) => setBusquedaCliente(e.target.value)} placeholder="Ej: cliente@gmail.com" />
+              </div>
+            </div>
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
               {clientesConTurnos.map((c) => {
+                const { proximoTurno, historial } = dividirTurnosCliente(c.turnos)
                 return (
                   <div key={c.id} className="rounded-lg border border-borde bg-fondo p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -741,16 +879,53 @@ export default function ProfesionalDashboard() {
                         <p className="mt-1 text-sm text-texto-principal">{c.telefono || 'Sin telefono'}</p>
                       </div>
                     </div>
-                    <div className="mt-5 border-t border-borde-suave pt-4">
-                      <span className="text-xs font-bold uppercase text-texto-secundario">Historial de turnos</span>
-                      <ul className="mt-2 grid gap-2 text-sm text-texto-secundario">
-                        {c.turnos.map((t) => (
-                          <li key={t.id} className="rounded-lg border border-borde-suave bg-white px-3 py-2">
-                            <p className="font-semibold text-texto-principal">{fechaIsoDe(t)} - {horaDe(t)}</p>
-                            <p>{estadoLabel[t.estado]}</p>
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="mt-5 grid gap-4 border-t border-borde-suave pt-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-texto-secundario">Proximo turno</span>
+                        {proximoTurno ? (
+                          <div className="mt-2 rounded-lg border border-borde-suave bg-white px-3 py-2">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <p className="text-xs font-bold uppercase text-texto-secundario">Fecha</p>
+                                <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaIsoDe(proximoTurno)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold uppercase text-texto-secundario">Horario</p>
+                                <p className="mt-1 text-sm font-semibold text-texto-principal">{horaDe(proximoTurno)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-2 rounded-lg border border-dashed border-borde bg-white px-3 py-3 text-sm text-texto-secundario">Sin proximos turnos.</p>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold uppercase text-texto-secundario">Ultimos turnos</span>
+                        <ul className="mt-2 grid gap-2 text-sm text-texto-secundario">
+                          {historial.slice(0, 2).map((t) => (
+                            <li key={t.id} className="rounded-lg border border-borde-suave bg-white px-3 py-2">
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                  <p className="text-xs font-bold uppercase text-texto-secundario">Fecha</p>
+                                  <p className="mt-1 font-semibold text-texto-principal">{fechaIsoDe(t)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold uppercase text-texto-secundario">Horario</p>
+                                  <p className="mt-1 font-semibold text-texto-principal">{horaDe(t)}</p>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        {historial.length === 0 && (
+                          <p className="mt-2 rounded-lg border border-dashed border-borde bg-white px-3 py-3 text-sm text-texto-secundario">Sin historial.</p>
+                        )}
+                        {historial.length > 2 && (
+                        <button type="button" onClick={() => navigate('/profesional/historial')} className="mt-2 text-sm font-bold text-primario hover:underline">
+                            Ver historial completo
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -804,6 +979,67 @@ export default function ProfesionalDashboard() {
                 </BotonPrimario>
               </div>
             </form>
+          </section>
+        )}
+
+        {seccionActual === 'historial' && (
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <div className="flex flex-col gap-5">
+              <div>
+                <h2 className="text-2xl font-black text-texto-principal">Historial de turnos</h2>
+                <p className="text-sm text-texto-secundario">Turnos pasados y actuales de tu agenda.</p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3 xl:max-w-4xl">
+                <div>
+                  <Label>Mail del cliente</Label>
+                  <Input value={filtrosHistorial.clienteEmail} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, clienteEmail: e.target.value })} placeholder="cliente@gmail.com" />
+                </div>
+                <div>
+                  <Label>Fecha</Label>
+                  <Input type="date" value={filtrosHistorial.fecha} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, fecha: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Estado</Label>
+                  <Select value={filtrosHistorial.estado} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, estado: e.target.value as typeof filtrosHistorial.estado })}>
+                    <option value="Todos">Todos</option>
+                    <option value="CONFIRMADO">Confirmado</option>
+                    <option value="CANCELADO">Cancelado</option>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
+                <thead>
+                  <tr className="text-xs uppercase text-texto-secundario">
+                    <th className="px-3 py-2">Cliente</th>
+                    <th className="px-3 py-2">Mail cliente</th>
+                    <th className="px-3 py-2">Fecha</th>
+                    <th className="px-3 py-2">Horario</th>
+                    <th className="px-3 py-2">Duracion</th>
+                    <th className="px-3 py-2">Estado</th>
+                    <th className="px-3 py-2">Notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historialFiltrado.map((t) => (
+                    <tr key={t.id} className="bg-fondo">
+                      <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.clienteNombre}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{t.duracionMinutos} min</td>
+                      <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
+                      <td className="rounded-r-lg px-3 py-3 text-texto-secundario">{t.notas || 'Sin detalle'}</td>
+                    </tr>
+                  ))}
+                  {historialFiltrado.length === 0 && (
+                    <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-texto-secundario">Sin turnos.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 

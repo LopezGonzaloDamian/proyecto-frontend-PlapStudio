@@ -190,6 +190,10 @@ function slotReservable(slot: Slot, ahora = Date.now()) {
   return slot.disponible && new Date(slot.iniciaEn).getTime() > ahora
 }
 
+function turnoPuedeCancelarse(turno: Turno, ahora = Date.now()) {
+  return turno.estado !== 'CANCELADO' && new Date(turno.iniciaEn).getTime() > ahora
+}
+
 async function descargarComprobanteReserva(params: {
   turno: Turno
   clienteNombre: string
@@ -810,7 +814,7 @@ export default function ClienteDashboard() {
                         <p className="mt-2 text-sm font-semibold text-texto-principal">{t.pago ? formatPrecio(t.pago.monto) : '-'}</p>
                       </div>
                     </div>
-                    {t.estado !== 'CANCELADO' && (
+                    {turnoPuedeCancelarse(t, ahora) && (
                       <div className="mt-6 flex justify-end">
                         <button onClick={() => cancelar(t.id)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
                       </div>
