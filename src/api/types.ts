@@ -7,6 +7,7 @@ export type Usuario = {
   email: string
   nombreCompleto: string
   telefono: string
+  urlAvatar: string
   activo: boolean
   roles: Rol[]
   perfilProfesionalId: number | null
@@ -35,7 +36,7 @@ export type Profesional = {
   biografia: string
   urlAvatar: string
   destacado: boolean
-  ubicacion: string
+  localidad: string
   direccion: string
   precio: number
   cobertura: string
@@ -50,7 +51,7 @@ export type ProfesionalSummary = {
   nombreCompleto: string
   especialidad: string
   urlAvatar: string
-  ubicacion: string
+  localidad: string
   precio: number
   destacado: boolean
   servicios: string[]
@@ -60,7 +61,7 @@ export type ProfesionalUpdate = {
   especialidad: string
   biografia: string
   urlAvatar: string
-  ubicacion: string
+  localidad: string
   direccion: string
   precio: number
   cobertura: string
@@ -202,9 +203,25 @@ export type RegistroRequest = {
   telefono: string
   rol: Rol
   especialidad?: string
+  biografia?: string
+  localidad?: string
+  direccion?: string
+  precio?: number
+  servicios?: string[]
+}
+
+export type UsuarioUpdate = {
+  nombreCompleto: string
+  telefono: string
+  urlAvatar: string
 }
 
 export type SeleccionRolRequest = {
   rol: Exclude<Rol, 'ADMIN' | 'SIN_DEFINIR'>
   especialidad?: string
+  biografia?: string
+  localidad?: string
+  direccion?: string
+  precio?: number
+  servicios?: string[]
 }

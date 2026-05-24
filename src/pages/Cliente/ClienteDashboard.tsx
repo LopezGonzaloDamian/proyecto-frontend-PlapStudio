@@ -18,6 +18,7 @@ import {
 } from '../../api/turnos'
 import { getFavoritos, toggleFavorito as toggleFavoritoApi } from '../../api/favoritos'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
+import { actualizarUsuario } from '../../api/usuarios'
 import type {
   Favorito,
   Notificacion,
@@ -27,7 +28,7 @@ import type {
   Turno,
 } from '../../api/types'
 
-const secciones = ['buscar', 'profesional', 'reservar', 'historial', 'notificaciones'] as const
+const secciones = ['buscar', 'profesional', 'reservar', 'historial', 'perfil', 'notificaciones'] as const
 type SeccionCliente = typeof secciones[number]
 type ItemNavCliente = { label: string; seccion: SeccionCliente | 'dashboard' }
 
@@ -35,6 +36,7 @@ const navItems: ItemNavCliente[] = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Buscar', seccion: 'buscar' },
   { label: 'Historial', seccion: 'historial' },
+  { label: 'Perfil', seccion: 'perfil' },
 ]
 
 const formatPrecio = (precio: number) =>
@@ -265,12 +267,12 @@ function AvatarProfesional({ nombre, urlAvatar }: { nombre: string; urlAvatar?: 
 export default function ClienteDashboard() {
   const navigate = useNavigate()
   const { seccion, idProfesional } = useParams()
-  const { usuario, cerrar } = useSesion()
+  const { usuario, sesion, iniciar, cerrar } = useSesion()
   const { toast, showToast } = useToast()
 
   const [busqueda, setBusqueda] = useState('')
   const [rubroServicio, setRubroServicio] = useState('')
-  const [ubicacion, setUbicacion] = useState('')
+  const [localidad, setLocalidad] = useState('')
   const [fechaDeseada, setFechaDeseada] = useState(() => new Date().toISOString().slice(0, 10))
 
   const [resultados, setResultados] = useState<ProfesionalSummary[]>([])
@@ -292,6 +294,7 @@ export default function ClienteDashboard() {
   const [vistaCalendario, setVistaCalendario] = useState<'dia' | 'semana' | 'mes'>('mes')
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesional: 'Todos', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
+  const [perfilForm, setPerfilForm] = useState({ nombreCompleto: '', telefono: '', urlAvatar: '' })
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
   const cerrandoSesionRef = useRef(false)
@@ -317,6 +320,15 @@ export default function ClienteDashboard() {
       navigate('/login', { replace: true })
     }
   }, [usuario, navigate])
+
+  useEffect(() => {
+    if (!usuario) return
+    setPerfilForm({
+      nombreCompleto: usuario.nombreCompleto,
+      telefono: usuario.telefono,
+      urlAvatar: usuario.urlAvatar ?? '',
+    })
+  }, [usuario])
 
   useEffect(() => {
     const intervalo = window.setInterval(() => setAhora(Date.now()), 30000)
@@ -349,13 +361,13 @@ export default function ClienteDashboard() {
   useEffect(() => {
     if (seccionActual !== 'buscar' && seccionActual !== 'dashboard') return
     const t = setTimeout(() => {
-      buscarProfesionales({ query: busqueda, especialidad: rubroServicio, ubicacion })
+      buscarProfesionales({ query: busqueda, especialidad: rubroServicio, localidad })
         .then(setResultados)
         .catch((e) => showToast(extraerError(e), 'error'))
     }, 250)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda, rubroServicio, ubicacion, seccionActual])
+  }, [busqueda, rubroServicio, localidad, seccionActual])
 
   // Carga de profesional detallado
   useEffect(() => {
@@ -550,6 +562,23 @@ export default function ClienteDashboard() {
     }
   }
 
+  const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault()
+    if (!usuario || !sesion) return
+    try {
+      const actualizado = await actualizarUsuario(usuario.id, {
+        nombreCompleto: perfilForm.nombreCompleto.trim(),
+        telefono: perfilForm.telefono.trim(),
+        urlAvatar: perfilForm.urlAvatar.trim(),
+      })
+      iniciar({ token: sesion.token, usuario: actualizado })
+      showToast('Perfil actualizado.', 'success')
+      navigate('/cliente')
+    } catch (e) {
+      showToast(extraerError(e), 'error')
+    }
+  }
+
   const cerrarSesion = () => {
     cerrandoSesionRef.current = true
     cerrar()
@@ -613,8 +642,12 @@ export default function ClienteDashboard() {
                 onClick={() => setMenuUsuarioAbierto((v) => !v)}
                 className="flex items-center gap-2 rounded-full border border-borde bg-white pl-2 pr-3 py-1.5 text-sm font-semibold text-texto-principal shadow-sm hover:bg-primario-claro"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primario text-sm font-black text-white">
-                  {inicialesUsuario || 'U'}
+                <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primario text-sm font-black text-white">
+                  {usuario.urlAvatar ? (
+                    <img src={usuario.urlAvatar} alt={usuario.nombreCompleto} className="h-full w-full object-cover" />
+                  ) : (
+                    inicialesUsuario || 'U'
+                  )}
                 </span>
                 <svg className={`h-4 w-4 text-texto-secundario transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -878,8 +911,8 @@ export default function ClienteDashboard() {
                         <p className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.especialidad}</p>
                       </div>
                       <div>
-                        <span className="text-[11px] font-bold uppercase text-texto-suave">Ubicacion</span>
-                        <p className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.ubicacion}</p>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Localidad</span>
+                        <p className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.localidad}</p>
                       </div>
                       <div>
                         <span className="text-[11px] font-bold uppercase text-texto-suave">Servicio base</span>
@@ -975,17 +1008,47 @@ export default function ClienteDashboard() {
           </section>
         )}
 
+        {seccionActual === 'perfil' && (
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <h2 className="text-2xl font-black text-texto-principal">Mi perfil</h2>
+            <p className="text-sm text-texto-secundario">Actualiza tus datos personales y foto de perfil.</p>
+
+            <form onSubmit={guardarPerfil} className="mt-6 max-w-3xl space-y-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-primario text-2xl font-black text-white">
+                  {perfilForm.urlAvatar ? (
+                    <img src={perfilForm.urlAvatar} alt={perfilForm.nombreCompleto} className="h-full w-full object-cover" />
+                  ) : (
+                    inicialesUsuario || 'U'
+                  )}
+                </div>
+                <div className="flex-1">
+                  <Label>URL de foto</Label>
+                  <Input value={perfilForm.urlAvatar} onChange={(e) => setPerfilForm({ ...perfilForm, urlAvatar: e.target.value })} placeholder="https://..." />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
+                <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
+              </div>
+
+              <BotonPrimario type="submit">Guardar cambios</BotonPrimario>
+            </form>
+          </section>
+        )}
+
         {seccionActual === 'buscar' && (
           <section>
             <div className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="mb-5">
                 <h2 className="text-2xl font-black text-texto-principal">Buscar profesional o servicio</h2>
-                <p className="text-sm text-texto-secundario">Filtra por nombre, palabra clave, rubro y ubicacion.</p>
+                <p className="text-sm text-texto-secundario">Filtra por nombre, palabra clave, rubro y localidad.</p>
               </div>
               <div className="grid gap-4 xl:grid-cols-4">
                 <div><Label>Nombre</Label><Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Ej: Martina Rios" /></div>
                 <div><Label>Servicio</Label><Input value={rubroServicio} onChange={(e) => setRubroServicio(e.target.value)} placeholder="Ej: barberia, peluqueria" /></div>
-                <div><Label>Ubicación</Label><Input value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Ej: San Martín" /></div>
+                <div><Label>Localidad</Label><Input value={localidad} onChange={(e) => setLocalidad(e.target.value)} placeholder="Ej: Villa Maipu" /></div>
                 <div><Label>Fecha deseada</Label><Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} /></div>
               </div>
               <div className="mt-6 grid gap-4">
@@ -1014,7 +1077,7 @@ export default function ClienteDashboard() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5h.01" />
                             </svg>
-                            <span className="truncate">{p.ubicacion}</span>
+                            <span className="truncate">{p.localidad}</span>
                           </div>
                         </div>
                       </div>
@@ -1065,13 +1128,14 @@ export default function ClienteDashboard() {
 
             <section className="mt-8 rounded-[18px] border border-borde bg-fondo p-5">
               <h3 className="text-lg font-black text-texto-principal">Detalles</h3>
-              <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-6">
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Rubro</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.especialidad}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Telefono</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.telefono}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Mail</span><p className="mt-2 text-sm font-semibold break-all">{profesionalDetalle.email}</p></div>
+                <div><span className="text-[11px] font-bold uppercase text-texto-suave">Localidad</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.localidad}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Direccion</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.direccion}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Valor del turno</span><p className="mt-2 text-sm font-semibold">{formatPrecio(profesionalDetalle.precio)}</p></div>
-                <div className="sm:col-span-2 xl:col-span-5">
+                <div className="sm:col-span-2 xl:col-span-6">
                   <span className="text-[11px] font-bold uppercase text-texto-suave">Turnos disponibles para:</span>
                   <div className="mt-3 flex items-center gap-2 mb-3">
                     <Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} className="max-w-[180px]" />

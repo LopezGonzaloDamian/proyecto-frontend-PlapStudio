@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, NavLink, useNavigate, useParams } from 'react-router-dom'
 import { IconCalendar } from '../../components/LandingPage/Icons'
-import { BotonPrimario, Input, Label, Select, Textarea } from '../../components/common/ui'
+import { BotonPrimario, BotonSecundario, Input, Label, Select, Textarea } from '../../components/common/ui'
 import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
@@ -15,6 +15,7 @@ import {
   reservarTurnoAsistente,
 } from '../../api/asistentes'
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
+import { actualizarUsuario } from '../../api/usuarios'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -23,14 +24,15 @@ import type {
   Turno,
 } from '../../api/types'
 
-type SeccionAsistente = 'agenda' | 'turnos' | 'clientes' | 'historial'
-const seccionesValidas: SeccionAsistente[] = ['agenda', 'turnos', 'historial']
+type SeccionAsistente = 'agenda' | 'turnos' | 'clientes' | 'historial' | 'perfil'
+const seccionesValidas: SeccionAsistente[] = ['agenda', 'turnos', 'historial', 'perfil']
 
 const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }> = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
   { label: 'Turnos', seccion: 'turnos' },
   { label: 'Historial', seccion: 'historial' },
+  { label: 'Perfil', seccion: 'perfil' },
 ]
 
 const estadoClass: Record<Turno['estado'], string> = {
@@ -72,7 +74,7 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
 export default function AsistenteDashboard() {
   const { seccion } = useParams()
   const navigate = useNavigate()
-  const { usuario, cerrar } = useSesion()
+  const { usuario, sesion, iniciar, cerrar } = useSesion()
   const { toast, showToast } = useToast()
 
   const seccionActual = seccionesValidas.includes(seccion as SeccionAsistente)
@@ -101,9 +103,11 @@ export default function AsistenteDashboard() {
   })
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', duracion: '45', estado: 'CONFIRMADO' as Turno['estado'], notas: '' })
+  const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
+  const [perfilForm, setPerfilForm] = useState({ nombreCompleto: '', telefono: '', urlAvatar: '' })
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -115,6 +119,15 @@ export default function AsistenteDashboard() {
       navigate('/login', { replace: true })
     }
   }, [usuario, navigate])
+
+  useEffect(() => {
+    if (!usuario) return
+    setPerfilForm({
+      nombreCompleto: usuario.nombreCompleto,
+      telefono: usuario.telefono,
+      urlAvatar: usuario.urlAvatar ?? '',
+    })
+  }, [usuario])
 
   useEffect(() => {
     if (!usuario) return
@@ -391,9 +404,27 @@ export default function AsistenteDashboard() {
     try {
       if (!usuario) return
       await cancelarTurnoAsistente(usuario.id, id)
+      setTurnoACancelar(null)
       refrescarTurnos()
       showToast('Turno cancelado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
+  const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault()
+    if (!usuario || !sesion) return
+    try {
+      const actualizado = await actualizarUsuario(usuario.id, {
+        nombreCompleto: perfilForm.nombreCompleto.trim(),
+        telefono: perfilForm.telefono.trim(),
+        urlAvatar: perfilForm.urlAvatar.trim(),
+      })
+      iniciar({ token: sesion.token, usuario: actualizado })
+      showToast('Perfil actualizado.', 'success')
+      navigate('/asistente')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
+    }
   }
 
   if (!usuario) return null
@@ -427,7 +458,13 @@ export default function AsistenteDashboard() {
           </nav>
           <div ref={menuUsuarioRef} className="relative">
             <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-[#BBD7FF] bg-[#F3F7FF] px-2 py-1.5 shadow-sm hover:bg-white">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primario text-sm font-black text-white">{inicialesAsistente || 'A'}</span>
+              <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-primario text-sm font-black text-white">
+                {usuario.urlAvatar ? (
+                  <img src={usuario.urlAvatar} alt={usuario.nombreCompleto} className="h-full w-full object-cover" />
+                ) : (
+                  inicialesAsistente || 'A'
+                )}
+              </span>
               <svg className={`h-4 w-4 text-texto-secundario transition-transform ${menuUsuarioAbierto ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clipRule="evenodd" />
               </svg>
@@ -605,7 +642,7 @@ export default function AsistenteDashboard() {
                       <div className="mt-5 flex justify-end">
                         <button
                           type="button"
-                          onClick={() => onCancelarTurnoDirecto(t.id)}
+                          onClick={() => setTurnoACancelar(t)}
                           className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-sm font-bold text-peligro hover:bg-peligro-suave"
                         >
                           Cancelar
@@ -855,6 +892,36 @@ export default function AsistenteDashboard() {
           </section>
         )}
 
+        {seccionActual === 'perfil' && (
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <h2 className="text-2xl font-black text-texto-principal">Mi perfil</h2>
+            <p className="text-sm text-texto-secundario">Actualiza tus datos personales y foto de perfil.</p>
+
+            <form onSubmit={guardarPerfil} className="mt-6 max-w-3xl space-y-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-primario text-2xl font-black text-white">
+                  {perfilForm.urlAvatar ? (
+                    <img src={perfilForm.urlAvatar} alt={perfilForm.nombreCompleto} className="h-full w-full object-cover" />
+                  ) : (
+                    inicialesAsistente || 'A'
+                  )}
+                </div>
+                <div className="flex-1">
+                  <Label>URL de foto</Label>
+                  <Input value={perfilForm.urlAvatar} onChange={(e) => setPerfilForm({ ...perfilForm, urlAvatar: e.target.value })} placeholder="https://..." />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
+                <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
+              </div>
+
+              <BotonPrimario type="submit">Guardar cambios</BotonPrimario>
+            </form>
+          </section>
+        )}
+
         {seccionActual === 'historial' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <div className="flex flex-col gap-5">
@@ -923,6 +990,33 @@ export default function AsistenteDashboard() {
         )}
 
       </main>
+
+      {turnoACancelar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
+            <p className="mt-2 text-sm text-texto-secundario">Estas seguro de que queres cancelar este turno?</p>
+            <div className="mt-4 rounded-xl border border-borde bg-fondo p-4 text-sm">
+              <p className="font-black text-texto-principal">{turnoACancelar.clienteNombre}</p>
+              <p className="mt-1 text-texto-secundario">{turnoACancelar.profesionalNombre}</p>
+              <p className="mt-1 text-texto-secundario">{fechaCortaDe(turnoACancelar)} - {horaDe(turnoACancelar)}</p>
+              <p className="mt-1 text-texto-secundario">{turnoACancelar.notas || 'Sin notas'}</p>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <BotonSecundario type="button" onClick={() => setTurnoACancelar(null)}>
+                No, volver
+              </BotonSecundario>
+              <button
+                type="button"
+                onClick={() => onCancelarTurnoDirecto(turnoACancelar.id)}
+                className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+              >
+                Si, cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div id="toast-container">
         <Toast toast={toast} />

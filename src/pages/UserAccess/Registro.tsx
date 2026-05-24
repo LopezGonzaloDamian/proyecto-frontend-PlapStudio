@@ -21,6 +21,10 @@ export default function Registro() {
         telefono: '',
         password: '',
         especialidad: '',
+        biografia: '',
+        localidad: '',
+        direccion: '',
+        precio: '',
     })
     const [enviando, setEnviando] = useState(false)
 
@@ -36,13 +40,21 @@ export default function Registro() {
     const onChange = (e: ChangeEvent<HTMLInputElement>) =>
         setForm({ ...form, [e.target.name]: e.target.value })
 
+    const precioProfesional = Number(form.precio)
     const puedeEnviar =
         form.nombre.trim().length > 0 &&
         form.apellido.trim().length > 0 &&
         form.email.trim().length > 0 &&
         form.telefono.trim().length > 0 &&
         form.password.trim().length > 0 &&
-        (!esProfesional || form.especialidad.trim().length > 0) &&
+        (!esProfesional || (
+            form.especialidad.trim().length > 0 &&
+            form.biografia.trim().length > 0 &&
+            form.localidad.trim().length > 0 &&
+            form.direccion.trim().length > 0 &&
+            Number.isFinite(precioProfesional) &&
+            precioProfesional > 0
+        )) &&
         !enviando
 
     async function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -58,6 +70,11 @@ export default function Registro() {
                 telefono: form.telefono.trim(),
                 rol: rolBack,
                 especialidad: esProfesional ? form.especialidad.trim() : undefined,
+                biografia: esProfesional ? form.biografia.trim() : undefined,
+                localidad: esProfesional ? form.localidad.trim() : undefined,
+                direccion: esProfesional ? form.direccion.trim() : undefined,
+                precio: esProfesional ? precioProfesional : undefined,
+                servicios: esProfesional ? [form.especialidad.trim()] : undefined,
             })
             iniciar(auth)
             showToast(
@@ -138,14 +155,59 @@ export default function Registro() {
                 />
 
                 {esProfesional && (
-                    <InputGenerico
-                        label="Servicio"
-                        name="especialidad"
-                        value={form.especialidad}
-                        onChange={onChange}
-                        placeholder="Ej: Peluqueria"
-                        type="text"
-                    />
+                    <>
+                        <InputGenerico
+                            label="Servicio / rubro"
+                            name="especialidad"
+                            value={form.especialidad}
+                            onChange={onChange}
+                            placeholder="Ej: Peluqueria"
+                            type="text"
+                        />
+
+                        <label className="flex flex-col gap-1.5">
+                            <span className="text-xs font-semibold text-texto-secundario">
+                                Descripcion
+                            </span>
+                            <textarea
+                                name="biografia"
+                                value={form.biografia}
+                                onChange={(e) => setForm({ ...form, biografia: e.target.value })}
+                                placeholder="Ej: Cortes, coloracion y tratamientos capilares."
+                                rows={3}
+                                className="w-full box-border px-3.5 py-3 rounded-xl border border-borde bg-white text-base text-texto-principal placeholder:text-texto-suave outline-none focus:border-primario focus:ring-2 focus:ring-primario/20 transition-colors resize-none"
+                            />
+                        </label>
+
+                        <InputGenerico
+                            label="Localidad"
+                            name="localidad"
+                            value={form.localidad}
+                            onChange={onChange}
+                            placeholder="Ej: Villa Maipu"
+                            type="text"
+                        />
+
+                        <InputGenerico
+                            label="Direccion"
+                            name="direccion"
+                            value={form.direccion}
+                            onChange={onChange}
+                            placeholder="Ej: Perdriel 2188"
+                            type="text"
+                        />
+
+                        <InputGenerico
+                            label="Valor del turno"
+                            name="precio"
+                            value={form.precio}
+                            onChange={onChange}
+                            placeholder="Ej: 70000"
+                            type="number"
+                            min="1"
+                            step="1"
+                        />
+                    </>
                 )}
 
                 <BotonPrimario
