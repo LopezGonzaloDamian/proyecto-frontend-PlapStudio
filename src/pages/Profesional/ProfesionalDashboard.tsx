@@ -13,7 +13,8 @@ import {
   getAgendasDeProfesional,
   getSlots,
 } from '../../api/agendas'
-import { getProfesional } from '../../api/profesionales'
+import { actualizarProfesional, getProfesional } from '../../api/profesionales'
+import { actualizarUsuario } from '../../api/usuarios'
 import {
   cancelarTurno,
   getTurnosProfesional,
@@ -34,8 +35,8 @@ import type {
   Turno,
 } from '../../api/types'
 
-type SeccionProfesional = 'agenda' | 'turnos' | 'clientes' | 'asistentes' | 'pagos' | 'historial' | 'notificaciones'
-const seccionesValidas: SeccionProfesional[] = ['agenda', 'turnos', 'asistentes', 'pagos', 'historial', 'notificaciones']
+type SeccionProfesional = 'agenda' | 'turnos' | 'clientes' | 'asistentes' | 'pagos' | 'historial' | 'perfil' | 'notificaciones'
+const seccionesValidas: SeccionProfesional[] = ['agenda', 'turnos', 'asistentes', 'pagos', 'historial', 'perfil', 'notificaciones']
 
 const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard' }> = [
   { label: 'Panel de Control', seccion: 'dashboard' },
@@ -44,6 +45,7 @@ const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard'
   { label: 'Asistentes', seccion: 'asistentes' },
   { label: 'Pagos', seccion: 'pagos' },
   { label: 'Historial', seccion: 'historial' },
+  { label: 'Perfil', seccion: 'perfil' },
 ]
 
 const estadoClass: Record<Turno['estado'], string> = {
@@ -97,7 +99,7 @@ function dividirTurnosCliente(turnos: Turno[]) {
 export default function ProfesionalDashboard() {
   const { seccion } = useParams()
   const navigate = useNavigate()
-  const { usuario, cerrar } = useSesion()
+  const { usuario, sesion, iniciar, cerrar } = useSesion()
   const { toast, showToast } = useToast()
 
   const seccionActual = seccionesValidas.includes(seccion as SeccionProfesional)
@@ -127,6 +129,7 @@ export default function ProfesionalDashboard() {
   })
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', notas: '' })
+  const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
 
   const [nuevaAgenda, setNuevaAgenda] = useState({ nombre: 'Agenda principal', descripcion: 'Atencion presencial' })
   const [disponibilidad, setDisponibilidad] = useState({
@@ -135,6 +138,17 @@ export default function ProfesionalDashboard() {
   const [asistenteEmail, setAsistenteEmail] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
+  const [perfilForm, setPerfilForm] = useState({
+    nombreCompleto: '',
+    telefono: '',
+    urlAvatar: '',
+    especialidad: '',
+    biografia: '',
+    localidad: '',
+    direccion: '',
+    precio: '',
+    servicios: '',
+  })
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -159,6 +173,21 @@ export default function ProfesionalDashboard() {
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalId, usuario?.id])
+
+  useEffect(() => {
+    if (!usuario || !perfil) return
+    setPerfilForm({
+      nombreCompleto: usuario.nombreCompleto,
+      telefono: usuario.telefono,
+      urlAvatar: perfil.urlAvatar,
+      especialidad: perfil.especialidad,
+      biografia: perfil.biografia,
+      localidad: perfil.localidad,
+      direccion: perfil.direccion,
+      precio: String(perfil.precio || ''),
+      servicios: perfil.servicios.join(', '),
+    })
+  }, [usuario, perfil])
 
   const refrescarDatosOperativos = () => {
     if (!profesionalId) return
@@ -448,7 +477,9 @@ export default function ProfesionalDashboard() {
     try {
       const t = await cancelarTurno(id)
       setTurnos((act) => act.map((x) => (x.id === id ? t : x)))
+      setTurnoACancelar(null)
       refrescarDatosOperativos()
+      showToast('Turno cancelado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
@@ -500,6 +531,39 @@ export default function ProfesionalDashboard() {
     } catch (err) {
       showToast(extraerError(err), 'error')
       refrescarAsistentes()
+    }
+  }
+
+  const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault()
+    if (!usuario || !sesion || !perfil || !profesionalId) return
+    try {
+      const usuarioActualizado = await actualizarUsuario(usuario.id, {
+        nombreCompleto: perfilForm.nombreCompleto.trim(),
+        telefono: perfilForm.telefono.trim(),
+        urlAvatar: usuario.urlAvatar ?? '',
+      })
+      const profesionalActualizado = await actualizarProfesional(profesionalId, {
+        especialidad: perfilForm.especialidad.trim(),
+        biografia: perfilForm.biografia.trim(),
+        urlAvatar: perfilForm.urlAvatar.trim(),
+        localidad: perfilForm.localidad.trim(),
+        direccion: perfilForm.direccion.trim(),
+        precio: Number(perfilForm.precio) || 0,
+        cobertura: perfil.cobertura,
+        matriculaNacional: perfil.matriculaNacional,
+        matriculaProvincial: perfil.matriculaProvincial,
+        servicios: perfilForm.servicios
+          .split(',')
+          .map((servicio) => servicio.trim())
+          .filter(Boolean),
+      })
+      iniciar({ token: sesion.token, usuario: usuarioActualizado })
+      setPerfil(profesionalActualizado)
+      showToast('Perfil actualizado.', 'success')
+      navigate('/profesional')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
     }
   }
 
@@ -893,7 +957,7 @@ export default function ProfesionalDashboard() {
                       <div className="mt-5 flex justify-end">
                         <button
                           type="button"
-                          onClick={() => onCancelarTurno(t.id)}
+                          onClick={() => setTurnoACancelar(t)}
                           className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-sm font-bold text-peligro hover:bg-peligro-suave"
                         >
                           Cancelar
@@ -1116,6 +1180,51 @@ export default function ProfesionalDashboard() {
           </section>
         )}
 
+        {seccionActual === 'perfil' && perfil && (
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <h2 className="text-2xl font-black text-texto-principal">Mi perfil</h2>
+            <p className="text-sm text-texto-secundario">Actualiza tus datos personales y profesionales.</p>
+
+            <form onSubmit={guardarPerfil} className="mt-6 space-y-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-primario text-3xl font-black text-white">
+                  {perfilForm.urlAvatar ? (
+                    <img src={perfilForm.urlAvatar} alt={perfilForm.nombreCompleto} className="h-full w-full object-cover" />
+                  ) : (
+                    inicialesProf || 'P'
+                  )}
+                </div>
+                <div className="flex-1">
+                  <Label>URL de foto profesional</Label>
+                  <Input value={perfilForm.urlAvatar} onChange={(e) => setPerfilForm({ ...perfilForm, urlAvatar: e.target.value })} placeholder="https://..." />
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
+                <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
+                <div><Label>Rubro</Label><Input value={perfilForm.especialidad} onChange={(e) => setPerfilForm({ ...perfilForm, especialidad: e.target.value })} /></div>
+                <div><Label>Valor del turno</Label><Input type="number" min="0" step="1" value={perfilForm.precio} onChange={(e) => setPerfilForm({ ...perfilForm, precio: e.target.value })} /></div>
+                <div><Label>Localidad</Label><Input value={perfilForm.localidad} onChange={(e) => setPerfilForm({ ...perfilForm, localidad: e.target.value })} placeholder="Ej: Villa Maipu" /></div>
+                <div><Label>Direccion</Label><Input value={perfilForm.direccion} onChange={(e) => setPerfilForm({ ...perfilForm, direccion: e.target.value })} /></div>
+              </div>
+
+              <div>
+                <Label>Descripcion</Label>
+                <Textarea rows={4} value={perfilForm.biografia} onChange={(e) => setPerfilForm({ ...perfilForm, biografia: e.target.value })} />
+              </div>
+
+              <div>
+                <Label>Servicios</Label>
+                <Input value={perfilForm.servicios} onChange={(e) => setPerfilForm({ ...perfilForm, servicios: e.target.value })} placeholder="Consulta inicial, Control, Seguimiento" />
+                <p className="mt-1 text-xs text-texto-secundario">Separalos con comas.</p>
+              </div>
+
+              <BotonPrimario type="submit">Guardar cambios</BotonPrimario>
+            </form>
+          </section>
+        )}
+
         {seccionActual === 'pagos' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Pagos</h2>
@@ -1182,6 +1291,32 @@ export default function ProfesionalDashboard() {
           </section>
         )}
       </main>
+
+      {turnoACancelar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
+            <p className="mt-2 text-sm text-texto-secundario">Estas seguro de que queres cancelar este turno?</p>
+            <div className="mt-4 rounded-xl border border-borde bg-fondo p-4 text-sm">
+              <p className="font-black text-texto-principal">{turnoACancelar.clienteNombre}</p>
+              <p className="mt-1 text-texto-secundario">{fechaCortaDe(turnoACancelar)} - {horaDe(turnoACancelar)}</p>
+              <p className="mt-1 text-texto-secundario">{turnoACancelar.notas || 'Sin notas'}</p>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <BotonSecundario type="button" onClick={() => setTurnoACancelar(null)}>
+                No, volver
+              </BotonSecundario>
+              <button
+                type="button"
+                onClick={() => onCancelarTurno(turnoACancelar.id)}
+                className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+              >
+                Si, cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div id="toast-container">
         <Toast toast={toast} />

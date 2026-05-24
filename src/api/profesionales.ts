@@ -4,7 +4,7 @@ import type { Profesional, ProfesionalSummary, ProfesionalUpdate } from './types
 export async function buscarProfesionales(filtros: {
   query?: string
   especialidad?: string
-  ubicacion?: string
+  localidad?: string
 } = {}): Promise<ProfesionalSummary[]> {
   const { data } = await api.get<ProfesionalSummary[]>('/profesionales', { params: filtros })
   return data
