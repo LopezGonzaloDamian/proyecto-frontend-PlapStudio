@@ -188,6 +188,9 @@ export default function ProfesionalDashboard() {
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', notas: '' })
   const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
+  const [pidiendoPasswordCancelacion, setPidiendoPasswordCancelacion] = useState(false)
+  const [passwordCancelacionTurno, setPasswordCancelacionTurno] = useState('')
+  const [cancelandoTurno, setCancelandoTurno] = useState(false)
   const [eliminacionDisponibilidad, setEliminacionDisponibilidad] = useState<EliminacionDisponibilidadPendiente | null>(null)
   const [asistenteAConfirmar, setAsistenteAConfirmar] = useState<string | null>(null)
   const [pidiendoPasswordAsistente, setPidiendoPasswordAsistente] = useState(false)
@@ -615,9 +618,36 @@ export default function ProfesionalDashboard() {
       const t = await cancelarTurno(id)
       setTurnos((act) => act.map((x) => (x.id === id ? t : x)))
       setTurnoACancelar(null)
+      setPidiendoPasswordCancelacion(false)
+      setPasswordCancelacionTurno('')
       refrescarDatosOperativos()
       showToast('Turno cancelado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
+  const cerrarCancelacionTurno = () => {
+    if (cancelandoTurno) return
+    setTurnoACancelar(null)
+    setPidiendoPasswordCancelacion(false)
+    setPasswordCancelacionTurno('')
+  }
+
+  const confirmarCancelacionTurno = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!usuario || !turnoACancelar) return
+    if (!passwordCancelacionTurno.trim()) {
+      showToast('Ingresa tu contraseña', 'error')
+      return
+    }
+    try {
+      setCancelandoTurno(true)
+      await validarLogin({ email: usuario.email, password: passwordCancelacionTurno.trim() })
+      await onCancelarTurno(turnoACancelar.id)
+    } catch (err) {
+      showToast(mensajePasswordIncorrecta(err), 'error')
+    } finally {
+      setCancelandoTurno(false)
+    }
   }
 
   const onModificarTurno = async (e: FormEvent<HTMLFormElement>) => {
@@ -1682,23 +1712,58 @@ export default function ProfesionalDashboard() {
       {turnoACancelar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
-            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
-              <p>¿Querés cancelar este turno?</p>
-              <p>El turno quedará marcado como cancelado.</p>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <BotonSecundario type="button" onClick={() => setTurnoACancelar(null)}>
-                No
-              </BotonSecundario>
-              <button
-                type="button"
-                onClick={() => onCancelarTurno(turnoACancelar.id)}
-                className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
-              >
-                Si
-              </button>
-            </div>
+            {!pidiendoPasswordCancelacion ? (
+              <>
+                <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
+                <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+                  <p>¿Querés cancelar este turno?</p>
+                  <p>El turno quedará marcado como cancelado.</p>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarCancelacionTurno}>
+                    No
+                  </BotonSecundario>
+                  <button
+                    type="button"
+                    onClick={() => setPidiendoPasswordCancelacion(true)}
+                    className="h-12 w-20 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+                  >
+                    Si
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={confirmarCancelacionTurno}>
+                <h2 className="text-xl font-black text-texto-principal">Confirmar contraseña</h2>
+                <p className="mt-3 text-sm text-texto-secundario">
+                  Para cancelar este turno, ingresa tu contraseña.
+                </p>
+                <div className="mt-5">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordCancelacionTurno}
+                    onChange={(e) => setPasswordCancelacionTurno(e.target.value)}
+                    placeholder="Tu contraseña"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarCancelacionTurno}>
+                    Cancelar
+                  </BotonSecundario>
+                  <span className={`${!passwordCancelacionTurno.trim() || cancelandoTurno ? 'cursor-not-allowed' : ''}`}>
+                    <BotonPrimario
+                      type="submit"
+                      className={`h-12 w-28 ${!passwordCancelacionTurno.trim() || cancelandoTurno ? 'pointer-events-none' : ''}`}
+                      disabled={!passwordCancelacionTurno.trim() || cancelandoTurno}
+                    >
+                      Aceptar
+                    </BotonPrimario>
+                  </span>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

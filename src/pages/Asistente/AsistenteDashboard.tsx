@@ -16,6 +16,7 @@ import {
 } from '../../api/asistentes'
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import { actualizarUsuario } from '../../api/usuarios'
+import { login as validarLogin } from '../../api/auth'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -34,6 +35,9 @@ const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }
   { label: 'Historial', seccion: 'historial' },
   { label: 'Perfil', seccion: 'perfil' },
 ]
+const navMobilePrincipal = new Set<SeccionAsistente | 'dashboard'>(['dashboard', 'agenda', 'turnos'])
+const pathDeSeccion = (item: { seccion: SeccionAsistente | 'dashboard' }) =>
+  item.seccion === 'dashboard' ? '/asistente' : `/asistente/${item.seccion}`
 
 const estadoClass: Record<Turno['estado'], string> = {
   CONFIRMADO: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -50,6 +54,8 @@ const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
 const turnoAccionable = (turno: Turno) =>
   turno.estado !== 'CANCELADO' && new Date(turno.iniciaEn).getTime() > Date.now()
+const mensajePasswordIncorrecta = (err: unknown) =>
+  extraerError(err).toLowerCase().includes('credenciales') ? 'Contraseña incorrecta' : extraerError(err)
 const ordenarTurnosAsc = (a: Turno, b: Turno) =>
   new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()
 function dividirTurnosCliente(turnos: Turno[]) {
@@ -104,6 +110,9 @@ export default function AsistenteDashboard() {
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', duracion: '45', estado: 'CONFIRMADO' as Turno['estado'], notas: '' })
   const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
+  const [pidiendoPasswordCancelacion, setPidiendoPasswordCancelacion] = useState(false)
+  const [passwordCancelacionTurno, setPasswordCancelacionTurno] = useState('')
+  const [cancelandoTurno, setCancelandoTurno] = useState(false)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
@@ -414,9 +423,36 @@ export default function AsistenteDashboard() {
       if (!usuario) return
       await cancelarTurnoAsistente(usuario.id, id)
       setTurnoACancelar(null)
+      setPidiendoPasswordCancelacion(false)
+      setPasswordCancelacionTurno('')
       refrescarTurnos()
       showToast('Turno cancelado', 'success')
     } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
+  const cerrarCancelacionTurno = () => {
+    if (cancelandoTurno) return
+    setTurnoACancelar(null)
+    setPidiendoPasswordCancelacion(false)
+    setPasswordCancelacionTurno('')
+  }
+
+  const confirmarCancelacionTurno = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!usuario || !turnoACancelar) return
+    if (!passwordCancelacionTurno.trim()) {
+      showToast('Ingresa tu contraseña', 'error')
+      return
+    }
+    try {
+      setCancelandoTurno(true)
+      await validarLogin({ email: usuario.email, password: passwordCancelacionTurno.trim() })
+      await onCancelarTurnoDirecto(turnoACancelar.id)
+    } catch (err) {
+      showToast(mensajePasswordIncorrecta(err), 'error')
+    } finally {
+      setCancelandoTurno(false)
+    }
   }
 
   const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
@@ -453,18 +489,21 @@ export default function AsistenteDashboard() {
             </span>
           </Link>
           <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.seccion}
-                to={item.seccion === 'dashboard' ? '/asistente' : `/asistente/${item.seccion}`}
-                end={item.seccion === 'dashboard'}
-                className={({ isActive }) =>
-                  `shrink-0 rounded-lg px-3 py-2 ${isActive ? 'bg-primario text-white' : 'hover:bg-white hover:text-primario'}`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+            {navItems.map((item) => {
+              const visibleEnMobile = navMobilePrincipal.has(item.seccion)
+              return (
+                <NavLink
+                  key={item.seccion}
+                  to={pathDeSeccion(item)}
+                  end={item.seccion === 'dashboard'}
+                  className={({ isActive }) =>
+                    `${visibleEnMobile ? 'flex' : 'hidden lg:flex'} shrink-0 rounded-lg px-3 py-2 ${isActive ? 'bg-primario text-white' : 'hover:bg-white hover:text-primario'}`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              )
+            })}
           </nav>
           <div ref={menuUsuarioRef} className="relative">
             <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-[#BBD7FF] bg-[#F3F7FF] px-2 py-1.5 shadow-sm hover:bg-white">
@@ -481,6 +520,20 @@ export default function AsistenteDashboard() {
             </button>
             {menuUsuarioAbierto && (
               <div className="absolute right-0 top-[calc(100%+0.6rem)] min-w-[220px] rounded-2xl border border-borde bg-white p-2 shadow-lg">
+                <div className="mb-2 border-b border-borde pb-2 lg:hidden">
+                  {navItems.filter((item) => !navMobilePrincipal.has(item.seccion)).map((item) => (
+                    <NavLink
+                      key={item.seccion}
+                      to={pathDeSeccion(item)}
+                      onClick={() => setMenuUsuarioAbierto(false)}
+                      className={({ isActive }) =>
+                        `flex w-full items-center rounded-xl px-3 py-2 text-sm font-semibold ${isActive ? 'bg-primario-claro text-primario' : 'text-texto-principal hover:bg-fondo'}`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
                 <button onClick={cerrarSesion} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-peligro hover:bg-peligro-suave">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
@@ -965,7 +1018,50 @@ export default function AsistenteDashboard() {
               </div>
             </div>
 
-            <div className="mt-6 overflow-x-auto">
+            <div className="mt-6 grid gap-3 md:hidden">
+              {historialFiltrado.map((t) => (
+                <article key={t.id} className="rounded-lg border border-borde bg-fondo p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-black text-texto-principal">{t.clienteNombre}</h3>
+                      <p className="mt-1 text-sm font-semibold text-texto-secundario">{t.profesionalNombre}</p>
+                    </div>
+                    <span className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>
+                      {estadoLabel[t.estado]}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha</span>
+                      <p className="mt-0.5 text-sm font-black text-texto-principal">{fechaIsoDe(t)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Horario</span>
+                      <p className="mt-0.5 text-sm font-black text-texto-principal">{horaDe(t)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Duracion</span>
+                      <p className="mt-0.5 text-sm font-black text-texto-principal">{t.duracionMinutos} min</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
+                      <p className="mt-0.5 text-sm font-black text-texto-principal">{t.notas || 'Sin detalle'}</p>
+                    </div>
+                    <div className="col-span-2 min-w-0">
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Mail cliente</span>
+                      <p className="mt-0.5 break-all text-sm font-semibold text-texto-principal">{t.clienteEmail || 'Sin mail'}</p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {historialFiltrado.length === 0 && (
+                <p className="rounded-lg border border-dashed border-borde bg-fondo px-3 py-6 text-center text-sm text-texto-secundario">
+                  Sin turnos.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6 hidden overflow-x-auto md:block">
               <table className="w-full min-w-[1080px] border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
                   <tr className="text-xs uppercase text-texto-secundario">
@@ -1006,23 +1102,58 @@ export default function AsistenteDashboard() {
       {turnoACancelar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
-            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
-              <p>¿Seguro Queres cancelar este turno?</p>
-              <p>El turno quedara marcado como cancelado.</p>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <BotonSecundario type="button" onClick={() => setTurnoACancelar(null)}>
-                No
-              </BotonSecundario>
-              <button
-                type="button"
-                onClick={() => onCancelarTurnoDirecto(turnoACancelar.id)}
-                className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
-              >
-                Cancela turno
-              </button>
-            </div>
+            {!pidiendoPasswordCancelacion ? (
+              <>
+                <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
+                <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+                  <p>¿Querés cancelar este turno?</p>
+                  <p>El turno quedará marcado como cancelado.</p>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarCancelacionTurno}>
+                    No
+                  </BotonSecundario>
+                  <button
+                    type="button"
+                    onClick={() => setPidiendoPasswordCancelacion(true)}
+                    className="h-12 w-20 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+                  >
+                    Si
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={confirmarCancelacionTurno}>
+                <h2 className="text-xl font-black text-texto-principal">Confirmar contraseña</h2>
+                <p className="mt-3 text-sm text-texto-secundario">
+                  Para cancelar este turno, ingresa tu contraseña.
+                </p>
+                <div className="mt-5">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordCancelacionTurno}
+                    onChange={(e) => setPasswordCancelacionTurno(e.target.value)}
+                    placeholder="Tu contraseña"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarCancelacionTurno}>
+                    Cancelar
+                  </BotonSecundario>
+                  <span className={`${!passwordCancelacionTurno.trim() || cancelandoTurno ? 'cursor-not-allowed' : ''}`}>
+                    <BotonPrimario
+                      type="submit"
+                      className={`h-12 w-28 ${!passwordCancelacionTurno.trim() || cancelandoTurno ? 'pointer-events-none' : ''}`}
+                      disabled={!passwordCancelacionTurno.trim() || cancelandoTurno}
+                    >
+                      Aceptar
+                    </BotonPrimario>
+                  </span>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
