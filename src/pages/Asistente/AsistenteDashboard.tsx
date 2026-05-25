@@ -129,6 +129,15 @@ export default function AsistenteDashboard() {
     })
   }, [usuario])
 
+  const perfilTieneCambios = useMemo(() => {
+    if (!usuario) return false
+    return (
+      perfilForm.nombreCompleto.trim() !== usuario.nombreCompleto ||
+      perfilForm.telefono.trim() !== usuario.telefono ||
+      perfilForm.urlAvatar.trim() !== (usuario.urlAvatar ?? '')
+    )
+  }, [perfilForm, usuario])
+
   useEffect(() => {
     if (!usuario) return
     void getProfesionalesDeAsistente(usuario.id).then(setProfesionales).catch((e) => showToast(extraerError(e), 'error'))
@@ -413,6 +422,7 @@ export default function AsistenteDashboard() {
   const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault()
     if (!usuario || !sesion) return
+    if (!perfilTieneCambios) return
     try {
       const actualizado = await actualizarUsuario(usuario.id, {
         nombreCompleto: perfilForm.nombreCompleto.trim(),
@@ -917,7 +927,9 @@ export default function AsistenteDashboard() {
                 <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
               </div>
 
-              <BotonPrimario type="submit">Guardar cambios</BotonPrimario>
+              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`}>
+                <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
+              </span>
             </form>
           </section>
         )}
