@@ -488,7 +488,7 @@ export default function AsistenteDashboard() {
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Asistente</span>
             </span>
           </Link>
-          <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
+          <nav className="order-3 -mx-1 flex w-full justify-center gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
             {navItems.map((item) => {
               const visibleEnMobile = navMobilePrincipal.has(item.seccion)
               return (

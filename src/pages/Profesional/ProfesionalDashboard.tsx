@@ -806,7 +806,7 @@ export default function ProfesionalDashboard() {
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/80">Profesional</span>
             </span>
           </Link>
-          <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-white/80 lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
+          <nav className="order-3 -mx-1 flex w-full justify-center gap-2 overflow-x-auto pb-1 text-sm font-semibold text-white/80 lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
             {navItems.map((item) => {
               const visibleEnMobile = navMobilePrincipal.has(item.seccion)
               return (

@@ -613,7 +613,7 @@ export default function ClienteDashboard() {
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Cliente</span>
             </span>
           </Link>
-          <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario md:order-none md:mx-0 md:w-auto md:items-center md:overflow-visible md:pb-0">
+          <nav className="order-3 -mx-1 flex w-full justify-center gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario md:order-none md:mx-0 md:w-auto md:items-center md:overflow-visible md:pb-0">
             {navItems.map((item) => (
               <NavLink
                 key={item.seccion}
