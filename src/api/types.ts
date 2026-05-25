@@ -39,6 +39,7 @@ export type Profesional = {
   localidad: string
   direccion: string
   precio: number
+  comisionPendientePorcentaje: number
   cobertura: string
   matriculaNacional: string
   matriculaProvincial: string
@@ -120,6 +121,8 @@ export type Pago = {
   turnoId: string
   monto: number
   moneda: string
+  porcentajeComision: number
+  montoComision: number
   estado: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'REEMBOLSADO'
   origen: 'ONLINE' | 'EXTERNO'
   referenciaProveedorMock: string | null

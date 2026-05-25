@@ -203,6 +203,7 @@ export default function ProfesionalDashboard() {
 
   const refrescarDatosOperativos = () => {
     if (!profesionalId) return
+    void getProfesional(profesionalId).then(setPerfil).catch(() => undefined)
     void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
     void getClientesDeProfesional(profesionalId).then(setClientes).catch(() => undefined)
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
@@ -318,8 +319,9 @@ export default function ProfesionalDashboard() {
         fecha: fechaIsoDe(t),
         monto: t.pago!.monto,
         origen: t.pago!.origen,
-        comisionAgendify: t.pago!.origen === 'ONLINE' ? Math.round(t.pago!.monto * 0.05) : 0,
-        netoProfesional: t.pago!.origen === 'ONLINE' ? t.pago!.monto - Math.round(t.pago!.monto * 0.05) : t.pago!.monto,
+        porcentajeComision: t.pago!.porcentajeComision,
+        comisionAgendify: t.pago!.montoComision,
+        netoProfesional: t.pago!.monto - t.pago!.montoComision,
         estado: t.pago!.estado,
         notas: t.notas,
       })),
@@ -1234,7 +1236,24 @@ export default function ProfesionalDashboard() {
         {seccionActual === 'pagos' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Pagos</h2>
-            <p className="mt-1 text-sm text-texto-secundario">Agendify retiene una comision del 5% solo sobre pagos online. Los cobros externos quedan sin descuento.</p>
+            <p className="mt-1 text-sm text-texto-secundario">Agendify retiene 5% sobre pagos online y suma las comisiones pendientes de turnos asignados manualmente.</p>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <article className="rounded-lg border border-borde bg-fondo p-4">
+                <p className="text-xs font-bold uppercase text-texto-secundario">Comision pendiente</p>
+                <p className="mt-2 text-3xl font-black text-texto-principal">{perfil?.comisionPendientePorcentaje ?? 0}%</p>
+                <p className="mt-1 text-sm text-texto-secundario">Se suma al proximo pago online.</p>
+              </article>
+              <article className="rounded-lg border border-borde bg-fondo p-4">
+                <p className="text-xs font-bold uppercase text-texto-secundario">Comision base</p>
+                <p className="mt-2 text-3xl font-black text-texto-principal">5%</p>
+                <p className="mt-1 text-sm text-texto-secundario">Se aplica a cada pago online.</p>
+              </article>
+              <article className="rounded-lg border border-borde bg-fondo p-4">
+                <p className="text-xs font-bold uppercase text-texto-secundario">Proximo cobro online</p>
+                <p className="mt-2 text-3xl font-black text-texto-principal">{5 + (perfil?.comisionPendientePorcentaje ?? 0)}%</p>
+                <p className="mt-1 text-sm text-texto-secundario">Base mas acumulado pendiente.</p>
+              </article>
+            </div>
             <div className="mt-5 overflow-x-auto">
               <table className="w-full min-w-[880px] border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
@@ -1256,7 +1275,12 @@ export default function ProfesionalDashboard() {
                       <td className="px-3 py-3 text-texto-secundario">{p.fecha}</td>
                       <td className="px-3 py-3 text-texto-secundario">{p.origen === 'ONLINE' ? 'Pago online' : 'Cobro externo'}</td>
                       <td className="px-3 py-3 font-bold text-primario">{formatPrecio(p.monto)}</td>
-                      <td className="px-3 py-3 font-semibold text-texto-secundario">{formatPrecio(p.comisionAgendify)}</td>
+                      <td className="px-3 py-3 font-semibold text-texto-secundario">
+                        <span>{formatPrecio(p.comisionAgendify)}</span>
+                        {p.porcentajeComision > 0 && (
+                          <span className="block text-xs font-bold text-texto-secundario">{p.porcentajeComision}%</span>
+                        )}
+                      </td>
                       <td className="rounded-r-lg px-3 py-3 font-black text-texto-principal">{formatPrecio(p.netoProfesional)}</td>
                     </tr>
                   ))}
