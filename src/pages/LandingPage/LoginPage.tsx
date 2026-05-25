@@ -95,12 +95,14 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
         </div>
       </form>
 
-      <button
-        type="button"
-        className="mx-auto mt-7 block text-base font-semibold text-[#111827] hover:text-primario"
+      <a
+        href="https://youtu.be/KoM1j1R6EAo?si=S2A3VQy-RjxBI-cO"
+        target="_blank"
+        rel="noreferrer"
+        className="mx-auto mt-7 block text-center text-base font-semibold text-[#111827] hover:text-primario"
       >
         ¿Olvidaste tu contraseña?
-      </button>
+      </a>
 
       <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.12em] text-texto-suave">
         <span className="h-px flex-1 bg-borde" />

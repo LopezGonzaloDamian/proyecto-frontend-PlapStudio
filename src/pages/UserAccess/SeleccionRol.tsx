@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CardAcceso, HeaderAcceso } from '../../components/AccesoUsuario/CardAcceso'
-import { BotonPrimario, BotonSecundario, Input, Label } from '../../components/common/ui'
+import { BotonPrimario, BotonSecundario, Input, Label, Textarea } from '../../components/common/ui'
 import { Toast } from '../../components/common/toast'
 import { seleccionarRol } from '../../api/auth'
 import { extraerError } from '../../api/client'
@@ -23,14 +23,28 @@ function destinoPorUsuarioRoles(roles: Rol[]) {
 
 export default function SeleccionRol() {
   const [rol, setRol] = useState<Extract<Rol, 'CLIENTE' | 'PROFESIONAL' | 'ASISTENTE'>>('CLIENTE')
-  const [especialidad, setEspecialidad] = useState('')
+  const [perfilProfesional, setPerfilProfesional] = useState({
+    especialidad: '',
+    biografia: '',
+    localidad: '',
+    direccion: '',
+    precio: '',
+  })
   const [enviando, setEnviando] = useState(false)
   const { iniciar } = useSesion()
   const { toast, showToast } = useToast()
   const navigate = useNavigate()
 
   const requiereEspecialidad = rol === 'PROFESIONAL'
-  const puedeEnviar = !enviando && (!requiereEspecialidad || especialidad.trim().length > 0)
+  const precioProfesional = Number(perfilProfesional.precio)
+  const profesionalCompleto =
+    perfilProfesional.especialidad.trim().length > 0 &&
+    perfilProfesional.biografia.trim().length > 0 &&
+    perfilProfesional.localidad.trim().length > 0 &&
+    perfilProfesional.direccion.trim().length > 0 &&
+    Number.isFinite(precioProfesional) &&
+    precioProfesional > 0
+  const puedeEnviar = !enviando && (!requiereEspecialidad || profesionalCompleto)
 
   async function confirmar() {
     if (!puedeEnviar) return
@@ -38,7 +52,12 @@ export default function SeleccionRol() {
     try {
       const auth = await seleccionarRol({
         rol,
-        especialidad: requiereEspecialidad ? especialidad.trim() : undefined,
+        especialidad: requiereEspecialidad ? perfilProfesional.especialidad.trim() : undefined,
+        biografia: requiereEspecialidad ? perfilProfesional.biografia.trim() : undefined,
+        localidad: requiereEspecialidad ? perfilProfesional.localidad.trim() : undefined,
+        direccion: requiereEspecialidad ? perfilProfesional.direccion.trim() : undefined,
+        precio: requiereEspecialidad ? precioProfesional : undefined,
+        servicios: requiereEspecialidad ? [perfilProfesional.especialidad.trim()] : undefined,
       })
       iniciar(auth)
       showToast('Rol configurado correctamente.', 'success')
@@ -78,13 +97,53 @@ export default function SeleccionRol() {
       </div>
 
       {requiereEspecialidad && (
-        <div className="mt-4">
-          <Label>Especialidad</Label>
-          <Input
-            value={especialidad}
-            onChange={(event) => setEspecialidad(event.target.value)}
-            placeholder="Ej: Kinesiologia"
-          />
+        <div className="mt-4 grid gap-4">
+          <div>
+            <Label>Rubro</Label>
+            <Input
+              value={perfilProfesional.especialidad}
+              onChange={(event) => setPerfilProfesional({ ...perfilProfesional, especialidad: event.target.value })}
+              placeholder="Ej: Kinesiologia"
+            />
+          </div>
+          <div>
+            <Label>Descripcion</Label>
+            <Textarea
+              rows={3}
+              value={perfilProfesional.biografia}
+              onChange={(event) => setPerfilProfesional({ ...perfilProfesional, biografia: event.target.value })}
+              placeholder="Ej: Rehabilitacion fisica y sesiones de movilidad."
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label>Localidad</Label>
+              <Input
+                value={perfilProfesional.localidad}
+                onChange={(event) => setPerfilProfesional({ ...perfilProfesional, localidad: event.target.value })}
+                placeholder="Ej: San Martin"
+              />
+            </div>
+            <div>
+              <Label>Direccion</Label>
+              <Input
+                value={perfilProfesional.direccion}
+                onChange={(event) => setPerfilProfesional({ ...perfilProfesional, direccion: event.target.value })}
+                placeholder="Ej: Perdriel 2188"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Valor del turno</Label>
+            <Input
+              type="number"
+              min="1"
+              step="1"
+              value={perfilProfesional.precio}
+              onChange={(event) => setPerfilProfesional({ ...perfilProfesional, precio: event.target.value })}
+              placeholder="Ej: 70000"
+            />
+          </div>
         </div>
       )}
 
@@ -92,7 +151,7 @@ export default function SeleccionRol() {
         <BotonPrimario type="button" className="w-full" disabled={!puedeEnviar} onClick={confirmar}>
           {enviando ? 'Guardando...' : 'Continuar'}
         </BotonPrimario>
-        <BotonSecundario type="button" className="w-full" onClick={() => navigate('/landing')}>
+        <BotonSecundario type="button" className="w-full" onClick={() => navigate('/login')}>
           Volver
         </BotonSecundario>
       </div>
