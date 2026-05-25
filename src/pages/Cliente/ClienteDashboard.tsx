@@ -38,6 +38,7 @@ const navItems: ItemNavCliente[] = [
   { label: 'Historial', seccion: 'historial' },
   { label: 'Perfil', seccion: 'perfil' },
 ]
+const navMobileOculto = new Set<SeccionCliente | 'dashboard'>(['perfil'])
 
 const formatPrecio = (precio: number) =>
   `$ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(precio)}`
@@ -254,7 +255,7 @@ async function descargarComprobanteReserva(params: {
 function AvatarProfesional({ nombre, urlAvatar }: { nombre: string; urlAvatar?: string }) {
   const iniciales = nombre.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
   return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-primario text-2xl font-black text-white shadow-sm">
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-primario text-xl font-black text-white shadow-sm sm:h-20 sm:w-20 sm:rounded-[18px] sm:text-2xl">
       {urlAvatar ? (
         <img src={urlAvatar} alt={nombre} className="block h-full w-full object-cover object-center" />
       ) : (
@@ -602,8 +603,8 @@ export default function ClienteDashboard() {
   return (
     <div className="min-h-screen bg-fondo text-texto-principal">
       <header className="sticky top-0 z-40 border-b border-primario-suave bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-6 py-3 xl:px-10">
-          <Link to={basePath} className="flex items-center gap-2">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 xl:px-10">
+          <Link to={basePath} className="flex min-w-0 items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primario text-white">
               <IconCalendar className="h-5 w-5" />
             </span>
@@ -612,14 +613,14 @@ export default function ClienteDashboard() {
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Cliente</span>
             </span>
           </Link>
-          <nav className="hidden items-center gap-2 text-sm font-semibold text-texto-secundario md:flex">
+          <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario md:order-none md:mx-0 md:w-auto md:items-center md:overflow-visible md:pb-0">
             {navItems.map((item) => (
               <NavLink
                 key={item.seccion}
                 to={pathDeSeccion(item)}
                 end={item.seccion === 'dashboard'}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 transition-colors ${
+                  `${navMobileOculto.has(item.seccion) ? 'hidden md:flex' : 'flex'} shrink-0 rounded-lg px-3 py-2 transition-colors ${
                     isActive ? 'bg-primario-claro text-primario' : 'hover:bg-primario-claro hover:text-primario'
                   }`
                 }
@@ -664,6 +665,22 @@ export default function ClienteDashboard() {
               </button>
               {menuUsuarioAbierto && (
                 <div className="absolute right-0 mt-2 w-48 rounded-xl border border-borde bg-white p-1 shadow-lg">
+                  <div className="mb-1 border-b border-borde pb-1 md:hidden">
+                    {navItems.filter((item) => navMobileOculto.has(item.seccion)).map((item) => (
+                      <NavLink
+                        key={item.seccion}
+                        to={pathDeSeccion(item)}
+                        onClick={() => setMenuUsuarioAbierto(false)}
+                        className={({ isActive }) =>
+                          `flex w-full items-center rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
+                            isActive ? 'bg-primario-claro text-primario' : 'text-texto-principal hover:bg-fondo'
+                          }`
+                        }
+                      >
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
                   <button
                     onClick={cerrarSesion}
                     className="flex w-full items-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-peligro transition-colors hover:bg-peligro-suave"
@@ -680,7 +697,7 @@ export default function ClienteDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-6 py-8 xl:px-10">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
         {seccionActual === 'dashboard' && (
           <>
             <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
@@ -761,14 +778,14 @@ export default function ClienteDashboard() {
                         <button
                           key={fecha}
                           onClick={() => setFechaCalendario(fecha)}
-                          className={`min-h-[118px] rounded-2xl border p-3 text-left transition-colors ${
+                          className={`min-h-[72px] rounded-xl border p-2 text-left transition-colors sm:min-h-[96px] sm:rounded-2xl sm:p-3 xl:min-h-[118px] ${
                             seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-white hover:border-primario-suave'
                           } ${!esMesActual ? 'opacity-45' : ''}`}
                         >
-                          <span className="text-sm font-bold text-texto-principal">{dia.getDate()}</span>
-                          <div className="mt-3 space-y-2">
+                          <span className="text-xs font-bold text-texto-principal sm:text-sm">{dia.getDate()}</span>
+                          <div className="mt-2 space-y-1 sm:mt-3 sm:space-y-2">
                             {turnosDelDia.slice(0, 2).map((t) => (
-                              <div key={t.id} className="rounded-lg bg-white/90 px-2 py-1 text-xs font-semibold text-texto-principal">
+                              <div key={t.id} className="truncate rounded-lg bg-white/90 px-1.5 py-1 text-[10px] font-semibold text-texto-principal sm:px-2 sm:text-xs">
                                 {horaDe(t)} {t.profesionalNombre.split(' ')[0]}
                               </div>
                             ))}
@@ -1063,26 +1080,34 @@ export default function ClienteDashboard() {
               </div>
               <div className="mt-6 grid gap-4">
                 {resultados.map((p) => (
-                  <article key={p.id} className="rounded-[22px] border border-primario-suave bg-white p-5 shadow-sm transition-colors hover:border-primario xl:p-6">
+                  <article key={p.id} className="relative max-w-full overflow-hidden rounded-[22px] border border-primario-suave bg-white p-3 shadow-sm transition-colors hover:border-primario sm:p-5 xl:p-6">
                     <div className="flex flex-col gap-4">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="flex gap-4">
+                        <div className="flex min-w-0 gap-3 pr-12 sm:gap-4 xl:pr-0">
                           <AvatarProfesional nombre={p.nombreCompleto} urlAvatar={p.urlAvatar} />
                           <div className="min-w-0">
-                            <h3 className="text-[1.45rem] leading-tight font-semibold text-texto-principal">{p.nombreCompleto}</h3>
-                            <p className="mt-1.5 text-base text-texto-principal">{p.especialidad}</p>
+                            <h3 className="truncate text-lg font-semibold leading-tight text-texto-principal sm:text-[1.45rem]">{p.nombreCompleto}</h3>
+                            <p className="mt-1 text-sm text-texto-principal sm:text-base">{p.especialidad}</p>
+                            <div className="mt-3 flex max-w-full items-center gap-2 text-sm text-texto-principal xl:hidden">
+                              <svg className="h-4 w-4 shrink-0 text-texto-principal" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5h.01" />
+                              </svg>
+                              <span className="truncate">{p.localidad}</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-3 xl:max-w-[320px]">
+                        <div className="absolute right-3 top-3 xl:static xl:flex xl:max-w-[320px] xl:flex-col xl:items-end xl:gap-3">
                           <button
                             onClick={() => toggleFavorito(p.id)}
                             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors ${
                               esFavorito(p.id) ? 'border-amber-300 bg-amber-100 text-amber-600' : 'border-borde bg-white text-texto-suave hover:text-amber-500'
                             }`}
+                            aria-label={`${esFavorito(p.id) ? 'Quitar' : 'Agregar'} favorito`}
                           >
                             <IconStar className="h-5 w-5" />
                           </button>
-                          <div className="flex max-w-[260px] items-center gap-2 text-right text-sm text-texto-principal">
+                          <div className="hidden max-w-[260px] items-center gap-2 text-right text-sm text-texto-principal xl:flex">
                             <svg className="h-4 w-4 shrink-0 text-texto-principal" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5h.01" />
@@ -1091,7 +1116,7 @@ export default function ClienteDashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="border-t border-primario-suave pt-3.5 flex justify-between">
+                      <div className="flex justify-between border-t border-primario-suave pt-3.5">
                         <button onClick={() => verPerfilProfesional(p)} className="text-sm font-bold text-texto-secundario hover:text-primario">Ver perfil</button>
                         <button onClick={() => irAReservarProfesional(p)} className="text-sm font-bold text-primario hover:underline">Reservar</button>
                       </div>
@@ -1107,7 +1132,7 @@ export default function ClienteDashboard() {
         )}
 
         {seccionActual === 'profesional' && profesionalDetalle && (
-          <section className="rounded-[24px] border border-borde-suave bg-white p-6 shadow-sm xl:p-8">
+          <section className="rounded-[24px] border border-borde-suave bg-white p-4 shadow-sm sm:p-6 xl:p-8">
             <button
               type="button"
               onClick={() => navigate(`${basePath}/buscar`)}
@@ -1115,17 +1140,17 @@ export default function ClienteDashboard() {
             >
               Volver
             </button>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
+            <div className="flex items-start justify-between gap-3 sm:gap-4">
+              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                 <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} urlAvatar={profesionalDetalle.urlAvatar} />
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-primario">Perfil profesional</span>
-                  <h2 className="mt-1 text-3xl font-black text-texto-principal">{profesionalDetalle.nombreCompleto}</h2>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-primario sm:text-xs">Perfil profesional</span>
+                  <h2 className="mt-1 text-2xl font-black leading-tight text-texto-principal sm:text-3xl">{profesionalDetalle.nombreCompleto}</h2>
                 </div>
               </div>
               <button
                 onClick={() => toggleFavorito(profesionalDetalle.id)}
-                className={`flex h-11 w-11 items-center justify-center rounded-lg ${esFavorito(profesionalDetalle.id) ? 'bg-amber-100 text-amber-600' : 'bg-primario-claro text-primario hover:bg-primario-suave'}`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:h-11 sm:w-11 ${esFavorito(profesionalDetalle.id) ? 'bg-amber-100 text-amber-600' : 'bg-primario-claro text-primario hover:bg-primario-suave'}`}
               >
                 <IconStar className="h-5 w-5" />
               </button>
@@ -1196,6 +1221,10 @@ export default function ClienteDashboard() {
                 <div className="rounded-2xl bg-fondo p-4">
                   <span className="text-[11px] font-bold uppercase text-texto-suave">Direccion</span>
                   <p className="mt-1 text-sm font-black text-texto-principal">{profesionalDetalle.direccion}</p>
+                </div>
+                <div className="rounded-2xl bg-fondo p-4">
+                  <span className="text-[11px] font-bold uppercase text-texto-suave">Localidad</span>
+                  <p className="mt-1 text-sm font-black text-texto-principal">{profesionalDetalle.localidad}</p>
                 </div>
                 <div className="rounded-2xl bg-fondo p-4">
                   <span className="text-[11px] font-bold uppercase text-texto-suave">Valor del turno</span>
@@ -1340,15 +1369,18 @@ export default function ClienteDashboard() {
         )}
 
         {seccionActual === 'notificaciones' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
+          <section className="rounded-lg border border-borde-suave bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-2xl font-black text-texto-principal">Notificaciones</h2>
                 <p className="mt-1 text-sm text-texto-secundario">Recordatorios, confirmaciones, pagos y documentos.</p>
               </div>
               {notificaciones.some((n) => !n.leida) && (
-                <BotonSecundario onClick={() => usuario && marcarTodasLeidas(usuario.id).then(() => getNotificaciones(usuario.id).then(setNotificaciones))}>
-                  Marcar todas como leidas
+                <BotonSecundario
+                  className="w-fit px-3 py-2 text-xs sm:px-4 sm:text-sm"
+                  onClick={() => usuario && marcarTodasLeidas(usuario.id).then(() => getNotificaciones(usuario.id).then(setNotificaciones))}
+                >
+                  Marcar como leidas
                 </BotonSecundario>
               )}
             </div>

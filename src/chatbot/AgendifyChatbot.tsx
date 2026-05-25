@@ -137,7 +137,7 @@ export default function AgendifyChatbot() {
   return (
     <>
       {open ? (
-        <section className="chatbot-shell fixed bottom-20 right-4 z-[70] flex h-[min(710px,82vh)] w-[min(390px,calc(100vw-20px))] flex-col overflow-hidden rounded-[30px] border border-borde bg-white shadow-[0_30px_90px_rgba(21,34,66,0.18)] sm:bottom-22 sm:right-6">
+        <section className="chatbot-shell fixed bottom-16 right-3 z-[70] flex h-[min(640px,76vh)] w-[min(390px,calc(100vw-24px))] flex-col overflow-hidden rounded-[24px] border border-borde bg-white shadow-[0_24px_70px_rgba(21,34,66,0.18)] sm:bottom-22 sm:right-6 sm:h-[min(710px,82vh)] sm:rounded-[30px] sm:shadow-[0_30px_90px_rgba(21,34,66,0.18)]">
           <header className="flex min-h-[76px] items-center justify-between border-b border-borde-suave px-4 py-3">
             <div className="flex items-center gap-3">
               <button
@@ -270,7 +270,7 @@ export default function AgendifyChatbot() {
       <button
         type="button"
         onClick={() => setOpen((currentOpen) => !currentOpen)}
-        className="chatbot-trigger fixed bottom-5 right-5 z-[69] flex h-14 w-14 items-center justify-center rounded-full bg-[#1570ff] text-white shadow-[0_18px_42px_rgba(21,112,255,0.32)] transition-transform hover:scale-105 sm:right-6"
+        className="chatbot-trigger fixed bottom-4 right-4 z-[69] flex h-12 w-12 items-center justify-center rounded-full bg-[#1570ff] text-white shadow-[0_14px_34px_rgba(21,112,255,0.28)] transition-transform hover:scale-105 sm:bottom-5 sm:right-6 sm:h-14 sm:w-14 sm:shadow-[0_18px_42px_rgba(21,112,255,0.32)]"
         aria-label="Abrir chatbot de Agendify"
       >
         {open ? <IconChatChevron className="h-5 w-5" /> : <IconChatMessage className="h-6 w-6" />}

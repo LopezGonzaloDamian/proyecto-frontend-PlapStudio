@@ -10,7 +10,7 @@ interface CardAccesoProps {
 }
 
 export const CardAcceso = ({ children }: CardAccesoProps) => (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4
+    <div className="min-h-screen w-full flex flex-col items-center justify-center px-4 py-8 sm:p-4
         bg-linear-to-br from-primario via-primario-hover to-primario-oscuro relative overflow-hidden">
 
         {/* Decorative blobs — mismo estilo que el hero */}
@@ -18,8 +18,8 @@ export const CardAcceso = ({ children }: CardAccesoProps) => (
         <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-white rounded-full opacity-15 blur-3xl pointer-events-none" />
 
         {/* Card */}
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-6
-            bg-white rounded-3xl px-8 py-5 shadow-2xl">
+        <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-5
+            bg-white rounded-3xl px-5 py-5 shadow-2xl sm:gap-6 sm:px-8">
             {children}
         </div>
     </div>
