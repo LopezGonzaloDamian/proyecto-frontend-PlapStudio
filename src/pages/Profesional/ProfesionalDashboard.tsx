@@ -309,6 +309,17 @@ export default function ProfesionalDashboard() {
     () => slotsNuevoTurno.filter(slotReservable),
     [slotsNuevoTurno],
   )
+  const datosClienteNuevoTurnoCompletos = nuevoTurno.tipoCliente === 'externo'
+    ? nuevoTurno.clienteExternoNombre.trim().length > 0 &&
+      nuevoTurno.clienteExternoTelefono.trim().length > 0 &&
+      nuevoTurno.clienteExternoDni.trim().length > 0
+    : nuevoTurno.clienteEmail.trim().length > 0
+  const puedeAsignarTurno =
+    Boolean(agendaPrincipal) &&
+    datosClienteNuevoTurnoCompletos &&
+    nuevoTurno.servicio.trim().length > 0 &&
+    nuevoTurno.fecha.length > 0 &&
+    nuevoTurno.horario.length > 0
 
   useEffect(() => {
     if (!agendaPrincipal || !nuevoTurno.fecha) {
@@ -343,6 +354,11 @@ export default function ProfesionalDashboard() {
       notas: turno.notas,
     })
   }, [turnoEditarId, turnos])
+
+  const puedeModificarTurno =
+    turnoEditarId.length > 0 &&
+    turnoEditar.fecha.length > 0 &&
+    turnoEditar.horario.length > 0
 
   const turnosFiltrados = useMemo(() =>
     turnos.filter((t) => {
@@ -575,10 +591,10 @@ export default function ProfesionalDashboard() {
     }
     const esClienteExterno = nuevoTurno.tipoCliente === 'externo'
     const clienteIncompleto = esClienteExterno
-      ? !nuevoTurno.clienteExternoNombre.trim() || !nuevoTurno.clienteExternoTelefono.trim()
+      ? !nuevoTurno.clienteExternoNombre.trim() || !nuevoTurno.clienteExternoTelefono.trim() || !nuevoTurno.clienteExternoDni.trim()
       : !nuevoTurno.clienteEmail.trim()
-    if (clienteIncompleto || !nuevoTurno.fecha || !nuevoTurno.horario) {
-      showToast('Completa cliente, fecha y horario', 'error')
+    if (clienteIncompleto || !nuevoTurno.servicio.trim() || !nuevoTurno.fecha || !nuevoTurno.horario) {
+      showToast('Completa los datos obligatorios', 'error')
       return
     }
     try {
@@ -654,6 +670,10 @@ export default function ProfesionalDashboard() {
     e.preventDefault()
     const turno = turnos.find((t) => t.id === turnoEditarId)
     if (!turno) return
+    if (!puedeModificarTurno) {
+      showToast('Completa turno, fecha y horario', 'error')
+      return
+    }
     try {
       const actualizado = await modificarTurno(turnoEditarId, {
         iniciaEn: `${turnoEditar.fecha}T${turnoEditar.horario}:00`,
@@ -1162,7 +1182,15 @@ export default function ProfesionalDashboard() {
                   </div>
                 </div>
                 <div className={`flex justify-end lg:col-span-4 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
-                  <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>
+                  <span className={`${!puedeAsignarTurno ? 'cursor-not-allowed' : ''}`} title={!puedeAsignarTurno ? 'Necesitas completar todos los campos' : undefined}>
+                    <BotonPrimario
+                      type="submit"
+                      className={`min-w-[220px] ${!puedeAsignarTurno ? 'pointer-events-none' : ''}`}
+                      disabled={!puedeAsignarTurno}
+                    >
+                      Asignar
+                    </BotonPrimario>
+                  </span>
                 </div>
               </form>
             </section>
@@ -1192,7 +1220,15 @@ export default function ProfesionalDashboard() {
                   <Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} />
                 </div>
                 <div className="flex justify-end lg:col-span-4">
-                  <BotonPrimario type="submit" className="min-w-[220px]" disabled={!turnoEditarId}>Actualizar turno</BotonPrimario>
+                  <span className={!puedeModificarTurno ? 'cursor-not-allowed' : ''} title={!puedeModificarTurno ? 'Necesitas completar todos los campos' : undefined}>
+                    <BotonPrimario
+                      type="submit"
+                      className={`min-w-[220px] ${!puedeModificarTurno ? 'pointer-events-none' : ''}`}
+                      disabled={!puedeModificarTurno}
+                    >
+                      Actualizar turno
+                    </BotonPrimario>
+                  </span>
                 </div>
               </form>
             </section>
@@ -1569,7 +1605,7 @@ export default function ProfesionalDashboard() {
                 <Textarea rows={4} value={perfilForm.biografia} onChange={(e) => setPerfilForm({ ...perfilForm, biografia: e.target.value })} />
               </div>
 
-              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`}>
+              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
                 <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
               </span>
             </form>

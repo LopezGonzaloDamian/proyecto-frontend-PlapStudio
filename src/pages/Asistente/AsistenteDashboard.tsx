@@ -194,6 +194,17 @@ export default function AsistenteDashboard() {
     () => slotsTurnoNuevo.filter(slotReservable),
     [slotsTurnoNuevo],
   )
+  const datosClienteTurnoNuevoCompletos = turnoNuevo.tipoCliente === 'externo'
+    ? turnoNuevo.clienteExternoNombre.trim().length > 0 &&
+      turnoNuevo.clienteExternoTelefono.trim().length > 0 &&
+      turnoNuevo.clienteExternoDni.trim().length > 0
+    : turnoNuevo.clienteEmail.trim().length > 0
+  const puedeAsignarTurno =
+    turnoNuevo.profesionalId.length > 0 &&
+    datosClienteTurnoNuevoCompletos &&
+    turnoNuevo.notas.trim().length > 0 &&
+    turnoNuevo.fecha.length > 0 &&
+    turnoNuevo.horario.length > 0
 
   useEffect(() => {
     const profId = Number(turnoNuevo.profesionalId)
@@ -226,6 +237,11 @@ export default function AsistenteDashboard() {
     if (!t) return
     setTurnoEditar({ fecha: fechaIsoDe(t), horario: horaDe(t), duracion: String(t.duracionMinutos), estado: t.estado, notas: t.notas })
   }, [turnoEditarId, turnos])
+
+  const puedeModificarTurno =
+    turnoEditarId.length > 0 &&
+    turnoEditar.fecha.length > 0 &&
+    turnoEditar.horario.length > 0
 
   useEffect(() => {
     const handleClickAfuera = (e: MouseEvent) => {
@@ -365,10 +381,10 @@ export default function AsistenteDashboard() {
     }
     const esClienteExterno = turnoNuevo.tipoCliente === 'externo'
     const clienteIncompleto = esClienteExterno
-      ? !turnoNuevo.clienteExternoNombre.trim() || !turnoNuevo.clienteExternoTelefono.trim()
+      ? !turnoNuevo.clienteExternoNombre.trim() || !turnoNuevo.clienteExternoTelefono.trim() || !turnoNuevo.clienteExternoDni.trim()
       : !turnoNuevo.clienteEmail.trim()
-    if (clienteIncompleto || !turnoNuevo.fecha || !turnoNuevo.horario) {
-      showToast('Completa cliente, fecha y horario', 'error')
+    if (clienteIncompleto || !turnoNuevo.notas.trim() || !turnoNuevo.fecha || !turnoNuevo.horario) {
+      showToast('Completa los datos obligatorios', 'error')
       return
     }
     try {
@@ -405,6 +421,10 @@ export default function AsistenteDashboard() {
     e.preventDefault()
     const t = turnos.find((x) => x.id === turnoEditarId)
     if (!t) return
+    if (!puedeModificarTurno) {
+      showToast('Completa turno, fecha y horario', 'error')
+      return
+    }
     try {
       if (!usuario) return
       await modificarTurnoAsistente(usuario.id, turnoEditarId, {
@@ -815,7 +835,15 @@ export default function AsistenteDashboard() {
                     </div>
                   </div>
                   <div className={`flex justify-end lg:col-span-4 ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-6' : 'lg:row-start-7'}`}>
-                    <BotonPrimario type="submit" className="min-w-[220px]">Asignar</BotonPrimario>
+                    <span className={!puedeAsignarTurno ? 'cursor-not-allowed' : ''} title={!puedeAsignarTurno ? 'Necesitas completar todos los campos' : undefined}>
+                      <BotonPrimario
+                        type="submit"
+                        className={`min-w-[220px] ${!puedeAsignarTurno ? 'pointer-events-none' : ''}`}
+                        disabled={!puedeAsignarTurno}
+                      >
+                        Asignar
+                      </BotonPrimario>
+                    </span>
                   </div>
                 </div>
               </form>
@@ -837,7 +865,15 @@ export default function AsistenteDashboard() {
                     <div className="lg:max-w-[270px]"><Label>Horario</Label><Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} /></div>
                     <div className="lg:col-span-2 lg:max-w-[560px]"><Label>Notas</Label><Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} /></div>
                     <div className="flex justify-end lg:col-span-4">
-                      <BotonPrimario type="submit" className="min-w-[220px]" disabled={!turnoEditarId}>Actualizar turno</BotonPrimario>
+                      <span className={!puedeModificarTurno ? 'cursor-not-allowed' : ''} title={!puedeModificarTurno ? 'Necesitas completar todos los campos' : undefined}>
+                        <BotonPrimario
+                          type="submit"
+                          className={`min-w-[220px] ${!puedeModificarTurno ? 'pointer-events-none' : ''}`}
+                          disabled={!puedeModificarTurno}
+                        >
+                          Actualizar turno
+                        </BotonPrimario>
+                      </span>
                     </div>
                   </div>
                 </form>
@@ -980,7 +1016,7 @@ export default function AsistenteDashboard() {
                 <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
               </div>
 
-              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`}>
+              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
                 <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
               </span>
             </form>

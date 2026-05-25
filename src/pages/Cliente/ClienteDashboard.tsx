@@ -1058,7 +1058,7 @@ export default function ClienteDashboard() {
                 <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
               </div>
 
-              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`}>
+              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
                 <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
               </span>
             </form>
