@@ -135,7 +135,7 @@ export default function Registro() {
                 />
 
                 <InputGenerico
-                    label="Telefono"
+                    label="Teléfono"
                     name="telefono"
                     value={form.telefono}
                     onChange={onChange}
@@ -157,7 +157,7 @@ export default function Registro() {
                 {esProfesional && (
                     <>
                         <InputGenerico
-                            label="Servicio / rubro"
+                            label="rubro"
                             name="especialidad"
                             value={form.especialidad}
                             onChange={onChange}
@@ -170,7 +170,7 @@ export default function Registro() {
                                 Descripcion
                             </span>
                             <textarea
-                                name="biografia"
+                                name="biografía"
                                 value={form.biografia}
                                 onChange={(e) => setForm({ ...form, biografia: e.target.value })}
                                 placeholder="Ej: Cortes, coloracion y tratamientos capilares."
@@ -189,7 +189,7 @@ export default function Registro() {
                         />
 
                         <InputGenerico
-                            label="Direccion"
+                            label="Dirección"
                             name="direccion"
                             value={form.direccion}
                             onChange={onChange}
