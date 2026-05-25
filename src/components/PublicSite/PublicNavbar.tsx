@@ -217,6 +217,25 @@ export default function PublicNavbar() {
           </Link>
         </div>
       </div>
+      <nav className="mx-auto flex w-full max-w-[1380px] gap-2 overflow-x-auto px-4 pb-3 text-sm font-bold text-texto-secundario sm:px-5 lg:hidden">
+        <button
+          type="button"
+          onClick={() => goToSection('/landing#reservas-turnos')}
+          className="shrink-0 rounded-full px-3 py-2 transition-colors hover:bg-fondo hover:text-primario"
+        >
+          Producto
+        </button>
+        <button
+          type="button"
+          onClick={() => goToSection('/landing#solucion-cliente')}
+          className="shrink-0 rounded-full px-3 py-2 transition-colors hover:bg-fondo hover:text-primario"
+        >
+          Soluciones
+        </button>
+        <Link to="/guia-de-uso" className="shrink-0 rounded-full px-3 py-2 transition-colors hover:bg-fondo hover:text-primario">
+          Guia de uso
+        </Link>
+      </nav>
     </header>
   )
 }

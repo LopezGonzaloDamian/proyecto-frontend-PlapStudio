@@ -24,6 +24,7 @@ import {
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import { asignarAsistente, desasignarAsistente, getAsistentesDeProfesional } from '../../api/asistentes'
+import { login as validarLogin } from '../../api/auth'
 import type {
   Agenda,
   AsistenteAsignacion,
@@ -101,6 +102,8 @@ const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
 const turnoAccionable = (turno: Turno) =>
   turno.estado !== 'CANCELADO' && new Date(turno.iniciaEn).getTime() > Date.now()
+const mensajePasswordIncorrecta = (err: unknown) =>
+  extraerError(err).toLowerCase().includes('credenciales') ? 'Contraseña incorrecta' : extraerError(err)
 
 const ordenarTurnosAsc = (a: Turno, b: Turno) =>
   new Date(a.iniciaEn).getTime() - new Date(b.iniciaEn).getTime()
@@ -186,6 +189,14 @@ export default function ProfesionalDashboard() {
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', notas: '' })
   const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
   const [eliminacionDisponibilidad, setEliminacionDisponibilidad] = useState<EliminacionDisponibilidadPendiente | null>(null)
+  const [asistenteAConfirmar, setAsistenteAConfirmar] = useState<string | null>(null)
+  const [pidiendoPasswordAsistente, setPidiendoPasswordAsistente] = useState(false)
+  const [passwordAsignacionAsistente, setPasswordAsignacionAsistente] = useState('')
+  const [asignandoAsistente, setAsignandoAsistente] = useState(false)
+  const [asistenteADesasignar, setAsistenteADesasignar] = useState<AsistenteAsignacion | null>(null)
+  const [pidiendoPasswordDesasignacion, setPidiendoPasswordDesasignacion] = useState(false)
+  const [passwordDesasignacionAsistente, setPasswordDesasignacionAsistente] = useState('')
+  const [desasignandoAsistente, setDesasignandoAsistente] = useState(false)
 
   const [nuevaAgenda, setNuevaAgenda] = useState({ nombre: 'Agenda principal', descripcion: 'Atencion presencial' })
   const [disponibilidad, setDisponibilidad] = useState({
@@ -641,12 +652,40 @@ export default function ProfesionalDashboard() {
       showToast('Ingresa un email valido', 'error')
       return
     }
+    setAsistenteAConfirmar(asistenteEmail.trim())
+    setPidiendoPasswordAsistente(false)
+    setPasswordAsignacionAsistente('')
+  }
+
+  const cerrarConfirmacionAsistente = () => {
+    if (asignandoAsistente) return
+    setAsistenteAConfirmar(null)
+    setPidiendoPasswordAsistente(false)
+    setPasswordAsignacionAsistente('')
+  }
+
+  const confirmarAsignacionAsistente = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!profesionalId || !usuario || !asistenteAConfirmar) return
+    if (!passwordAsignacionAsistente.trim()) {
+      showToast('Ingresa tu contraseña', 'error')
+      return
+    }
     try {
-      const asignacion = await asignarAsistente(profesionalId, asistenteEmail.trim())
+      setAsignandoAsistente(true)
+      await validarLogin({ email: usuario.email, password: passwordAsignacionAsistente.trim() })
+      const asignacion = await asignarAsistente(profesionalId, asistenteAConfirmar)
       setAsistentes((act) => [...act, asignacion])
       setAsistenteEmail('')
+      setAsistenteAConfirmar(null)
+      setPidiendoPasswordAsistente(false)
+      setPasswordAsignacionAsistente('')
       showToast('Asistente asignado', 'success')
-    } catch (err) { showToast(extraerError(err), 'error') }
+    } catch (err) {
+      showToast(mensajePasswordIncorrecta(err), 'error')
+    } finally {
+      setAsignandoAsistente(false)
+    }
   }
 
   const onDesasignarAsistente = async (id: string) => {
@@ -657,6 +696,34 @@ export default function ProfesionalDashboard() {
     } catch (err) {
       showToast(extraerError(err), 'error')
       refrescarAsistentes()
+    }
+  }
+
+  const cerrarConfirmacionDesasignar = () => {
+    if (desasignandoAsistente) return
+    setAsistenteADesasignar(null)
+    setPidiendoPasswordDesasignacion(false)
+    setPasswordDesasignacionAsistente('')
+  }
+
+  const confirmarDesasignacionAsistente = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!usuario || !asistenteADesasignar) return
+    if (!passwordDesasignacionAsistente.trim()) {
+      showToast('Ingresa tu contraseña', 'error')
+      return
+    }
+    try {
+      setDesasignandoAsistente(true)
+      await validarLogin({ email: usuario.email, password: passwordDesasignacionAsistente.trim() })
+      await onDesasignarAsistente(asistenteADesasignar.id)
+      setAsistenteADesasignar(null)
+      setPidiendoPasswordDesasignacion(false)
+      setPasswordDesasignacionAsistente('')
+    } catch (err) {
+      showToast(mensajePasswordIncorrecta(err), 'error')
+    } finally {
+      setDesasignandoAsistente(false)
     }
   }
 
@@ -923,25 +990,63 @@ export default function ProfesionalDashboard() {
 
               <form onSubmit={onAgregarDisponibilidad} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
                 <h2 className="text-2xl font-black text-texto-principal">Agregar disponibilidad</h2>
-                <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                  <div>
+                <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                  <div className="lg:col-span-2">
                     <Label>Dia</Label>
-                    <Select value={disponibilidad.diaSemana} onChange={(e) => setDisponibilidad({ ...disponibilidad, diaSemana: e.target.value as DiaSemana })}>
-                      {(Object.keys(diasLabels) as DiaSemana[]).map((d) => <option key={d} value={d}>{diasLabels[d]}</option>)}
-                    </Select>
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {diasOrden.map((dia) => (
+                        <button
+                          key={dia}
+                          type="button"
+                          onClick={() => setDisponibilidad({ ...disponibilidad, diaSemana: dia })}
+                          className={`rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${
+                            disponibilidad.diaSemana === dia
+                              ? 'border-primario bg-primario text-white shadow-sm'
+                              : 'border-borde bg-white text-texto-secundario hover:bg-primario-claro hover:text-primario'
+                          }`}
+                        >
+                          {diasLabels[dia]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <Label>Duracion</Label>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {['30', '45', '60'].map((duracion) => (
+                        <button
+                          key={duracion}
+                          type="button"
+                          onClick={() => setDisponibilidad({ ...disponibilidad, duracion })}
+                          className={`rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${
+                            disponibilidad.duracion === duracion
+                              ? 'border-primario bg-primario text-white shadow-sm'
+                              : 'border-borde bg-white text-texto-secundario hover:bg-primario-claro hover:text-primario'
+                          }`}
+                        >
+                          {duracion} min
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div>
-                    <Label>Duracion</Label>
-                    <Select value={disponibilidad.duracion} onChange={(e) => setDisponibilidad({ ...disponibilidad, duracion: e.target.value })}>
-                      <option value="30">30 minutos</option>
-                      <option value="45">45 minutos</option>
-                      <option value="60">60 minutos</option>
-                    </Select>
+                    <Label>Hora inicio</Label>
+                    <Input
+                      type="time"
+                      value={disponibilidad.inicio}
+                      onChange={(e) => setDisponibilidad({ ...disponibilidad, inicio: e.target.value })}
+                    />
                   </div>
-                  <div><Label>Hora inicio</Label><Input type="time" value={disponibilidad.inicio} onChange={(e) => setDisponibilidad({ ...disponibilidad, inicio: e.target.value })} /></div>
-                  <div><Label>Hora fin</Label><Input type="time" value={disponibilidad.fin} onChange={(e) => setDisponibilidad({ ...disponibilidad, fin: e.target.value })} /></div>
-                  <BotonPrimario type="submit" className="md:col-span-2" disabled={!agendaPrincipal}>
-                    Agregar disponibilidad
+                  <div>
+                    <Label>Hora fin</Label>
+                    <Input
+                      type="time"
+                      value={disponibilidad.fin}
+                      onChange={(e) => setDisponibilidad({ ...disponibilidad, fin: e.target.value })}
+                    />
+                  </div>
+                  <BotonPrimario type="submit" className="w-fit justify-self-end md:col-span-2" disabled={!agendaPrincipal}>
+                    Agregar
                   </BotonPrimario>
                 </div>
               </form>
@@ -1246,17 +1351,31 @@ export default function ProfesionalDashboard() {
               <p className="mt-1 text-sm text-texto-secundario">Usuarios que pueden operar tu agenda y tus turnos.</p>
 
               <div className="mt-6 grid gap-3">
-                {asistentes.map((a) => (
-                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-borde bg-fondo p-4">
-                    <div>
-                      <h3 className="font-black text-texto-principal">{a.asistenteNombre}</h3>
-                      <p className="text-sm text-texto-secundario">Asignado a {a.profesionalNombre}</p>
+                {asistentes.map((a) => {
+                  const iniciales = a.asistenteNombre
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((parte) => parte[0]?.toUpperCase())
+                    .join('')
+
+                  return (
+                    <div key={a.id} className="flex flex-col gap-4 rounded-lg border border-borde bg-fondo p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primario/10 text-base font-black text-primario">
+                          {iniciales || 'AS'}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="truncate font-black text-texto-principal">{a.asistenteNombre}</h3>
+                          <p className="truncate text-sm text-texto-secundario">{a.asistenteEmail}</p>
+                        </div>
+                      </div>
+                      <BotonSecundario type="button" className="w-full sm:w-auto" onClick={() => setAsistenteADesasignar(a)}>
+                        Quitar acceso
+                      </BotonSecundario>
                     </div>
-                    <BotonSecundario type="button" onClick={() => onDesasignarAsistente(a.id)}>
-                      Quitar acceso
-                    </BotonSecundario>
-                  </div>
-                ))}
+                  )
+                })}
                 {asistentes.length === 0 && (
                   <p className="rounded-lg border border-borde bg-fondo p-4 text-sm text-texto-secundario">
                     Todavia no tenes asistentes asignados.
@@ -1278,9 +1397,15 @@ export default function ProfesionalDashboard() {
                     placeholder="asistente@gmail.com"
                   />
                 </div>
-                <BotonPrimario type="submit" disabled={!asistenteEmail.trim()}>
-                  Asignar asistente
-                </BotonPrimario>
+                <span className={`w-fit justify-self-end ${!asistenteEmail.trim() ? 'cursor-not-allowed' : ''}`}>
+                  <BotonPrimario
+                    type="submit"
+                    className={`w-fit ${!asistenteEmail.trim() ? 'pointer-events-none' : ''}`}
+                    disabled={!asistenteEmail.trim()}
+                  >
+                    Asignar
+                  </BotonPrimario>
+                </span>
               </div>
             </form>
           </section>
@@ -1574,6 +1699,121 @@ export default function ProfesionalDashboard() {
                 Si
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {asistenteAConfirmar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            {!pidiendoPasswordAsistente ? (
+              <>
+                <h2 className="text-xl font-black text-texto-principal">Asignar asistente</h2>
+                <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+                  <p>¿Estás seguro que deseas asignar a este usuario como tu asistente?</p>
+                  <p className="break-all rounded-lg border border-borde bg-fondo px-3 py-2 font-bold text-texto-principal">
+                    {asistenteAConfirmar}
+                  </p>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarConfirmacionAsistente}>
+                    No
+                  </BotonSecundario>
+                  <BotonPrimario type="button" className="h-12 w-20" onClick={() => setPidiendoPasswordAsistente(true)}>
+                    Si
+                  </BotonPrimario>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={confirmarAsignacionAsistente}>
+                <h2 className="text-xl font-black text-texto-principal">Confirmar contraseña</h2>
+                <p className="mt-3 text-sm text-texto-secundario">
+                  Para asignar a <span className="font-bold text-texto-principal">{asistenteAConfirmar}</span>, ingresa tu contraseña.
+                </p>
+                <div className="mt-5">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordAsignacionAsistente}
+                    onChange={(e) => setPasswordAsignacionAsistente(e.target.value)}
+                    placeholder="Tu contraseña"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarConfirmacionAsistente}>
+                    Cancelar
+                  </BotonSecundario>
+                  <span className={`${!passwordAsignacionAsistente.trim() || asignandoAsistente ? 'cursor-not-allowed' : ''}`}>
+                    <BotonPrimario
+                      type="submit"
+                      className={`h-12 w-28 ${!passwordAsignacionAsistente.trim() || asignandoAsistente ? 'pointer-events-none' : ''}`}
+                      disabled={!passwordAsignacionAsistente.trim() || asignandoAsistente}
+                    >
+                      Aceptar
+                    </BotonPrimario>
+                  </span>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {asistenteADesasignar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            {!pidiendoPasswordDesasignacion ? (
+              <>
+                <h2 className="text-xl font-black text-texto-principal">Quitar acceso</h2>
+                <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+                  <p>¿Estás seguro que deseas quitarle el acceso a este asistente?</p>
+                  <div className="rounded-lg border border-borde bg-fondo px-3 py-2">
+                    <p className="font-bold text-texto-principal">{asistenteADesasignar.asistenteNombre}</p>
+                    <p className="break-all text-texto-secundario">{asistenteADesasignar.asistenteEmail}</p>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarConfirmacionDesasignar}>
+                    No
+                  </BotonSecundario>
+                  <BotonPrimario type="button" className="h-12 w-20" onClick={() => setPidiendoPasswordDesasignacion(true)}>
+                    Si
+                  </BotonPrimario>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={confirmarDesasignacionAsistente}>
+                <h2 className="text-xl font-black text-texto-principal">Confirmar contraseña</h2>
+                <p className="mt-3 text-sm text-texto-secundario">
+                  Para quitarle el acceso a <span className="font-bold text-texto-principal">{asistenteADesasignar.asistenteEmail}</span>, ingresa tu contraseña.
+                </p>
+                <div className="mt-5">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordDesasignacionAsistente}
+                    onChange={(e) => setPasswordDesasignacionAsistente(e.target.value)}
+                    placeholder="Tu contraseña"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarConfirmacionDesasignar}>
+                    Cancelar
+                  </BotonSecundario>
+                  <span className={`${!passwordDesasignacionAsistente.trim() || desasignandoAsistente ? 'cursor-not-allowed' : ''}`}>
+                    <BotonPrimario
+                      type="submit"
+                      className={`h-12 w-28 ${!passwordDesasignacionAsistente.trim() || desasignandoAsistente ? 'pointer-events-none' : ''}`}
+                      disabled={!passwordDesasignacionAsistente.trim() || desasignandoAsistente}
+                    >
+                      Aceptar
+                    </BotonPrimario>
+                  </span>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

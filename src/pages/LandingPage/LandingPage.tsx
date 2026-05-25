@@ -31,7 +31,7 @@ function ImagePlaceholder({
 
   if (imageSrc) {
     return (
-      <div className="relative flex min-h-[420px] items-center justify-center">
+      <div className="relative flex min-h-[260px] items-center justify-center sm:min-h-[420px]">
         <div className="absolute inset-x-[10%] top-[8%] h-[78%] rounded-[36px] bg-primario/6 blur-3xl" />
         <img
           src={imageSrc}
@@ -43,26 +43,26 @@ function ImagePlaceholder({
   }
 
   return (
-    <div className={`rounded-[34px] border p-5 shadow-[0_28px_70px_rgba(20,33,61,0.14)] ${accentClasses}`}>
-      <div className={`rounded-[28px] border border-dashed p-7 ${panelClasses}`}>
-        <div className="flex min-h-[360px] flex-col justify-between rounded-[24px] bg-white/8 p-8">
-          <div className="flex items-center justify-between">
-            <span className={`rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${accent === 'blue' ? 'border-white/18 text-white/82' : 'border-borde text-texto-suave'}`}>
+    <div className={`rounded-[26px] border p-3 shadow-[0_20px_48px_rgba(20,33,61,0.12)] sm:rounded-[34px] sm:p-5 sm:shadow-[0_28px_70px_rgba(20,33,61,0.14)] ${accentClasses}`}>
+      <div className={`rounded-[22px] border border-dashed p-4 sm:rounded-[28px] sm:p-7 ${panelClasses}`}>
+        <div className="flex min-h-[250px] flex-col justify-between rounded-[20px] bg-white/8 p-5 sm:min-h-[360px] sm:rounded-[24px] sm:p-8">
+          <div className="flex items-center justify-between gap-3">
+            <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:text-[11px] ${accent === 'blue' ? 'border-white/18 text-white/82' : 'border-borde text-texto-suave'}`}>
               Imagen futura
             </span>
-            <span className={`font-card-body text-sm ${textClasses}`}>{label}</span>
+            <span className={`font-card-body text-xs sm:text-sm ${textClasses}`}>{label}</span>
           </div>
 
           <div className="grid gap-4">
-            <div className={`rounded-[24px] border p-5 ${panelClasses}`}>
+            <div className={`rounded-[22px] border p-4 sm:rounded-[24px] sm:p-5 ${panelClasses}`}>
               <p className={`font-card-title text-2xl font-black ${accent === 'blue' ? 'text-white' : 'text-texto-principal'}`}>Espacio reservado para diseño</p>
-              <p className={`font-card-body mt-2 text-sm leading-7 ${textClasses}`}>
+              <p className={`font-card-body mt-2 text-sm leading-6 sm:leading-7 ${textClasses}`}>
                 Este bloque queda listo para sumar una imagen, un mockup o una composicion visual creada por vos.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {[1, 2, 3].map((item) => (
-                <div key={item} className={`h-24 rounded-[18px] border ${panelClasses}`} />
+                <div key={item} className={`h-16 rounded-[16px] border sm:h-24 sm:rounded-[18px] ${panelClasses}`} />
               ))}
             </div>
           </div>
@@ -82,11 +82,11 @@ function StaticChatbotShowcase() {
   ]
 
   return (
-    <div className="relative flex min-h-[430px] items-center justify-center">
+    <div className="relative flex min-h-[340px] items-center justify-center sm:min-h-[430px]">
       <div className="absolute inset-x-[12%] top-[10%] h-[72%] rounded-[36px] bg-primario/7 blur-3xl" />
 
-      <div className="relative z-[1] w-full max-w-[360px] rounded-[34px] bg-white shadow-[0_28px_80px_rgba(20,33,61,0.16)]">
-        <div className="flex items-center justify-between border-b border-borde px-5 py-4">
+      <div className="relative z-[1] w-full max-w-[360px] rounded-[26px] bg-white shadow-[0_22px_64px_rgba(20,33,61,0.14)] sm:rounded-[34px] sm:shadow-[0_28px_80px_rgba(20,33,61,0.16)]">
+        <div className="flex items-center justify-between border-b border-borde px-4 py-3 sm:px-5 sm:py-4">
           <div className="flex items-center gap-3">
             <span className="text-texto-secundario">
               <IconChatBack />
@@ -103,9 +103,9 @@ function StaticChatbotShowcase() {
           </div>
         </div>
 
-        <div className="px-5 py-5">
+          <div className="px-4 py-4 sm:px-5 sm:py-5">
           <div className="max-w-[280px] rounded-[22px] rounded-bl-md bg-fondo px-4 py-3 shadow-sm">
-            <p className="font-card-body text-[15px] leading-8 text-texto-principal">
+            <p className="font-card-body text-sm leading-7 text-texto-principal sm:text-[15px] sm:leading-8">
               Hola, soy el chatbot de Agendify. En que puedo ayudarte?
             </p>
           </div>
@@ -125,7 +125,7 @@ function StaticChatbotShowcase() {
           </div>
         </div>
 
-        <div className="border-t border-borde px-5 py-4">
+        <div className="border-t border-borde px-4 py-3 sm:px-5 sm:py-4">
           <div className="rounded-[22px] border-2 border-primario bg-white px-4 py-3 shadow-[0_8px_24px_rgba(21,112,255,0.08)]">
             <div className="flex items-center gap-3">
               <span className="font-card-body text-sm text-texto-secundario">Escribe un mensaje...</span>
@@ -168,21 +168,21 @@ function FeatureSplit({
     <>
       <div>
         <SectionEyebrow>{eyebrow}</SectionEyebrow>
-        <h2 className="font-hero mt-6 max-w-[760px] text-[2.25rem] font-extrabold leading-[1.05] text-texto-principal sm:text-[3rem] lg:text-[4rem]">
+        <h2 className="font-hero mt-5 max-w-[760px] text-[1.95rem] font-extrabold leading-[1.08] text-texto-principal sm:mt-6 sm:text-[3rem] lg:text-[4rem]">
           {title}
         </h2>
-        <p className="font-card-body mt-5 max-w-xl text-[18px] leading-8 text-texto-secundario">
+        <p className="font-card-body mt-4 max-w-xl text-base leading-7 text-texto-secundario sm:mt-5 sm:text-[18px] sm:leading-8">
           {description}
         </p>
       </div>
 
-      <div className="mt-8 grid gap-4">
+      <div className="mt-6 grid gap-3 sm:mt-8 sm:gap-4">
         {bullets.map((bullet) => (
-          <div key={bullet} className="flex items-start gap-3 rounded-[20px] border border-borde bg-white px-4 py-4 shadow-sm">
+          <div key={bullet} className="flex items-start gap-3 rounded-[18px] border border-borde bg-white px-4 py-3 shadow-sm sm:rounded-[20px] sm:py-4">
             <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-primario-claro text-primario">
               <IconCheck className="h-4 w-4" />
             </span>
-            <p className="font-card-body text-[15px] leading-7 text-texto-secundario">{bullet}</p>
+            <p className="font-card-body text-sm leading-6 text-texto-secundario sm:text-[15px] sm:leading-7">{bullet}</p>
           </div>
         ))}
       </div>
@@ -191,9 +191,11 @@ function FeatureSplit({
 
   return (
     <section id={id} className={`scroll-mt-28 ${isGray ? 'bg-fondo' : 'bg-white'}`}>
-      <div className="mx-auto grid w-full max-w-[1380px] gap-10 px-5 py-18 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-24">
-        {imageSide === 'left' ? <ImagePlaceholder label={imageLabel} accent={isGray ? 'gray' : 'blue'} /> : <div>{content}</div>}
-        {imageSide === 'left' ? <div>{content}</div> : <ImagePlaceholder label={imageLabel} accent={isGray ? 'gray' : 'blue'} />}
+      <div className="mx-auto grid w-full max-w-[1380px] gap-8 px-5 py-12 sm:gap-10 sm:py-18 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-24">
+        <div className={`${imageSide === 'left' ? 'lg:order-2' : 'lg:order-1'} order-1`}>{content}</div>
+        <div className={`${imageSide === 'left' ? 'lg:order-1' : 'lg:order-2'} order-2`}>
+          <ImagePlaceholder label={imageLabel} accent={isGray ? 'gray' : 'blue'} />
+        </div>
       </div>
     </section>
   )
@@ -246,19 +248,19 @@ function ToolCard({
   const image = renderVisual ?? <ImagePlaceholder label={title} accent="gray" imageSrc={imageSrc} />
   const text = (
     <div>
-      <h3 className="font-hero text-[2.5rem] font-extrabold leading-[1.05] text-texto-principal lg:text-[3.35rem]">
+      <h3 className="font-hero text-[2rem] font-extrabold leading-[1.08] text-texto-principal sm:text-[2.5rem] lg:text-[3.35rem]">
         {title}
       </h3>
-      <p className="font-card-body mt-5 max-w-xl text-[18px] leading-8 text-texto-secundario">
+      <p className="font-card-body mt-4 max-w-xl text-base leading-7 text-texto-secundario sm:mt-5 sm:text-[18px] sm:leading-8">
         {description}
       </p>
     </div>
   )
 
   return (
-    <div id={id} className="scroll-mt-28 grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
-      {imageSide === 'left' ? image : text}
-      {imageSide === 'left' ? text : image}
+    <div id={id} className="scroll-mt-28 grid gap-8 sm:gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className={`${imageSide === 'left' ? 'lg:order-2' : 'lg:order-1'} order-1`}>{text}</div>
+      <div className={`${imageSide === 'left' ? 'lg:order-1' : 'lg:order-2'} order-2`}>{image}</div>
     </div>
   )
 }
@@ -275,12 +277,12 @@ function RoleCard({
   features: string[]
 }) {
   return (
-    <article className="rounded-[30px] border border-borde bg-white p-7 shadow-sm">
-      <h3 className="font-card-title text-[2rem] font-black text-texto-principal">{title}</h3>
+    <article className="rounded-[26px] border border-borde bg-white p-6 shadow-sm sm:rounded-[30px] sm:p-7">
+      <h3 className="font-card-title text-[1.7rem] font-black leading-tight text-texto-principal sm:text-[2rem]">{title}</h3>
       <p className="font-card-body mt-2 text-[15px] leading-7 text-texto-secundario">{subtitle}</p>
 
       <div className="mt-8">
-        <p className="font-card-title text-[2.1rem] font-black text-texto-principal">{cta}</p>
+        <p className="font-card-title text-[1.75rem] font-black leading-tight text-texto-principal sm:text-[2.1rem]">{cta}</p>
       </div>
 
       <Link to="/landing?modal=registro" className="mt-8 inline-flex w-full items-center justify-center rounded-[16px] bg-primario px-5 py-4 text-base font-black text-white transition-colors hover:bg-primario-hover">
@@ -342,18 +344,18 @@ export default function LandingPage() {
   return (
     <main className="bg-white text-texto-principal">
       <section className="overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_26%),linear-gradient(135deg,#173B70_0%,#176BFF_62%,#4A9DFF_100%)] text-white">
-        <div className="mx-auto grid w-full max-w-[1380px] gap-14 px-5 py-18 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-22">
+        <div className="mx-auto grid w-full max-w-[1380px] gap-10 px-5 py-12 sm:py-18 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-22">
           <div className="flex flex-col justify-center">
             <span className="inline-flex w-fit rounded-full border border-white/20 bg-white/8 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md">
               Agendify
             </span>
-            <h1 className="font-hero mt-7 max-w-[620px] text-[2.7rem] font-extrabold leading-[1.04] text-white sm:text-[4.4rem] lg:text-[5.4rem]">
+            <h1 className="font-hero mt-6 max-w-[620px] text-[2.15rem] font-extrabold leading-[1.08] text-white sm:mt-7 sm:text-[4.4rem] sm:leading-[1.04] lg:text-[5.4rem]">
               Organiza reservas y agendas con una experiencia simple.
             </h1>
-            <p className="font-card-body mt-6 max-w-xl text-[18px] leading-8 text-white/82">
+            <p className="font-card-body mt-4 max-w-xl text-base leading-7 text-white/82 sm:mt-6 sm:text-[18px] sm:leading-8">
               Agendify te ayuda a reservar turnos, gestionar disponibilidad, sumar asistentes y mantener la comunicacion ordenada con cada cliente.
             </p>
-            <div className="mt-9 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-wrap gap-3 sm:mt-9">
               <button onClick={abrirModal} className="rounded-full bg-white px-6 py-3 text-sm font-black text-primario transition-colors hover:bg-[#eef5ff]">
                 Comenzar gratis
               </button>
@@ -418,15 +420,15 @@ export default function LandingPage() {
       />
 
       <section className="bg-fondo">
-        <div className="mx-auto w-full max-w-[1380px] px-5 py-18 lg:px-8 lg:py-24">
+        <div className="mx-auto w-full max-w-[1380px] px-5 py-12 sm:py-18 lg:px-8 lg:py-24">
           <div className="max-w-3xl">
             <SectionEyebrow>Herramientas integradas</SectionEyebrow>
-            <h2 className="font-hero mt-6 max-w-[920px] text-[2.25rem] font-extrabold leading-[1.05] text-texto-principal sm:text-[3rem] lg:text-[4rem]">
+            <h2 className="font-hero mt-5 max-w-[920px] text-[1.95rem] font-extrabold leading-[1.08] text-texto-principal sm:mt-6 sm:text-[3rem] sm:leading-[1.05] lg:text-[4rem]">
               Complementa la experiencia con herramientas pensadas para acompanar el uso diario.
             </h2>
           </div>
 
-          <div className="mt-14 grid gap-18">
+          <div className="mt-10 grid gap-12 sm:mt-14 sm:gap-18">
             <ToolCard
               id="notificaciones"
               title="Notificaciones"
@@ -446,13 +448,13 @@ export default function LandingPage() {
       </section>
 
       <section id="soluciones" className="scroll-mt-28 bg-white">
-        <div className="mx-auto w-full max-w-[1380px] px-5 py-18 lg:px-8 lg:py-24">
+        <div className="mx-auto w-full max-w-[1380px] px-5 py-12 sm:py-18 lg:px-8 lg:py-24">
           <div className="max-w-3xl">
             <SectionEyebrow>Soluciones</SectionEyebrow>
-            <h2 className="font-hero mt-6 max-w-[920px] text-[2.25rem] font-extrabold leading-[1.05] text-texto-principal sm:text-[3rem] lg:text-[4rem]">
+            <h2 className="font-hero mt-5 max-w-[920px] text-[1.95rem] font-extrabold leading-[1.08] text-texto-principal sm:mt-6 sm:text-[3rem] sm:leading-[1.05] lg:text-[4rem]">
               Elige el rol que mejor se adapta a tu forma de usar Agendify.
             </h2>
-            <p className="font-card-body mt-5 max-w-2xl text-[18px] leading-8 text-texto-secundario">
+            <p className="font-card-body mt-4 max-w-2xl text-base leading-7 text-texto-secundario sm:mt-5 sm:text-[18px] sm:leading-8">
               Cada perfil tiene ventajas distintas. La idea es que la landing lo muestre de forma simple, comparativa y clara.
             </p>
           </div>

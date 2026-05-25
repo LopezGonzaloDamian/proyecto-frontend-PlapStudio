@@ -18,7 +18,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    const url = axios.isAxiosError(error) ? error.config?.url ?? '' : ''
+    const esIntentoDeLogin = url.includes('/auth/login')
+
+    if (axios.isAxiosError(error) && error.response?.status === 401 && !esIntentoDeLogin) {
       clearSession()
       window.dispatchEvent(new Event('agendify:sesion'))
     }

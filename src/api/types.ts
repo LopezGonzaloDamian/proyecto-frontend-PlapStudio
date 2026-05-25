@@ -194,6 +194,7 @@ export type AsistenteAsignacion = {
   profesionalEspecialidad: string
   asistenteId: number
   asistenteNombre: string
+  asistenteEmail: string
   asignadoEn: string
 }
 
