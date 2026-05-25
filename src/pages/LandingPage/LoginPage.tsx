@@ -210,9 +210,9 @@ export default function LoginPage() {
   const [modalRegistroAbierto, setModalRegistroAbierto] = useState(false)
 
   return (
-    <main className="h-screen overflow-hidden bg-white text-texto-principal">
-      <div className="grid h-screen lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="relative overflow-hidden bg-gradient-to-br from-[#111827] via-primario to-[#0F5EC7] px-6 py-8 text-white lg:px-6 xl:px-8">
+    <main className="min-h-screen bg-white text-texto-principal">
+      <div className="grid min-h-screen lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#111827] via-primario to-[#0F5EC7] px-6 py-8 text-white lg:block lg:px-6 xl:px-8">
           <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
@@ -235,8 +235,8 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="flex h-screen items-center justify-center border-l border-borde bg-white px-5 py-8 sm:px-8 xl:px-12">
-          <div className="w-full max-w-xl translate-y-4 xl:translate-y-2">
+        <section className="flex min-h-screen items-center justify-center border-l border-borde bg-white px-5 py-8 sm:px-8 xl:px-12">
+          <div className="w-full max-w-xl lg:translate-y-4 xl:translate-y-2">
             <LoginPanel onCrearCuenta={() => setModalRegistroAbierto(true)} />
           </div>
         </section>

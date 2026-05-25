@@ -168,7 +168,7 @@ function FeatureSplit({
     <>
       <div>
         <SectionEyebrow>{eyebrow}</SectionEyebrow>
-        <h2 className="font-hero mt-6 max-w-[760px] text-[3rem] font-extrabold leading-[1.03] text-texto-principal lg:text-[4rem]">
+        <h2 className="font-hero mt-6 max-w-[760px] text-[2.25rem] font-extrabold leading-[1.05] text-texto-principal sm:text-[3rem] lg:text-[4rem]">
           {title}
         </h2>
         <p className="font-card-body mt-5 max-w-xl text-[18px] leading-8 text-texto-secundario">
@@ -347,7 +347,7 @@ export default function LandingPage() {
             <span className="inline-flex w-fit rounded-full border border-white/20 bg-white/8 px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] backdrop-blur-md">
               Agendify
             </span>
-            <h1 className="font-hero mt-7 max-w-[620px] text-[3.6rem] font-extrabold leading-[1.02] text-white sm:text-[4.4rem] lg:text-[5.4rem]">
+            <h1 className="font-hero mt-7 max-w-[620px] text-[2.7rem] font-extrabold leading-[1.04] text-white sm:text-[4.4rem] lg:text-[5.4rem]">
               Organiza reservas y agendas con una experiencia simple.
             </h1>
             <p className="font-card-body mt-6 max-w-xl text-[18px] leading-8 text-white/82">
@@ -421,7 +421,7 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-[1380px] px-5 py-18 lg:px-8 lg:py-24">
           <div className="max-w-3xl">
             <SectionEyebrow>Herramientas integradas</SectionEyebrow>
-            <h2 className="font-hero mt-6 max-w-[920px] text-[3rem] font-extrabold leading-[1.03] text-texto-principal lg:text-[4rem]">
+            <h2 className="font-hero mt-6 max-w-[920px] text-[2.25rem] font-extrabold leading-[1.05] text-texto-principal sm:text-[3rem] lg:text-[4rem]">
               Complementa la experiencia con herramientas pensadas para acompanar el uso diario.
             </h2>
           </div>
@@ -449,7 +449,7 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-[1380px] px-5 py-18 lg:px-8 lg:py-24">
           <div className="max-w-3xl">
             <SectionEyebrow>Soluciones</SectionEyebrow>
-            <h2 className="font-hero mt-6 max-w-[920px] text-[3rem] font-extrabold leading-[1.03] text-texto-principal lg:text-[4rem]">
+            <h2 className="font-hero mt-6 max-w-[920px] text-[2.25rem] font-extrabold leading-[1.05] text-texto-principal sm:text-[3rem] lg:text-[4rem]">
               Elige el rol que mejor se adapta a tu forma de usar Agendify.
             </h2>
             <p className="font-card-body mt-5 max-w-2xl text-[18px] leading-8 text-texto-secundario">

@@ -442,8 +442,8 @@ export default function AsistenteDashboard() {
   return (
     <div className="min-h-screen bg-fondo text-texto-principal">
       <header className="sticky top-0 z-40 border-b border-[#BBD7FF] bg-[#EAF2FF]/95 text-[#111827] shadow-sm backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3 sm:px-8 xl:px-10">
-          <Link to="/asistente" className="flex items-center gap-2">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 xl:px-10">
+          <Link to="/asistente" className="flex min-w-0 items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primario text-white">
               <IconCalendar className="h-5 w-5" />
             </span>
@@ -452,14 +452,14 @@ export default function AsistenteDashboard() {
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Asistente</span>
             </span>
           </Link>
-          <nav className="hidden items-center gap-3 text-sm font-semibold text-texto-secundario lg:flex">
+          <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-texto-secundario lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
             {navItems.map((item) => (
               <NavLink
                 key={item.seccion}
                 to={item.seccion === 'dashboard' ? '/asistente' : `/asistente/${item.seccion}`}
                 end={item.seccion === 'dashboard'}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 ${isActive ? 'bg-primario text-white' : 'hover:bg-white hover:text-primario'}`
+                  `shrink-0 rounded-lg px-3 py-2 ${isActive ? 'bg-primario text-white' : 'hover:bg-white hover:text-primario'}`
                 }
               >
                 {item.label}
@@ -493,7 +493,7 @@ export default function AsistenteDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 py-7 sm:px-8 xl:px-10">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7 xl:px-10">
         {seccionActual === 'dashboard' && (
           <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
@@ -555,14 +555,14 @@ export default function AsistenteDashboard() {
                     <button
                       key={fechaIso}
                       onClick={() => setFechaCalendario(fechaIso)}
-                      className={`min-h-[86px] rounded-lg border p-2 text-left ${
+                      className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
                         sel ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
                       } ${esMes ? 'opacity-100' : 'opacity-45'}`}
                     >
-                      <span className="text-sm font-black text-texto-principal">{dia.getDate()}</span>
+                      <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
                       <div className="mt-2 grid gap-1">
                         {turnosDia.slice(0, 2).map((t) => (
-                          <span key={t.id} className="truncate rounded bg-white px-1.5 py-1 text-[11px] font-bold text-primario">
+                          <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
                             {horaDe(t)} {t.profesionalNombre.split(' ')[0]}
                           </span>
                         ))}

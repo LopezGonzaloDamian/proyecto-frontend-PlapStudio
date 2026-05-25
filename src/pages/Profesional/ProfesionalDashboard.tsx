@@ -36,6 +36,11 @@ import type {
 } from '../../api/types'
 
 type SeccionProfesional = 'agenda' | 'turnos' | 'clientes' | 'asistentes' | 'pagos' | 'historial' | 'perfil' | 'notificaciones'
+type ConfiguracionAgenda = Agenda['configuraciones'][number]
+type EliminacionDisponibilidadPendiente =
+  | { tipo: 'bloque'; configuracion: ConfiguracionAgenda }
+  | { tipo: 'horario'; configuracion: ConfiguracionAgenda; horario: string }
+
 const seccionesValidas: SeccionProfesional[] = ['agenda', 'turnos', 'asistentes', 'pagos', 'historial', 'perfil', 'notificaciones']
 
 const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard' }> = [
@@ -47,6 +52,7 @@ const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard'
   { label: 'Historial', seccion: 'historial' },
   { label: 'Perfil', seccion: 'perfil' },
 ]
+const navMobilePrincipal = new Set<SeccionProfesional | 'dashboard'>(['dashboard', 'agenda', 'turnos'])
 
 const estadoClass: Record<Turno['estado'], string> = {
   CONFIRMADO: 'bg-emerald-100 text-emerald-800 border-emerald-200',
@@ -61,6 +67,7 @@ const diasLabels: Record<DiaSemana, string> = {
   MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miercoles', THURSDAY: 'Jueves',
   FRIDAY: 'Viernes', SATURDAY: 'Sabado', SUNDAY: 'Domingo',
 }
+const diasOrden = Object.keys(diasLabels) as DiaSemana[]
 
 const formatPrecio = (precio: number) =>
   `$ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(precio)}`
@@ -68,6 +75,21 @@ const formatPrecio = (precio: number) =>
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
 const abrirCalendario = (input: globalThis.HTMLInputElement) => input.showPicker?.()
+const minutosDeHora = (hora: string) => {
+  const [horas, minutos] = hora.slice(0, 5).split(':').map(Number)
+  return horas * 60 + minutos
+}
+const horaDeMinutos = (total: number) =>
+  `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+const horariosDeConfiguracion = (configuracion: Agenda['configuraciones'][number]) => {
+  const inicio = minutosDeHora(configuracion.inicioSlot)
+  const fin = minutosDeHora(configuracion.finSlot)
+  const horarios: string[] = []
+  for (let minuto = inicio; minuto < fin; minuto += configuracion.duracionSlotMinutos) {
+    horarios.push(horaDeMinutos(minuto))
+  }
+  return horarios
+}
 const fechaCortaDe = (t: { iniciaEn: string }) =>
   new Date(t.iniciaEn).toLocaleDateString('es-PY', {
     day: '2-digit',
@@ -94,6 +116,39 @@ function dividirTurnosCliente(turnos: Turno[]) {
     .sort((a, b) => ordenarTurnosAsc(b, a))
 
   return { proximoTurno, historial }
+}
+
+function FiltroEstado({
+  value,
+  onChange,
+}: {
+  value: 'Todos' | Turno['estado']
+  onChange: (value: 'Todos' | Turno['estado']) => void
+}) {
+  const opciones: Array<{ label: string; value: 'Todos' | Turno['estado'] }> = [
+    { label: 'Todos', value: 'Todos' },
+    { label: 'Confirmado', value: 'CONFIRMADO' },
+    { label: 'Cancelado', value: 'CANCELADO' },
+  ]
+
+  return (
+    <div className="flex min-h-[50px] w-full overflow-hidden rounded-lg border border-borde bg-white p-1.5 lg:min-w-[360px]">
+      {opciones.map((opcion) => (
+        <button
+          key={opcion.value}
+          type="button"
+          onClick={() => onChange(opcion.value)}
+          className={`flex-1 rounded-md px-3 py-2.5 text-sm font-bold transition-colors sm:px-4 ${
+            value === opcion.value
+              ? 'bg-primario text-white shadow-sm'
+              : 'text-texto-secundario hover:bg-fondo'
+          }`}
+        >
+          {opcion.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 export default function ProfesionalDashboard() {
@@ -130,6 +185,7 @@ export default function ProfesionalDashboard() {
   const [turnoEditarId, setTurnoEditarId] = useState('')
   const [turnoEditar, setTurnoEditar] = useState({ fecha: '', horario: '', notas: '' })
   const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
+  const [eliminacionDisponibilidad, setEliminacionDisponibilidad] = useState<EliminacionDisponibilidadPendiente | null>(null)
 
   const [nuevaAgenda, setNuevaAgenda] = useState({ nombre: 'Agenda principal', descripcion: 'Atencion presencial' })
   const [disponibilidad, setDisponibilidad] = useState({
@@ -217,6 +273,23 @@ export default function ProfesionalDashboard() {
   }, [profesionalId, usuario])
 
   const agendaPrincipal = agendas[0] ?? null
+
+  const configuracionesPorDia = useMemo(() => {
+    const grupos = diasOrden.reduce((acc, dia) => {
+      acc[dia] = []
+      return acc
+    }, {} as Record<DiaSemana, Agenda['configuraciones']>)
+
+    agendaPrincipal?.configuraciones.forEach((configuracion) => {
+      grupos[configuracion.diaSemana].push(configuracion)
+    })
+
+    diasOrden.forEach((dia) => {
+      grupos[dia].sort((a, b) => a.inicioSlot.localeCompare(b.inicioSlot))
+    })
+
+    return grupos
+  }, [agendaPrincipal?.configuraciones])
 
   const slotsReservablesNuevoTurno = useMemo(
     () => slotsNuevoTurno.filter(slotReservable),
@@ -441,6 +514,45 @@ export default function ProfesionalDashboard() {
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
+  const onEliminarHorarioConfig = async (configuracion: ConfiguracionAgenda, horario: string) => {
+    if (!agendaPrincipal || !configuracion.id) return
+    try {
+      const inicioBloque = minutosDeHora(configuracion.inicioSlot)
+      const finBloque = minutosDeHora(configuracion.finSlot)
+      const inicioHorario = minutosDeHora(horario)
+      const finHorario = inicioHorario + configuracion.duracionSlotMinutos
+
+      const bloquesRestantes = [
+        { inicioSlot: horaDeMinutos(inicioBloque), finSlot: horaDeMinutos(inicioHorario) },
+        { inicioSlot: horaDeMinutos(finHorario), finSlot: horaDeMinutos(finBloque) },
+      ].filter((bloque) => minutosDeHora(bloque.finSlot) - minutosDeHora(bloque.inicioSlot) >= configuracion.duracionSlotMinutos)
+
+      let agendaActualizada = await eliminarConfiguracion(agendaPrincipal.id, configuracion.id)
+      for (const bloque of bloquesRestantes) {
+        agendaActualizada = await agregarConfiguracion(agendaPrincipal.id, {
+          id: null,
+          diaSemana: configuracion.diaSemana,
+          inicioSlot: bloque.inicioSlot,
+          finSlot: bloque.finSlot,
+          duracionSlotMinutos: configuracion.duracionSlotMinutos,
+        })
+      }
+      setAgendas((act) => act.map((a) => (a.id === agendaActualizada.id ? agendaActualizada : a)))
+      showToast('Horario eliminado', 'success')
+    } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
+  const onConfirmarEliminarDisponibilidad = async () => {
+    if (!eliminacionDisponibilidad) return
+    if (eliminacionDisponibilidad.tipo === 'bloque') {
+      const id = eliminacionDisponibilidad.configuracion.id
+      if (id) await onEliminarConfig(id)
+    } else {
+      await onEliminarHorarioConfig(eliminacionDisponibilidad.configuracion, eliminacionDisponibilidad.horario)
+    }
+    setEliminacionDisponibilidad(null)
+  }
+
   const onCrearTurno = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!agendaPrincipal) {
@@ -587,8 +699,8 @@ export default function ProfesionalDashboard() {
   return (
     <div className="min-h-screen bg-fondo text-texto-principal">
       <header className="sticky top-0 z-40 border-b border-[#0F5EC7] bg-primario text-white shadow-sm">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3 sm:px-8 xl:px-10">
-          <Link to="/profesional" className="flex items-center gap-2">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 xl:px-10">
+          <Link to="/profesional" className="flex min-w-0 items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-white ring-1 ring-white/25">
               <IconCalendar className="h-5 w-5" />
             </span>
@@ -597,19 +709,22 @@ export default function ProfesionalDashboard() {
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/80">Profesional</span>
             </span>
           </Link>
-          <nav className="hidden items-center gap-3 text-sm font-semibold text-white/80 lg:flex">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.seccion}
-                to={pathDeSeccion(item)}
-                end={item.seccion === 'dashboard'}
-                className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 ${isActive ? 'bg-white text-primario' : 'hover:bg-white/15 hover:text-white'}`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
+          <nav className="order-3 -mx-1 flex w-full gap-2 overflow-x-auto pb-1 text-sm font-semibold text-white/80 lg:order-none lg:mx-0 lg:w-auto lg:items-center lg:overflow-visible lg:pb-0">
+            {navItems.map((item) => {
+              const visibleEnMobile = navMobilePrincipal.has(item.seccion)
+              return (
+                <NavLink
+                  key={item.seccion}
+                  to={pathDeSeccion(item)}
+                  end={item.seccion === 'dashboard'}
+                  className={({ isActive }) =>
+                    `${visibleEnMobile ? 'flex' : 'hidden lg:flex'} shrink-0 rounded-lg px-3 py-2 ${isActive ? 'bg-white text-primario' : 'hover:bg-white/15 hover:text-white'}`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              )
+            })}
           </nav>
           <div ref={menuUsuarioRef} className="relative flex items-center justify-end">
             <button onClick={() => setMenuUsuarioAbierto((v) => !v)} className="flex items-center gap-3 rounded-full border border-white/25 bg-white/10 px-2 py-1.5 shadow-sm hover:bg-white/20">
@@ -626,6 +741,20 @@ export default function ProfesionalDashboard() {
             </button>
             {menuUsuarioAbierto && (
               <div className="absolute right-0 top-[calc(100%+0.6rem)] min-w-[220px] rounded-2xl border border-borde bg-white p-2 shadow-lg">
+                <div className="mb-2 border-b border-borde pb-2 lg:hidden">
+                  {navItems.filter((item) => !navMobilePrincipal.has(item.seccion)).map((item) => (
+                    <NavLink
+                      key={item.seccion}
+                      to={pathDeSeccion(item)}
+                      onClick={() => setMenuUsuarioAbierto(false)}
+                      className={({ isActive }) =>
+                        `flex w-full items-center rounded-xl px-3 py-2 text-sm font-semibold ${isActive ? 'bg-primario-claro text-primario' : 'text-texto-principal hover:bg-fondo'}`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
                 <button onClick={cerrarSesion} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-peligro hover:bg-peligro-suave">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
@@ -638,7 +767,7 @@ export default function ProfesionalDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 py-7 sm:px-8 xl:px-10">
+      <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7 xl:px-10">
         {seccionActual === 'dashboard' && (
           <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
@@ -699,14 +828,14 @@ export default function ProfesionalDashboard() {
                       key={fechaIso}
                       type="button"
                       onClick={() => setFechaCalendario(fechaIso)}
-                      className={`min-h-[86px] rounded-lg border p-2 text-left ${
+                      className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
                         seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
                       } ${esMes ? 'opacity-100' : 'opacity-45'}`}
                     >
-                      <span className="text-sm font-black text-texto-principal">{dia.getDate()}</span>
+                      <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
                       <div className="mt-2 grid gap-1">
                         {turnosDia.slice(0, 2).map((t) => (
-                          <span key={t.id} className="truncate rounded bg-white px-1.5 py-1 text-[11px] font-bold text-primario">
+                          <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
                             {horaDe(t)} {t.clienteNombre.split(' ')[0]}
                           </span>
                         ))}
@@ -734,29 +863,60 @@ export default function ProfesionalDashboard() {
                 </form>
               ) : (
                 <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-                  <div className="rounded-lg bg-white p-5">
-                    <h2 className="text-2xl font-black text-texto-principal">Mi agenda</h2>
-                    <p className="mt-3 text-base font-semibold text-texto-principal">{agendaPrincipal.nombre}</p>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-texto-secundario">{agendaPrincipal.descripcion}</p>
-                  </div>
-
-                  <div className="mt-7 flex items-center justify-between gap-3">
-                    <h3 className="text-lg font-black text-texto-principal">Configuraciones horarias</h3>
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-2xl font-black text-texto-principal">Configuraciones horarias</h3>
                   </div>
                   <div className="mt-4 space-y-3">
-                    {agendaPrincipal.configuraciones.length === 0 && (
-                      <p className="text-sm text-texto-secundario">Aun no agregaste disponibilidades.</p>
-                    )}
-                    {agendaPrincipal.configuraciones.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border border-borde bg-fondo px-4 py-3">
-                        <div className="text-sm text-texto-principal">
-                          <span className="font-bold">{diasLabels[c.diaSemana]}</span><span className="mx-2 text-texto-suave">-</span>{c.inicioSlot.slice(0,5)} a {c.finSlot.slice(0,5)}<span className="mx-2 text-texto-suave">-</span>cada {c.duracionSlotMinutos} min
-                        </div>
-                        {c.id && (
-                          <button onClick={() => onEliminarConfig(c.id!)} className="text-xs font-bold text-peligro hover:underline">Eliminar</button>
-                        )}
-                      </div>
-                    ))}
+                    {diasOrden.map((dia) => {
+                      const configuracionesDia = configuracionesPorDia[dia]
+                      return (
+                        <details key={dia} className="group rounded-lg border border-borde bg-fondo">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                            <span className="text-sm font-black text-texto-principal">{diasLabels[dia]}</span>
+                            <span className="text-xs font-bold text-primario group-open:hidden">Ver horarios</span>
+                            <span className="hidden text-xs font-bold text-primario group-open:inline">Ocultar</span>
+                          </summary>
+                          <div className="space-y-3 border-t border-borde px-4 py-3">
+                            {configuracionesDia.length === 0 && (
+                              <p className="rounded-lg border border-dashed border-borde bg-white px-3 py-2 text-sm text-texto-secundario">
+                                Sin horarios cargados.
+                              </p>
+                            )}
+                            {configuracionesDia.map((c) => (
+                              <div key={c.id ?? `${c.diaSemana}-${c.inicioSlot}-${c.finSlot}`} className="rounded-lg border border-borde bg-white p-3">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <p className="text-xs font-bold text-texto-secundario">
+                                    Cada {c.duracionSlotMinutos} min
+                                  </p>
+                                  {c.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'bloque', configuracion: c })}
+                                      className="w-fit text-xs font-bold text-peligro hover:underline"
+                                    >
+                                      Eliminar bloque
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {horariosDeConfiguracion(c).map((horario) => (
+                                    <button
+                                      key={`${c.id}-${horario}`}
+                                      type="button"
+                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'horario', configuracion: c, horario })}
+                                      className="rounded-lg border border-primario-suave bg-primario-claro px-3 py-1.5 text-sm font-bold text-primario transition-colors hover:border-red-200 hover:bg-red-50 hover:text-peligro"
+                                      title={`Eliminar horario ${horario}`}
+                                    >
+                                      {horario}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )
+                    })}
                   </div>
                 </article>
               )}
@@ -903,12 +1063,12 @@ export default function ProfesionalDashboard() {
             </section>
 
             <section className="order-1 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div>
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Turnos</h2>
                   <p className="text-sm text-texto-secundario">Consulta, filtra y cancela los turnos registrados.</p>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-4 xl:min-w-[820px]">
+                <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_minmax(380px,1.25fr)_minmax(180px,220px)] xl:max-w-7xl">
                   <div>
                     <Label>Mail del cliente</Label>
                     <Input value={filtros.clienteEmail} onChange={(e) => setFiltros({ ...filtros, clienteEmail: e.target.value })} placeholder="cliente@gmail.com" />
@@ -921,13 +1081,9 @@ export default function ProfesionalDashboard() {
                   </div>
                   <div>
                     <Label>Estado</Label>
-                    <Select value={filtros.estado} onChange={(e) => setFiltros({ ...filtros, estado: e.target.value as typeof filtros.estado })}>
-                      <option value="Todos">Todos</option>
-                      <option value="CONFIRMADO">Confirmado</option>
-                      <option value="CANCELADO">Cancelado</option>
-                    </Select>
+                    <FiltroEstado value={filtros.estado} onChange={(estado) => setFiltros({ ...filtros, estado })} />
                   </div>
-                  <BotonSecundario type="button" className="self-end" onClick={() => setFiltros({ clienteEmail: '', fecha: '', estado: 'Todos' })}>Limpiar filtros</BotonSecundario>
+                  <BotonSecundario type="button" className="self-end whitespace-nowrap" onClick={() => setFiltros({ clienteEmail: '', fecha: '', estado: 'Todos' })}>Limpiar filtros</BotonSecundario>
                 </div>
               </div>
 
@@ -937,7 +1093,6 @@ export default function ProfesionalDashboard() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <h3 className="text-lg font-black text-texto-principal">{t.clienteNombre}</h3>
-                        <p className="mt-1 text-sm text-texto-secundario">{t.clienteEmail || 'Sin mail'}</p>
                       </div>
                       <span className={`rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
                     </div>
@@ -1149,16 +1304,49 @@ export default function ProfesionalDashboard() {
                 </div>
                 <div>
                   <Label>Estado</Label>
-                  <Select value={filtrosHistorial.estado} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, estado: e.target.value as typeof filtrosHistorial.estado })}>
-                    <option value="Todos">Todos</option>
-                    <option value="CONFIRMADO">Confirmado</option>
-                    <option value="CANCELADO">Cancelado</option>
-                  </Select>
+                  <FiltroEstado value={filtrosHistorial.estado} onChange={(estado) => setFiltrosHistorial({ ...filtrosHistorial, estado })} />
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 overflow-x-auto">
+            <div className="mt-6 grid gap-3 md:hidden">
+              {historialFiltrado.map((t) => (
+                <article key={t.id} className="rounded-lg border border-borde bg-fondo p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-black text-texto-principal">{t.clienteNombre}</h3>
+                    </div>
+                    <span className={`shrink-0 rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha</span>
+                      <p className="mt-1 font-black text-texto-principal">{fechaIsoDe(t)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Horario</span>
+                      <p className="mt-1 font-black text-texto-principal">{horaDe(t)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Duracion</span>
+                      <p className="mt-1 font-black text-texto-principal">{t.duracionMinutos} min</p>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
+                      <p className="mt-1 font-black text-texto-principal">{t.notas || 'Sin detalle'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Mail cliente</span>
+                      <p className="mt-1 break-all font-black text-texto-principal">{t.clienteEmail || 'Sin mail'}</p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {historialFiltrado.length === 0 && (
+                <p className="rounded-lg border border-dashed border-borde bg-fondo px-4 py-6 text-center text-sm text-texto-secundario">Sin turnos.</p>
+              )}
+            </div>
+            <div className="mt-6 hidden overflow-x-auto md:block">
               <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
                   <tr className="text-xs uppercase text-texto-secundario">
@@ -1254,7 +1442,48 @@ export default function ProfesionalDashboard() {
                 <p className="mt-1 text-sm text-texto-secundario">Base mas acumulado pendiente.</p>
               </article>
             </div>
-            <div className="mt-5 overflow-x-auto">
+            <div className="mt-5 grid gap-3 md:hidden">
+              {pagosTabla.map((p) => (
+                <article key={p.id} className="rounded-lg border border-borde bg-fondo p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-black text-texto-principal">{p.clienteNombre}</h3>
+                      <p className="mt-1 text-sm text-texto-secundario">{p.notas || p.agendaNombre}</p>
+                    </div>
+                    <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-primario">
+                      {p.origen === 'ONLINE' ? 'Online' : 'Externo'}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha</span>
+                      <p className="mt-1 font-bold text-texto-principal">{p.fecha}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Pagado</span>
+                        <p className="mt-1 font-black text-primario">{formatPrecio(p.monto)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold uppercase text-texto-suave">Neto</span>
+                        <p className="mt-1 font-black text-texto-principal">{formatPrecio(p.netoProfesional)}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-texto-suave">Comision Agendify</span>
+                      <p className="mt-1 font-bold text-texto-principal">
+                        {formatPrecio(p.comisionAgendify)}
+                        {p.porcentajeComision > 0 && <span className="ml-2 text-xs text-texto-secundario">({p.porcentajeComision}%)</span>}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {pagosTabla.length === 0 && (
+                <p className="rounded-lg border border-dashed border-borde bg-fondo px-4 py-6 text-center text-sm text-texto-secundario">Sin pagos registrados.</p>
+              )}
+            </div>
+            <div className="mt-5 hidden overflow-x-auto md:block">
               <table className="w-full min-w-[880px] border-separate border-spacing-y-2 text-left text-sm">
                 <thead>
                   <tr className="text-xs uppercase text-texto-secundario">
@@ -1294,14 +1523,17 @@ export default function ProfesionalDashboard() {
         )}
 
         {seccionActual === 'notificaciones' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-            <div className="flex items-center justify-between">
+          <section className="rounded-lg border border-borde-suave bg-white p-4 shadow-sm sm:p-6 xl:p-7">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-2xl font-black text-texto-principal">Notificaciones</h2>
                 <p className="mt-1 text-sm text-texto-secundario">Turnos, cambios y pagos.</p>
               </div>
               {notificaciones.some((n) => !n.leida) && (
-                <BotonSecundario onClick={() => marcarTodasLeidas(usuario.id).then(() => getNotificaciones(usuario.id).then(setNotificaciones))}>
+                <BotonSecundario
+                  className="w-fit px-3 py-2 text-xs sm:px-4 sm:text-sm"
+                  onClick={() => marcarTodasLeidas(usuario.id).then(() => getNotificaciones(usuario.id).then(setNotificaciones))}
+                >
                   Marcar todas como leídas
                 </BotonSecundario>
               )}
@@ -1337,6 +1569,39 @@ export default function ProfesionalDashboard() {
               <button
                 type="button"
                 onClick={() => onCancelarTurno(turnoACancelar.id)}
+                className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+              >
+                Si
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {eliminacionDisponibilidad && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-black text-texto-principal">Eliminar disponibilidad</h2>
+            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+              {eliminacionDisponibilidad.tipo === 'bloque' ? (
+                <>
+                  <p>¿Querés eliminar este bloque de horarios?</p>
+                  <p>Se eliminarán todos los horarios de ese bloque.</p>
+                </>
+              ) : (
+                <>
+                  <p>¿Querés eliminar el horario {eliminacionDisponibilidad.horario}?</p>
+                  <p>El resto de los horarios se mantendrá disponible.</p>
+                </>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <BotonSecundario type="button" onClick={() => setEliminacionDisponibilidad(null)}>
+                No
+              </BotonSecundario>
+              <button
+                type="button"
+                onClick={onConfirmarEliminarDisponibilidad}
                 className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
               >
                 Si

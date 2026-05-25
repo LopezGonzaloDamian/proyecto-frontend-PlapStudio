@@ -162,11 +162,11 @@ export default function PublicNavbar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-borde bg-white/92 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-[1380px] items-center justify-between gap-6 px-5 py-4 lg:px-8" ref={containerRef}>
-        <div className="flex items-center gap-8">
+      <div className="mx-auto flex w-full max-w-[1380px] items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 lg:gap-6 lg:px-8" ref={containerRef}>
+        <div className="flex min-w-0 items-center gap-8">
           <Link to="/landing" className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="Agendify" className="h-8 w-8" />
-            <span className="text-[1.85rem] font-black tracking-[-0.03em] text-texto-principal">Agendify</span>
+            <img src="/favicon.svg" alt="Agendify" className="h-8 w-8 shrink-0" />
+            <span className="text-[1.45rem] font-black tracking-[-0.03em] text-texto-principal sm:text-[1.85rem]">Agendify</span>
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">
@@ -204,7 +204,7 @@ export default function PublicNavbar() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <Link
             to="/soporte"
             aria-label="Soporte"
@@ -212,7 +212,7 @@ export default function PublicNavbar() {
           >
             <span className="text-lg font-black">?</span>
           </Link>
-          <Link to="/login" className="hidden rounded-full bg-primario px-5 py-2.5 text-sm font-black text-white transition-colors hover:bg-primario-hover md:inline-flex">
+          <Link to="/login" className="inline-flex rounded-full bg-primario px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-primario-hover sm:px-5">
             Ingresar
           </Link>
         </div>
