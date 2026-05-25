@@ -1937,13 +1937,13 @@ export default function ProfesionalDashboard() {
               )}
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <BotonSecundario type="button" onClick={() => setEliminacionDisponibilidad(null)}>
+              <BotonSecundario type="button" className="h-12 w-20" onClick={() => setEliminacionDisponibilidad(null)}>
                 No
               </BotonSecundario>
               <button
                 type="button"
                 onClick={onConfirmarEliminarDisponibilidad}
-                className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+                className="h-12 w-20 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
               >
                 Si
               </button>
