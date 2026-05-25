@@ -313,6 +313,14 @@ export default function ClienteDashboard() {
     () => slots.filter((slot) => slotReservable(slot, ahora)),
     [slots, ahora],
   )
+  const perfilTieneCambios = useMemo(() => {
+    if (!usuario) return false
+    return (
+      perfilForm.nombreCompleto.trim() !== usuario.nombreCompleto ||
+      perfilForm.telefono.trim() !== usuario.telefono ||
+      perfilForm.urlAvatar.trim() !== (usuario.urlAvatar ?? '')
+    )
+  }, [perfilForm, usuario])
 
   useEffect(() => {
     if (cerrandoSesionRef.current) return
@@ -565,6 +573,7 @@ export default function ClienteDashboard() {
   const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault()
     if (!usuario || !sesion) return
+    if (!perfilTieneCambios) return
     try {
       const actualizado = await actualizarUsuario(usuario.id, {
         nombreCompleto: perfilForm.nombreCompleto.trim(),
@@ -717,7 +726,6 @@ export default function ClienteDashboard() {
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <h2 className="text-3xl font-black text-texto-principal">Mi agenda</h2>
-                  <p className="mt-1 text-sm text-texto-secundario">Calendario personal con vista por dia, semana o mes.</p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="inline-flex rounded-xl border border-borde bg-fondo p-1">
@@ -1033,7 +1041,9 @@ export default function ClienteDashboard() {
                 <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
               </div>
 
-              <BotonPrimario type="submit">Guardar cambios</BotonPrimario>
+              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`}>
+                <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
+              </span>
             </form>
           </section>
         )}
@@ -1201,10 +1211,8 @@ export default function ClienteDashboard() {
                   <p className="mt-2 text-sm text-texto-secundario">Completa los datos para registrar tu turno.</p>
                   <div className="mt-6 grid gap-4 xl:grid-cols-2">
                     <div>
-                      <Label>Servicio</Label>
-                      <Select value={servicio} onChange={(e) => setServicio(e.target.value)}>
-                        {profesionalDetalle.servicios.map((s) => <option key={s}>{s}</option>)}
-                      </Select>
+                      <Label>Motivo</Label>
+                      <Input value={servicio} onChange={(e) => setServicio(e.target.value)} placeholder="Ej: Consulta inicial" />
                     </div>
                     <div>
                       <Label>Fecha</Label>

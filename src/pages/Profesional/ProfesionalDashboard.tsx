@@ -147,7 +147,6 @@ export default function ProfesionalDashboard() {
     localidad: '',
     direccion: '',
     precio: '',
-    servicios: '',
   })
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
@@ -185,9 +184,22 @@ export default function ProfesionalDashboard() {
       localidad: perfil.localidad,
       direccion: perfil.direccion,
       precio: String(perfil.precio || ''),
-      servicios: perfil.servicios.join(', '),
     })
   }, [usuario, perfil])
+
+  const perfilTieneCambios = useMemo(() => {
+    if (!usuario || !perfil) return false
+    return (
+      perfilForm.nombreCompleto.trim() !== usuario.nombreCompleto ||
+      perfilForm.telefono.trim() !== usuario.telefono ||
+      perfilForm.urlAvatar.trim() !== perfil.urlAvatar ||
+      perfilForm.especialidad.trim() !== perfil.especialidad ||
+      perfilForm.biografia.trim() !== perfil.biografia ||
+      perfilForm.localidad.trim() !== perfil.localidad ||
+      perfilForm.direccion.trim() !== perfil.direccion ||
+      Number(perfilForm.precio) !== Number(perfil.precio)
+    )
+  }, [perfilForm, usuario, perfil])
 
   const refrescarDatosOperativos = () => {
     if (!profesionalId) return
@@ -537,6 +549,7 @@ export default function ProfesionalDashboard() {
   const guardarPerfil = async (evento: FormEvent<HTMLFormElement>) => {
     evento.preventDefault()
     if (!usuario || !sesion || !perfil || !profesionalId) return
+    if (!perfilTieneCambios) return
     try {
       const usuarioActualizado = await actualizarUsuario(usuario.id, {
         nombreCompleto: perfilForm.nombreCompleto.trim(),
@@ -553,10 +566,7 @@ export default function ProfesionalDashboard() {
         cobertura: perfil.cobertura,
         matriculaNacional: perfil.matriculaNacional,
         matriculaProvincial: perfil.matriculaProvincial,
-        servicios: perfilForm.servicios
-          .split(',')
-          .map((servicio) => servicio.trim())
-          .filter(Boolean),
+        servicios: perfil.servicios,
       })
       iniciar({ token: sesion.token, usuario: usuarioActualizado })
       setPerfil(profesionalActualizado)
@@ -1202,25 +1212,21 @@ export default function ProfesionalDashboard() {
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
-                <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
+                <div><Label>Teléfono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
                 <div><Label>Rubro</Label><Input value={perfilForm.especialidad} onChange={(e) => setPerfilForm({ ...perfilForm, especialidad: e.target.value })} /></div>
                 <div><Label>Valor del turno</Label><Input type="number" min="0" step="1" value={perfilForm.precio} onChange={(e) => setPerfilForm({ ...perfilForm, precio: e.target.value })} /></div>
                 <div><Label>Localidad</Label><Input value={perfilForm.localidad} onChange={(e) => setPerfilForm({ ...perfilForm, localidad: e.target.value })} placeholder="Ej: Villa Maipu" /></div>
-                <div><Label>Direccion</Label><Input value={perfilForm.direccion} onChange={(e) => setPerfilForm({ ...perfilForm, direccion: e.target.value })} /></div>
+                <div><Label>Dirección</Label><Input value={perfilForm.direccion} onChange={(e) => setPerfilForm({ ...perfilForm, direccion: e.target.value })} /></div>
               </div>
 
               <div>
-                <Label>Descripcion</Label>
+                <Label>Descripción</Label>
                 <Textarea rows={4} value={perfilForm.biografia} onChange={(e) => setPerfilForm({ ...perfilForm, biografia: e.target.value })} />
               </div>
 
-              <div>
-                <Label>Servicios</Label>
-                <Input value={perfilForm.servicios} onChange={(e) => setPerfilForm({ ...perfilForm, servicios: e.target.value })} placeholder="Consulta inicial, Control, Seguimiento" />
-                <p className="mt-1 text-xs text-texto-secundario">Separalos con comas.</p>
-              </div>
-
-              <BotonPrimario type="submit">Guardar cambios</BotonPrimario>
+              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`}>
+                <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
+              </span>
             </form>
           </section>
         )}
@@ -1238,7 +1244,7 @@ export default function ProfesionalDashboard() {
                     <th className="px-3 py-2">Fecha</th>
                     <th className="px-3 py-2">Tipo</th>
                     <th className="px-3 py-2">Monto pagado</th>
-                    <th className="px-3 py-2">Comision Agendify</th>
+                    <th className="px-3 py-2">Comisión Agendify</th>
                     <th className="px-3 py-2">Neto profesional</th>
                   </tr>
                 </thead>
@@ -1272,7 +1278,7 @@ export default function ProfesionalDashboard() {
               </div>
               {notificaciones.some((n) => !n.leida) && (
                 <BotonSecundario onClick={() => marcarTodasLeidas(usuario.id).then(() => getNotificaciones(usuario.id).then(setNotificaciones))}>
-                  Marcar todas como leidas
+                  Marcar todas como leídas
                 </BotonSecundario>
               )}
             </div>
@@ -1296,22 +1302,20 @@ export default function ProfesionalDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
             <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
-            <p className="mt-2 text-sm text-texto-secundario">Estas seguro de que queres cancelar este turno?</p>
-            <div className="mt-4 rounded-xl border border-borde bg-fondo p-4 text-sm">
-              <p className="font-black text-texto-principal">{turnoACancelar.clienteNombre}</p>
-              <p className="mt-1 text-texto-secundario">{fechaCortaDe(turnoACancelar)} - {horaDe(turnoACancelar)}</p>
-              <p className="mt-1 text-texto-secundario">{turnoACancelar.notas || 'Sin notas'}</p>
+            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+              <p>¿Querés cancelar este turno?</p>
+              <p>El turno quedará marcado como cancelado.</p>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <BotonSecundario type="button" onClick={() => setTurnoACancelar(null)}>
-                No, volver
+                No
               </BotonSecundario>
               <button
                 type="button"
                 onClick={() => onCancelarTurno(turnoACancelar.id)}
                 className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
               >
-                Si, cancelar
+                Si
               </button>
             </div>
           </div>

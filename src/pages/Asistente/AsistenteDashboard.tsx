@@ -995,23 +995,20 @@ export default function AsistenteDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
             <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
-            <p className="mt-2 text-sm text-texto-secundario">Estas seguro de que queres cancelar este turno?</p>
-            <div className="mt-4 rounded-xl border border-borde bg-fondo p-4 text-sm">
-              <p className="font-black text-texto-principal">{turnoACancelar.clienteNombre}</p>
-              <p className="mt-1 text-texto-secundario">{turnoACancelar.profesionalNombre}</p>
-              <p className="mt-1 text-texto-secundario">{fechaCortaDe(turnoACancelar)} - {horaDe(turnoACancelar)}</p>
-              <p className="mt-1 text-texto-secundario">{turnoACancelar.notas || 'Sin notas'}</p>
+            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+              <p>¿Seguro Queres cancelar este turno?</p>
+              <p>El turno quedara marcado como cancelado.</p>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <BotonSecundario type="button" onClick={() => setTurnoACancelar(null)}>
-                No, volver
+                No
               </BotonSecundario>
               <button
                 type="button"
                 onClick={() => onCancelarTurnoDirecto(turnoACancelar.id)}
                 className="rounded-lg border border-peligro bg-peligro px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
               >
-                Si, cancelar
+                Cancela turno
               </button>
             </div>
           </div>
