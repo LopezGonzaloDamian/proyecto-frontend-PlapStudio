@@ -63,6 +63,16 @@ const estadoClass: Record<Turno['estado'], string> = {
 const estadoLabel: Record<Turno['estado'], string> = {
   CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado',
 }
+const estadoAsignacionClass: Record<AsistenteAsignacion['estado'], string> = {
+  PENDIENTE: 'bg-amber-50 text-amber-700 border-amber-200',
+  ACEPTADA: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  RECHAZADA: 'bg-red-100 text-red-700 border-red-200',
+}
+const estadoAsignacionLabel: Record<AsistenteAsignacion['estado'], string> = {
+  PENDIENTE: 'Pendiente',
+  ACEPTADA: 'Aceptado',
+  RECHAZADA: 'Rechazado',
+}
 
 const diasLabels: Record<DiaSemana, string> = {
   MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miercoles', THURSDAY: 'Jueves',
@@ -730,7 +740,7 @@ export default function ProfesionalDashboard() {
       setAsistenteAConfirmar(null)
       setPidiendoPasswordAsistente(false)
       setPasswordAsignacionAsistente('')
-      showToast('Asistente asignado', 'success')
+      showToast('Invitacion enviada al asistente', 'success')
     } catch (err) {
       showToast(mensajePasswordIncorrecta(err), 'error')
     } finally {
@@ -1436,9 +1446,14 @@ export default function ProfesionalDashboard() {
                           <p className="truncate text-sm text-texto-secundario">{a.asistenteEmail}</p>
                         </div>
                       </div>
-                      <BotonSecundario type="button" className="w-full sm:w-auto" onClick={() => setAsistenteADesasignar(a)}>
-                        Quitar acceso
-                      </BotonSecundario>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <span className={`rounded-lg border px-3 py-1 text-sm font-bold ${estadoAsignacionClass[a.estado]}`}>
+                          {estadoAsignacionLabel[a.estado]}
+                        </span>
+                        <BotonSecundario type="button" className="w-full sm:w-auto" onClick={() => setAsistenteADesasignar(a)}>
+                          Quitar acceso
+                        </BotonSecundario>
+                      </div>
                     </div>
                   )
                 })}

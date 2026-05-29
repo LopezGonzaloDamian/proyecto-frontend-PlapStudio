@@ -8,10 +8,13 @@ import { Toast } from '../../components/common/toast'
 import { extraerError } from '../../api/client'
 import { getAgendasDeProfesional, getSlots } from '../../api/agendas'
 import {
+  aceptarProfesionalAsistente,
   cancelarTurnoAsistente,
+  desasignarAsistente,
   getProfesionalesDeAsistente,
   getTurnosDeAsistente,
   modificarTurnoAsistente,
+  rechazarProfesionalAsistente,
   reservarTurnoAsistente,
 } from '../../api/asistentes'
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
@@ -25,13 +28,14 @@ import type {
   Turno,
 } from '../../api/types'
 
-type SeccionAsistente = 'agenda' | 'turnos' | 'clientes' | 'historial' | 'perfil'
-const seccionesValidas: SeccionAsistente[] = ['agenda', 'turnos', 'historial', 'perfil']
+type SeccionAsistente = 'agenda' | 'turnos' | 'clientes' | 'profesionales' | 'historial' | 'perfil'
+const seccionesValidas: SeccionAsistente[] = ['agenda', 'turnos', 'profesionales', 'historial', 'perfil']
 
 const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }> = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Agenda', seccion: 'agenda' },
   { label: 'Turnos', seccion: 'turnos' },
+  { label: 'Profesionales', seccion: 'profesionales' },
   { label: 'Historial', seccion: 'historial' },
   { label: 'Perfil', seccion: 'perfil' },
 ]
@@ -45,6 +49,16 @@ const estadoClass: Record<Turno['estado'], string> = {
 }
 const estadoLabel: Record<Turno['estado'], string> = {
   CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado',
+}
+const estadoAsignacionClass: Record<AsistenteAsignacion['estado'], string> = {
+  PENDIENTE: 'bg-amber-50 text-amber-700 border-amber-200',
+  ACEPTADA: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  RECHAZADA: 'bg-red-100 text-red-700 border-red-200',
+}
+const estadoAsignacionLabel: Record<AsistenteAsignacion['estado'], string> = {
+  PENDIENTE: 'Pendiente',
+  ACEPTADA: 'Aceptado',
+  RECHAZADA: 'Rechazado',
 }
 
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
@@ -113,6 +127,14 @@ export default function AsistenteDashboard() {
   const [pidiendoPasswordCancelacion, setPidiendoPasswordCancelacion] = useState(false)
   const [passwordCancelacionTurno, setPasswordCancelacionTurno] = useState('')
   const [cancelandoTurno, setCancelandoTurno] = useState(false)
+  const [invitacionProfesional, setInvitacionProfesional] = useState<{ asignacion: AsistenteAsignacion; accion: 'aceptar' | 'rechazar' } | null>(null)
+  const [pidiendoPasswordInvitacion, setPidiendoPasswordInvitacion] = useState(false)
+  const [passwordInvitacion, setPasswordInvitacion] = useState('')
+  const [respondiendoInvitacion, setRespondiendoInvitacion] = useState(false)
+  const [profesionalADesvincular, setProfesionalADesvincular] = useState<AsistenteAsignacion | null>(null)
+  const [pidiendoPasswordDesvinculacion, setPidiendoPasswordDesvinculacion] = useState(false)
+  const [passwordDesvinculacion, setPasswordDesvinculacion] = useState('')
+  const [desvinculandoProfesional, setDesvinculandoProfesional] = useState(false)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
@@ -147,6 +169,11 @@ export default function AsistenteDashboard() {
     )
   }, [perfilForm, usuario])
 
+  const profesionalesAceptados = useMemo(
+    () => profesionales.filter((p) => p.estado === 'ACEPTADA'),
+    [profesionales],
+  )
+
   useEffect(() => {
     if (!usuario) return
     void getProfesionalesDeAsistente(usuario.id).then(setProfesionales).catch((e) => showToast(extraerError(e), 'error'))
@@ -167,14 +194,20 @@ export default function AsistenteDashboard() {
 
   // Cuando hay profesionales, cargar clientes y agendas de los asignados
   useEffect(() => {
-    if (profesionales.length === 0) return
+    if (profesionalesAceptados.length === 0) {
+      setClientes([])
+      setAgendaPorProfesional({})
+      setFiltrosAgenda((f) => ({ ...f, profesionalId: '' }))
+      setTurnoNuevo((n) => ({ ...n, profesionalId: '' }))
+      return
+    }
     if (!filtrosAgenda.profesionalId) {
-      setFiltrosAgenda((f) => ({ ...f, profesionalId: String(profesionales[0].profesionalId) }))
+      setFiltrosAgenda((f) => ({ ...f, profesionalId: String(profesionalesAceptados[0].profesionalId) }))
     }
     if (!turnoNuevo.profesionalId) {
-      setTurnoNuevo((n) => ({ ...n, profesionalId: String(profesionales[0].profesionalId) }))
+      setTurnoNuevo((n) => ({ ...n, profesionalId: String(profesionalesAceptados[0].profesionalId) }))
     }
-    Promise.all(profesionales.map((a) => getClientesDeProfesional(a.profesionalId)))
+    Promise.all(profesionalesAceptados.map((a) => getClientesDeProfesional(a.profesionalId)))
       .then((listas) => {
         const map = new Map<number, Cliente>()
         listas.flat().forEach((c) => map.set(c.id, c))
@@ -182,13 +215,13 @@ export default function AsistenteDashboard() {
       })
       .catch((e) => showToast(extraerError(e), 'error'))
 
-    profesionales.forEach((a) => {
+    profesionalesAceptados.forEach((a) => {
       getAgendasDeProfesional(a.profesionalId)
         .then((ags) => setAgendaPorProfesional((m) => ({ ...m, [a.profesionalId]: ags[0] ?? null })))
         .catch(() => {})
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profesionales])
+  }, [profesionalesAceptados])
 
   const slotsReservablesTurnoNuevo = useMemo(
     () => slotsTurnoNuevo.filter(slotReservable),
@@ -366,6 +399,8 @@ export default function AsistenteDashboard() {
 
   const inicialesAsistente = (usuario?.nombreCompleto ?? '')
     .split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
+  const inicialesDe = (nombre: string) =>
+    nombre.split(' ').filter(Boolean).slice(0, 2).map((parte) => parte[0]).join('').toUpperCase()
 
   const refrescarTurnos = () => {
     if (usuario) void getTurnosDeAsistente(usuario.id).then(setTurnos)
@@ -490,6 +525,83 @@ export default function AsistenteDashboard() {
       navigate('/asistente')
     } catch (err) {
       showToast(extraerError(err), 'error')
+    }
+  }
+
+  const responderInvitacionProfesional = async (asignacionId: string, accion: 'aceptar' | 'rechazar') => {
+    if (!usuario) return
+    try {
+      setRespondiendoInvitacion(true)
+      const actualizada = accion === 'aceptar'
+        ? await aceptarProfesionalAsistente(usuario.id, asignacionId)
+        : await rechazarProfesionalAsistente(usuario.id, asignacionId)
+      setProfesionales((actuales) => actuales.map((a) => (a.id === actualizada.id ? actualizada : a)))
+      if (accion === 'aceptar') {
+        void getTurnosDeAsistente(usuario.id).then(setTurnos).catch(() => undefined)
+      }
+      setInvitacionProfesional(null)
+      setPidiendoPasswordInvitacion(false)
+      setPasswordInvitacion('')
+      showToast(accion === 'aceptar' ? 'Profesional aceptado' : 'Invitacion rechazada', 'success')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
+    } finally {
+      setRespondiendoInvitacion(false)
+    }
+  }
+
+  const cerrarInvitacionProfesional = () => {
+    if (respondiendoInvitacion) return
+    setInvitacionProfesional(null)
+    setPidiendoPasswordInvitacion(false)
+    setPasswordInvitacion('')
+  }
+
+  const confirmarInvitacionConPassword = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!usuario || !invitacionProfesional || invitacionProfesional.accion !== 'aceptar') return
+    if (!passwordInvitacion.trim()) {
+      showToast('Ingresa tu contraseña', 'error')
+      return
+    }
+    try {
+      setRespondiendoInvitacion(true)
+      await validarLogin({ email: usuario.email, password: passwordInvitacion.trim() })
+      await responderInvitacionProfesional(invitacionProfesional.asignacion.id, 'aceptar')
+    } catch (err) {
+      showToast(mensajePasswordIncorrecta(err), 'error')
+      setRespondiendoInvitacion(false)
+    }
+  }
+
+  const cerrarDesvinculacionProfesional = () => {
+    if (desvinculandoProfesional) return
+    setProfesionalADesvincular(null)
+    setPidiendoPasswordDesvinculacion(false)
+    setPasswordDesvinculacion('')
+  }
+
+  const confirmarDesvinculacionProfesional = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!usuario || !profesionalADesvincular) return
+    if (!passwordDesvinculacion.trim()) {
+      showToast('Ingresa tu contraseña', 'error')
+      return
+    }
+    try {
+      setDesvinculandoProfesional(true)
+      await validarLogin({ email: usuario.email, password: passwordDesvinculacion.trim() })
+      await desasignarAsistente(profesionalADesvincular.id)
+      setProfesionales((actuales) => actuales.filter((p) => p.id !== profesionalADesvincular.id))
+      void getTurnosDeAsistente(usuario.id).then(setTurnos).catch(() => undefined)
+      setProfesionalADesvincular(null)
+      setPidiendoPasswordDesvinculacion(false)
+      setPasswordDesvinculacion('')
+      showToast('Te desvinculaste del profesional', 'success')
+    } catch (err) {
+      showToast(mensajePasswordIncorrecta(err), 'error')
+    } finally {
+      setDesvinculandoProfesional(false)
     }
   }
 
@@ -662,7 +774,7 @@ export default function AsistenteDashboard() {
                   <div>
                     <Label>Profesional</Label>
                     <Select value={filtrosAgenda.profesionalId} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, profesionalId: e.target.value })}>
-                      {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
+                      {profesionalesAceptados.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                     </Select>
                   </div>
                   <div>
@@ -752,7 +864,7 @@ export default function AsistenteDashboard() {
                   <div className="lg:max-w-[270px]">
                     <Label>Profesional</Label>
                     <Select value={turnoNuevo.profesionalId} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, profesionalId: e.target.value })}>
-                      {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
+                      {profesionalesAceptados.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                     </Select>
                   </div>
                   <div className="lg:col-span-4">
@@ -991,6 +1103,66 @@ export default function AsistenteDashboard() {
           </section>
         )}
 
+        {seccionActual === 'profesionales' && (
+          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+            <h2 className="text-2xl font-black text-texto-principal">Profesionales</h2>
+            <p className="text-sm text-texto-secundario">Revisa las invitaciones y profesionales vinculados a tu cuenta.</p>
+
+            <div className="mt-6 grid gap-4 xl:grid-cols-2">
+              {profesionales.map((p) => (
+                <article key={p.id} className="rounded-lg border border-borde bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primario/10 text-sm font-black text-primario">
+                          {p.profesionalAvatarUrl ? (
+                            <img src={p.profesionalAvatarUrl} alt={p.profesionalNombre} className="h-full w-full object-cover" />
+                          ) : (
+                            inicialesDe(p.profesionalNombre) || 'P'
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-lg font-black text-texto-principal">{p.profesionalNombre}</h3>
+                          <p className="text-sm font-semibold text-texto-secundario">{p.profesionalEspecialidad}</p>
+                        </div>
+                      </div>
+                      <span className={`shrink-0 rounded-lg border px-3 py-1 text-sm font-bold ${estadoAsignacionClass[p.estado]}`}>
+                        {estadoAsignacionLabel[p.estado]}
+                      </span>
+                  </div>
+
+                  {p.estado === 'PENDIENTE' && (
+                    <div className="mt-5 flex flex-wrap justify-end gap-3">
+                        <BotonSecundario type="button" className="h-11 w-28" onClick={() => setInvitacionProfesional({ asignacion: p, accion: 'rechazar' })}>
+                          Rechazar
+                        </BotonSecundario>
+                        <BotonPrimario type="button" className="h-11 w-28" onClick={() => setInvitacionProfesional({ asignacion: p, accion: 'aceptar' })}>
+                          Aceptar
+                        </BotonPrimario>
+                    </div>
+                  )}
+
+                  {p.estado === 'ACEPTADA' && (
+                    <div className="mt-5 flex flex-wrap justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setProfesionalADesvincular(p)}
+                          className="h-11 rounded-lg border border-red-200 px-5 text-sm font-bold text-peligro transition hover:bg-red-50"
+                        >
+                          Desvincularme
+                        </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+              {profesionales.length === 0 && (
+                <p className="rounded-lg border border-dashed border-borde bg-fondo px-4 py-6 text-center text-sm text-texto-secundario xl:col-span-2">
+                  Todavia no tenes invitaciones de profesionales.
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         {seccionActual === 'perfil' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Mi perfil</h2>
@@ -1035,7 +1207,7 @@ export default function AsistenteDashboard() {
                   <Label>Profesional</Label>
                   <Select value={filtrosHistorial.profesionalId} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, profesionalId: e.target.value })}>
                     <option value="Todos">Todos</option>
-                    {profesionales.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
+                    {profesionalesAceptados.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                   </Select>
                 </div>
                 <div>
@@ -1183,6 +1355,147 @@ export default function AsistenteDashboard() {
                       type="submit"
                       className={`h-12 w-28 ${!passwordCancelacionTurno.trim() || cancelandoTurno ? 'pointer-events-none' : ''}`}
                       disabled={!passwordCancelacionTurno.trim() || cancelandoTurno}
+                    >
+                      Aceptar
+                    </BotonPrimario>
+                  </span>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {invitacionProfesional && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            {invitacionProfesional.accion === 'aceptar' && pidiendoPasswordInvitacion ? (
+              <form onSubmit={confirmarInvitacionConPassword}>
+                <h2 className="text-xl font-black text-texto-principal">Confirmar contraseña</h2>
+                <p className="mt-3 text-sm text-texto-secundario">
+                  Para aceptar la invitación de <strong className="text-texto-principal">{invitacionProfesional.asignacion.profesionalNombre}</strong>, ingresa tu contraseña.
+                </p>
+                <div className="mt-5">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordInvitacion}
+                    onChange={(e) => setPasswordInvitacion(e.target.value)}
+                    placeholder="Tu contraseña"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarInvitacionProfesional}>
+                    Cancelar
+                  </BotonSecundario>
+                  <span
+                    className={`${!passwordInvitacion.trim() || respondiendoInvitacion ? 'cursor-not-allowed' : ''}`}
+                    title={!passwordInvitacion.trim() ? 'Ingresa tu contraseña' : undefined}
+                  >
+                    <BotonPrimario
+                      type="submit"
+                      className={`h-12 w-28 ${!passwordInvitacion.trim() || respondiendoInvitacion ? 'pointer-events-none' : ''}`}
+                      disabled={!passwordInvitacion.trim() || respondiendoInvitacion}
+                    >
+                      Aceptar
+                    </BotonPrimario>
+                  </span>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h2 className="text-xl font-black text-texto-principal">
+                  {invitacionProfesional.accion === 'aceptar' ? 'Aceptar invitación' : 'Rechazar invitación'}
+                </h2>
+                <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+                  <p>
+                    {invitacionProfesional.accion === 'aceptar'
+                      ? `¿Seguro que querés vincularte con ${invitacionProfesional.asignacion.profesionalNombre}?`
+                      : `¿Seguro que querés rechazar la invitación de ${invitacionProfesional.asignacion.profesionalNombre}?`}
+                  </p>
+                  <p>
+                    {invitacionProfesional.accion === 'aceptar'
+                      ? 'Vas a poder gestionar sus turnos cuando confirmes tu contraseña.'
+                      : 'No quedará vinculado a tu cuenta de asistente.'}
+                  </p>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarInvitacionProfesional}>
+                    No
+                  </BotonSecundario>
+                  <BotonPrimario
+                    type="button"
+                    className="h-12 w-20"
+                    onClick={() => {
+                      if (invitacionProfesional.accion === 'aceptar') {
+                        setPidiendoPasswordInvitacion(true)
+                        return
+                      }
+                      void responderInvitacionProfesional(invitacionProfesional.asignacion.id, 'rechazar')
+                    }}
+                    disabled={respondiendoInvitacion}
+                  >
+                    Si
+                  </BotonPrimario>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {profesionalADesvincular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            {!pidiendoPasswordDesvinculacion ? (
+              <>
+                <h2 className="text-xl font-black text-texto-principal">Desvincular profesional</h2>
+                <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+                  <p>¿Seguro que querés desvincularte de {profesionalADesvincular.profesionalNombre}?</p>
+                  <p>Ya no vas a poder gestionar sus turnos desde tu cuenta de asistente.</p>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarDesvinculacionProfesional}>
+                    Cancelar
+                  </BotonSecundario>
+                  <button
+                    type="button"
+                    onClick={() => setPidiendoPasswordDesvinculacion(true)}
+                    className="h-12 w-32 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+                  >
+                    Desvincular
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={confirmarDesvinculacionProfesional}>
+                <h2 className="text-xl font-black text-texto-principal">Confirmar contraseña</h2>
+                <p className="mt-3 text-sm text-texto-secundario">
+                  Para desvincularte de <strong className="text-texto-principal">{profesionalADesvincular.profesionalNombre}</strong>, ingresa tu contraseña.
+                </p>
+                <div className="mt-5">
+                  <Label>Contraseña</Label>
+                  <Input
+                    type="password"
+                    value={passwordDesvinculacion}
+                    onChange={(e) => setPasswordDesvinculacion(e.target.value)}
+                    placeholder="Tu contraseña"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarDesvinculacionProfesional}>
+                    Cancelar
+                  </BotonSecundario>
+                  <span
+                    className={`${!passwordDesvinculacion.trim() || desvinculandoProfesional ? 'cursor-not-allowed' : ''}`}
+                    title={!passwordDesvinculacion.trim() ? 'Ingresa tu contraseña' : undefined}
+                  >
+                    <BotonPrimario
+                      type="submit"
+                      className={`h-12 w-28 ${!passwordDesvinculacion.trim() || desvinculandoProfesional ? 'pointer-events-none' : ''}`}
+                      disabled={!passwordDesvinculacion.trim() || desvinculandoProfesional}
                     >
                       Aceptar
                     </BotonPrimario>
