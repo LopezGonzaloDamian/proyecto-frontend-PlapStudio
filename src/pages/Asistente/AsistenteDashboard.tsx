@@ -996,7 +996,7 @@ export default function AsistenteDashboard() {
         )}
 
         {seccionActual === 'clientes' && (
-          <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+          <section className="bg-transparent p-0 shadow-none sm:rounded-lg sm:border sm:border-borde-suave sm:bg-white sm:p-6 sm:shadow-sm xl:p-7">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <h2 className="text-2xl font-black text-texto-principal">Clientes</h2>
@@ -1110,7 +1110,7 @@ export default function AsistenteDashboard() {
 
             <div className="mt-6 grid gap-4 xl:grid-cols-2">
               {profesionales.map((p) => (
-                <article key={p.id} className="rounded-lg border border-borde bg-white p-4 shadow-sm">
+                <article key={p.id} className="mx-auto w-full max-w-[320px] rounded-lg border border-borde bg-white p-4 shadow-sm sm:max-w-none">
                   <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primario/10 text-sm font-black text-primario">
