@@ -192,9 +192,11 @@ export type AsistenteAsignacion = {
   profesionalId: number
   profesionalNombre: string
   profesionalEspecialidad: string
+  profesionalAvatarUrl?: string | null
   asistenteId: number
   asistenteNombre: string
   asistenteEmail: string
+  estado: 'PENDIENTE' | 'ACEPTADA' | 'RECHAZADA'
   asignadoEn: string
 }
 

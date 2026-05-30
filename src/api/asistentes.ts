@@ -41,6 +41,16 @@ export async function asignarAsistente(profesionalId: number, asistenteEmail: st
   return data
 }
 
+export async function aceptarProfesionalAsistente(usuarioId: number, asignacionId: string): Promise<AsistenteAsignacion> {
+  const { data } = await api.patch<AsistenteAsignacion>(`/asistentes/${usuarioId}/profesionales/${asignacionId}/aceptar`)
+  return data
+}
+
+export async function rechazarProfesionalAsistente(usuarioId: number, asignacionId: string): Promise<AsistenteAsignacion> {
+  const { data } = await api.patch<AsistenteAsignacion>(`/asistentes/${usuarioId}/profesionales/${asignacionId}/rechazar`)
+  return data
+}
+
 export async function desasignarAsistente(id: string): Promise<void> {
   await api.delete(`/asistentes/${id}`)
 }
