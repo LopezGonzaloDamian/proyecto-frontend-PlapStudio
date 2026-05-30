@@ -63,15 +63,15 @@ const estadoClass: Record<Turno['estado'], string> = {
 const estadoLabel: Record<Turno['estado'], string> = {
   CONFIRMADO: 'Confirmado', CANCELADO: 'Cancelado',
 }
-const estadoAsignacionClass: Record<AsistenteAsignacion['estado'], string> = {
-  PENDIENTE: 'bg-amber-50 text-amber-700 border-amber-200',
-  ACEPTADA: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  RECHAZADA: 'bg-red-100 text-red-700 border-red-200',
-}
 const estadoAsignacionLabel: Record<AsistenteAsignacion['estado'], string> = {
   PENDIENTE: 'Pendiente',
   ACEPTADA: 'Aceptado',
   RECHAZADA: 'Rechazado',
+}
+const estadoAsignacionClass: Record<AsistenteAsignacion['estado'], string> = {
+  PENDIENTE: 'bg-amber-50 text-amber-700 border-amber-200',
+  ACEPTADA: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  RECHAZADA: 'bg-red-100 text-red-700 border-red-200',
 }
 
 const diasLabels: Record<DiaSemana, string> = {
@@ -1436,23 +1436,26 @@ export default function ProfesionalDashboard() {
                     .join('')
 
                   return (
-                    <div key={a.id} className="flex flex-col gap-4 rounded-lg border border-borde bg-fondo p-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primario/10 text-base font-black text-primario">
+                    <div key={a.id} className="grid gap-3 rounded-[18px] border border-borde-suave bg-[#F8F8F8] px-4 py-4 shadow-sm sm:grid-cols-[2.75rem_1fr] md:grid-cols-[2.75rem_1fr_auto] md:items-start md:px-6 md:py-5">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primario/10 text-sm font-black text-primario sm:mt-1">
                           {iniciales || 'AS'}
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="truncate font-black text-texto-principal">{a.asistenteNombre}</h3>
-                          <p className="truncate text-sm text-texto-secundario">{a.asistenteEmail}</p>
-                        </div>
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="truncate font-black text-texto-principal">{a.asistenteNombre}</h3>
+                        <p className="truncate text-sm text-texto-principal">{a.asistenteEmail}</p>
+                        <p className="mt-1 text-sm text-texto-principal">Puede gestionar tu agenda y turnos.</p>
                       </div>
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <span className={`rounded-lg border px-3 py-1 text-sm font-bold ${estadoAsignacionClass[a.estado]}`}>
+                      <div className="flex flex-wrap items-center gap-3 sm:col-start-2 md:col-start-auto md:justify-end">
+                        <span className={`rounded-lg border px-3 py-1 text-xs font-bold ${estadoAsignacionClass[a.estado]}`}>
                           {estadoAsignacionLabel[a.estado]}
                         </span>
-                        <BotonSecundario type="button" className="w-full sm:w-auto" onClick={() => setAsistenteADesasignar(a)}>
+                        <button
+                          type="button"
+                          className="h-9 rounded-lg border border-peligro bg-peligro px-4 text-sm font-bold text-white transition hover:bg-red-700"
+                          onClick={() => setAsistenteADesasignar(a)}
+                        >
                           Quitar acceso
-                        </BotonSecundario>
+                        </button>
                       </div>
                     </div>
                   )
@@ -1771,15 +1774,15 @@ export default function ProfesionalDashboard() {
                   <p>El turno quedará marcado como cancelado.</p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarCancelacionTurno}>
-                    No
+                  <BotonSecundario type="button" className="h-12 w-36" onClick={cerrarCancelacionTurno}>
+                    Conservar
                   </BotonSecundario>
                   <button
                     type="button"
                     onClick={() => setPidiendoPasswordCancelacion(true)}
-                    className="h-12 w-20 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+                    className="h-12 w-36 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
                   >
-                    Si
+                    Cancelar
                   </button>
                 </div>
               </>
@@ -1883,19 +1886,24 @@ export default function ProfesionalDashboard() {
               <>
                 <h2 className="text-xl font-black text-texto-principal">Quitar acceso</h2>
                 <div className="mt-4 space-y-2 text-sm text-texto-secundario">
-                  <p>¿Estás seguro que deseas quitarle el acceso a este asistente?</p>
-                  <div className="rounded-lg border border-borde bg-fondo px-3 py-2">
+                  <p>¿Querés quitarle el acceso a este asistente?</p>
+                  <div className="py-3">
                     <p className="font-bold text-texto-principal">{asistenteADesasignar.asistenteNombre}</p>
-                    <p className="break-all text-texto-secundario">{asistenteADesasignar.asistenteEmail}</p>
+                    <p className="break-all text-texto-principal">{asistenteADesasignar.asistenteEmail}</p>
                   </div>
+                  <p>Ya no podrá gestionar tu agenda ni tus turnos.</p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarConfirmacionDesasignar}>
-                    No
+                  <BotonSecundario type="button" className="h-12 w-28" onClick={cerrarConfirmacionDesasignar}>
+                    Cancelar
                   </BotonSecundario>
-                  <BotonPrimario type="button" className="h-12 w-20" onClick={() => setPidiendoPasswordDesasignacion(true)}>
-                    Si
-                  </BotonPrimario>
+                  <button
+                    type="button"
+                    onClick={() => setPidiendoPasswordDesasignacion(true)}
+                    className="h-12 w-28 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white transition hover:bg-red-700"
+                  >
+                    Quitar
+                  </button>
                 </div>
               </>
             ) : (

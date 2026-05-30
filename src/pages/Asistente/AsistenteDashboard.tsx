@@ -1318,15 +1318,15 @@ export default function AsistenteDashboard() {
                   <p>El turno quedará marcado como cancelado.</p>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
-                  <BotonSecundario type="button" className="h-12 w-20" onClick={cerrarCancelacionTurno}>
-                    No
+                  <BotonSecundario type="button" className="h-12 w-36" onClick={cerrarCancelacionTurno}>
+                    Conservar
                   </BotonSecundario>
                   <button
                     type="button"
                     onClick={() => setPidiendoPasswordCancelacion(true)}
-                    className="h-12 w-20 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+                    className="h-12 w-36 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
                   >
-                    Si
+                    Cancelar
                   </button>
                 </div>
               </>
