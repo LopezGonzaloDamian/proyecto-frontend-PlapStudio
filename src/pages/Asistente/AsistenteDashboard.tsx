@@ -37,7 +37,7 @@ const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }
   { label: 'Turnos', seccion: 'turnos' },
   { label: 'Profesionales', seccion: 'profesionales' },
   { label: 'Historial', seccion: 'historial' },
-  { label: 'Perfil', seccion: 'perfil' },
+  { label: 'Mi Perfil', seccion: 'perfil' },
 ]
 const navMobilePrincipal = new Set<SeccionAsistente | 'dashboard'>(['dashboard', 'agenda', 'turnos'])
 const pathDeSeccion = (item: { seccion: SeccionAsistente | 'dashboard' }) =>

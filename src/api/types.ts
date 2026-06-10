@@ -71,6 +71,24 @@ export type ProfesionalUpdate = {
   servicios: string[]
 }
 
+export type Resena = {
+  id: string
+  profesionalId: number
+  clienteId: number
+  clienteNombre: string
+  clienteIniciales: string
+  turnoId: string
+  calificacion: number
+  comentario: string
+  creadaEn: string
+}
+
+export type ResenaCreate = {
+  turnoId: string
+  calificacion: number
+  comentario: string
+}
+
 export type Cliente = {
   id: number
   nombreCompleto: string
