@@ -20,6 +20,7 @@ import { getFavoritos, toggleFavorito as toggleFavoritoApi } from '../../api/fav
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
 import { crearResena, getResenasProfesional } from '../../api/resenas'
 import { actualizarUsuario } from '../../api/usuarios'
+import { activarRol } from '../../api/auth'
 import type {
   Favorito,
   Notificacion,
@@ -277,7 +278,7 @@ function AvatarProfesional({ nombre, urlAvatar }: { nombre: string; urlAvatar?: 
 export default function ClienteDashboard() {
   const navigate = useNavigate()
   const { seccion, idProfesional } = useParams()
-  const { usuario, sesion, iniciar, cerrar } = useSesion()
+  const { usuario, sesion, iniciar, cambiarRolActivo, cerrar } = useSesion()
   const { toast, showToast } = useToast()
 
   const [busqueda, setBusqueda] = useState('')
@@ -310,6 +311,7 @@ export default function ClienteDashboard() {
   const [mostrarTodasResenas, setMostrarTodasResenas] = useState(false)
   const [guardandoResena, setGuardandoResena] = useState(false)
   const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
+  const [activandoPerfil, setActivandoPerfil] = useState(false)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
   const cerrandoSesionRef = useRef(false)
@@ -644,7 +646,7 @@ export default function ClienteDashboard() {
         telefono: perfilForm.telefono.trim(),
         urlAvatar: perfilForm.urlAvatar.trim(),
       })
-      iniciar({ token: sesion.token, usuario: actualizado })
+      iniciar({ token: sesion.token, usuario: actualizado }, 'CLIENTE')
       showToast('Perfil actualizado.', 'success')
       navigate('/cliente')
     } catch (e) {
@@ -656,6 +658,27 @@ export default function ClienteDashboard() {
     cerrandoSesionRef.current = true
     cerrar()
     navigate('/login', { replace: true })
+  }
+
+  const irAPerfilAsistente = async () => {
+    if (!usuario) return
+    if (usuario.roles.includes('ASISTENTE')) {
+      cambiarRolActivo('ASISTENTE')
+      navigate('/asistente')
+      return
+    }
+
+    setActivandoPerfil(true)
+    try {
+      const auth = await activarRol({ rol: 'ASISTENTE' })
+      iniciar(auth, 'ASISTENTE')
+      showToast('Perfil asistente activado.', 'success')
+      navigate('/asistente')
+    } catch (e) {
+      showToast(extraerError(e), 'error')
+    } finally {
+      setActivandoPerfil(false)
+    }
   }
 
   const inicialesUsuario = (usuario?.nombreCompleto ?? '')
@@ -1101,30 +1124,50 @@ export default function ClienteDashboard() {
             <h2 className="text-2xl font-black text-texto-principal">Mi perfil</h2>
             <p className="text-sm text-texto-secundario">Actualiza tus datos personales y foto de perfil.</p>
 
-            <form onSubmit={guardarPerfil} className="mt-6 max-w-3xl space-y-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-primario text-2xl font-black text-white">
-                  {perfilForm.urlAvatar ? (
-                    <img src={perfilForm.urlAvatar} alt={perfilForm.nombreCompleto} className="h-full w-full object-cover" />
-                  ) : (
-                    inicialesUsuario || 'U'
-                  )}
+            <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(420px,1fr)]">
+              <form onSubmit={guardarPerfil} className="rounded-lg border border-borde bg-fondo p-5">
+                <h3 className="text-sm font-black text-texto-principal">Datos personales</h3>
+                <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-primario text-2xl font-black text-white">
+                    {perfilForm.urlAvatar ? (
+                      <img src={perfilForm.urlAvatar} alt={perfilForm.nombreCompleto} className="h-full w-full object-cover" />
+                    ) : (
+                      inicialesUsuario || 'U'
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <Label>URL de foto</Label>
+                    <Input value={perfilForm.urlAvatar} onChange={(e) => setPerfilForm({ ...perfilForm, urlAvatar: e.target.value })} placeholder="https://..." />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <Label>URL de foto</Label>
-                  <Input value={perfilForm.urlAvatar} onChange={(e) => setPerfilForm({ ...perfilForm, urlAvatar: e.target.value })} placeholder="https://..." />
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
+                  <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
                 </div>
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
-                <div><Label>Telefono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
-              </div>
+                <div className="mt-5 flex justify-end">
+                  <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
+                    <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
+                  </span>
+                </div>
+              </form>
 
-              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
-                <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
-              </span>
-            </form>
+              <aside className="flex min-h-[240px] flex-col rounded-lg border border-borde bg-fondo p-6">
+                <p className="text-sm font-black text-texto-principal">Perfil actual</p>
+                <div className="mt-8">
+                  <span className="inline-flex w-fit rounded-lg border border-emerald-200 bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700">Cliente activo</span>
+                  <p className="mt-8 max-w-[340px] text-sm leading-relaxed text-texto-secundario">
+                    Estas usando tu cuenta como cliente.
+                    <br />
+                    Podes cambiar al perfil asistente cuando necesites gestionar turnos.
+                  </p>
+                </div>
+                <BotonPrimario type="button" onClick={irAPerfilAsistente} disabled={activandoPerfil} className="mt-8 w-full">
+                  {usuario.roles.includes('ASISTENTE') ? 'Cambiar a asistente' : 'Activar asistente'}
+                </BotonPrimario>
+              </aside>
+            </div>
           </section>
         )}
 
