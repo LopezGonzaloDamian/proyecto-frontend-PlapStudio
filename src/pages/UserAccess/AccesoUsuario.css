@@ -1,0 +1,89 @@
+.pantalla-login {
+    min-height: 100vh;
+    width: 100%;
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: #FFFFFF;
+}
+
+.card-login {
+    width: 100%;
+    max-width: 460px;
+    background: #FFFFFF;
+    border-radius: 18px;
+    padding: 24px 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    display: grid;
+    justify-items: center;
+}
+
+.headerAcceso {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.logoAcceso {
+    background-color: white;
+    width: 2.75em;
+    height: 2.75em;
+    padding: 0.45em;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.titulo-acceso {
+    font-size: 1.45rem;
+    font-weight: 700;
+    margin: 0;
+    color: #111827;
+    text-align: center;
+}
+
+.subtitulo-login {
+    color: #777;
+    font-size: 13px;
+    margin-top: 2px;
+    margin-bottom: 30px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.bloque-form {
+    width: 100%;
+    display: grid;
+    gap: 15px;
+}
+
+.footer-acceso {
+    width: 100%;
+    display: grid;
+    justify-items: center;
+    margin-top: 12px;
+}
+
+.footer-acceso .texto {
+    color: #777;
+    font-size: 13px;
+    text-align: center;
+    margin: 0;
+}
+
+.footer-acceso .link {
+    color: #1877F2;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.footer-acceso .link:hover {
+    text-decoration: underline;
+}
+
+.alertaContraseñas {
+    color: #e53935;
+    font-size: 12px;
+    margin-top: -4px;
+}
