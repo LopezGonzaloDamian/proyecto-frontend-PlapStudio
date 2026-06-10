@@ -309,6 +309,7 @@ export default function ClienteDashboard() {
   const [modalResena, setModalResena] = useState<{ turnoId: string; calificacion: number; comentario: string } | null>(null)
   const [mostrarTodasResenas, setMostrarTodasResenas] = useState(false)
   const [guardandoResena, setGuardandoResena] = useState(false)
+  const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
   const cerrandoSesionRef = useRef(false)
@@ -626,6 +627,7 @@ export default function ClienteDashboard() {
     try {
       const t = await cancelarTurno(id)
       setTurnos((actuales) => actuales.map((x) => (x.id === id ? t : x)))
+      setTurnoACancelar(null)
       showToast('Turno cancelado', 'success')
     } catch (e) {
       showToast(extraerError(e), 'error')
@@ -964,7 +966,7 @@ export default function ClienteDashboard() {
                       </div>
                     </div>
                     <div className="mt-6 flex justify-end">
-                      <button onClick={() => cancelar(t.id)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
+                      <button onClick={() => setTurnoACancelar(t)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
                     </div>
                     </div>
                 ))}
@@ -1197,9 +1199,10 @@ export default function ClienteDashboard() {
             <button
               type="button"
               onClick={() => navigate(`${basePath}/buscar`)}
-              className="mb-6 inline-flex items-center rounded-lg border border-borde bg-white px-4 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro hover:text-primario"
+              className="mb-6 inline-flex items-center gap-2 rounded-lg border border-borde bg-white px-4 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro hover:text-primario"
             >
-              Volver
+              <span aria-hidden="true" className="text-lg font-black leading-none">←</span>
+              <span>Volver</span>
             </button>
             <div className="flex items-center justify-between gap-3 sm:gap-4">
               <div className="flex min-w-0 items-center gap-4 sm:gap-5">
@@ -1469,8 +1472,17 @@ export default function ClienteDashboard() {
                       <IconCheck className="h-5 w-5" />
                       {enviandoReserva ? 'Procesando pago...' : turnoConfirmado ? 'Imprimir comprobante' : 'Confirmar y pagar'}
                     </BotonPrimario>
-                    <BotonSecundario type="button" onClick={() => setMostrarCheckout(false)}>
-                      Volver a editar
+                    <BotonSecundario
+                      type="button"
+                      onClick={() => {
+                        if (turnoConfirmado) {
+                          navigate(`${basePath}/buscar`)
+                        } else {
+                          setMostrarCheckout(false)
+                        }
+                      }}
+                    >
+                      {turnoConfirmado ? 'Buscar otro profesional' : 'Volver a editar'}
                     </BotonSecundario>
                   </div>
                 </>
@@ -1632,6 +1644,35 @@ export default function ClienteDashboard() {
               </span>
             </div>
           </form>
+        </div>
+      )}
+
+      {turnoACancelar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
+            <p className="mt-5 text-base leading-7 text-texto-secundario">
+              ¿Querés cancelar este turno?
+              <br />
+              El turno quedará marcado como cancelado.
+            </p>
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setTurnoACancelar(null)}
+                className="rounded-xl border border-borde bg-white px-6 py-3 text-sm font-black text-texto-principal shadow-sm hover:bg-fondo"
+              >
+                Conservar
+              </button>
+              <button
+                type="button"
+                onClick={() => cancelar(turnoACancelar.id)}
+                className="rounded-xl bg-peligro px-6 py-3 text-sm font-black text-white shadow-sm hover:bg-red-600"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
