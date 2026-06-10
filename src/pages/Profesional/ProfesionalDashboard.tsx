@@ -51,7 +51,7 @@ const navItems: Array<{ label: string; seccion: SeccionProfesional | 'dashboard'
   { label: 'Asistentes', seccion: 'asistentes' },
   { label: 'Pagos', seccion: 'pagos' },
   { label: 'Historial', seccion: 'historial' },
-  { label: 'Perfil', seccion: 'perfil' },
+  { label: 'Mi Perfil', seccion: 'perfil' },
 ]
 const navMobilePrincipal = new Set<SeccionProfesional | 'dashboard'>(['dashboard', 'agenda', 'turnos'])
 

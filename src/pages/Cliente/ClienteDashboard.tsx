@@ -18,12 +18,14 @@ import {
 } from '../../api/turnos'
 import { getFavoritos, toggleFavorito as toggleFavoritoApi } from '../../api/favoritos'
 import { getNotificaciones, marcarTodasLeidas } from '../../api/notificaciones'
+import { crearResena, getResenasProfesional } from '../../api/resenas'
 import { actualizarUsuario } from '../../api/usuarios'
 import type {
   Favorito,
   Notificacion,
   Profesional,
   ProfesionalSummary,
+  Resena,
   Slot,
   Turno,
 } from '../../api/types'
@@ -36,7 +38,7 @@ const navItems: ItemNavCliente[] = [
   { label: 'Panel de Control', seccion: 'dashboard' },
   { label: 'Buscar', seccion: 'buscar' },
   { label: 'Historial', seccion: 'historial' },
-  { label: 'Perfil', seccion: 'perfil' },
+  { label: 'Mi Perfil', seccion: 'perfil' },
 ]
 const navMobileOculto = new Set<SeccionCliente | 'dashboard'>(['perfil'])
 
@@ -52,6 +54,13 @@ const estadoLabel: Record<Turno['estado'], string> = {
   CONFIRMADO: 'Confirmado',
   CANCELADO: 'Cancelado',
 }
+
+const coloresAvatarResena = [
+  'bg-blue-100 text-blue-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-amber-100 text-amber-700',
+  'bg-violet-100 text-violet-700',
+]
 
 function fechaIsoDe(t: { iniciaEn: string }): string {
   return t.iniciaEn.slice(0, 10)
@@ -283,6 +292,7 @@ export default function ClienteDashboard() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [favoritos, setFavoritos] = useState<Favorito[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
+  const [resenasProfesional, setResenasProfesional] = useState<Resena[]>([])
 
   const [horarioSeleccionado, setHorarioSeleccionado] = useState('')
   const [servicio, setServicio] = useState('')
@@ -296,9 +306,14 @@ export default function ClienteDashboard() {
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesional: 'Todos', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
   const [perfilForm, setPerfilForm] = useState({ nombreCompleto: '', telefono: '', urlAvatar: '' })
+  const [modalResena, setModalResena] = useState<{ turnoId: string; calificacion: number; comentario: string } | null>(null)
+  const [mostrarTodasResenas, setMostrarTodasResenas] = useState(false)
+  const [guardandoResena, setGuardandoResena] = useState(false)
+  const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
   const cerrandoSesionRef = useRef(false)
+  const resenaSinComentario = !modalResena?.comentario.trim()
 
   const seccionActual = secciones.includes(seccion as SeccionCliente)
     ? (seccion as SeccionCliente)
@@ -309,6 +324,14 @@ export default function ClienteDashboard() {
   const pathNotificaciones = `${basePath}/notificaciones`
   const cantidadNotificaciones = notificaciones.length > 9 ? '9+' : String(notificaciones.length)
   const precioTurno = profesionalDetalle?.precio ?? 0
+  const resumenResenasProfesional = useMemo(() => {
+    const cantidad = resenasProfesional.length
+    if (cantidad === 0) {
+      return { cantidad, promedio: null as number | null }
+    }
+    const total = resenasProfesional.reduce((sum, resena) => sum + resena.calificacion, 0)
+    return { cantidad, promedio: total / cantidad }
+  }, [resenasProfesional])
   const senaReserva = Math.max(Math.round(precioTurno * 0.5), 500)
   const slotsReservables = useMemo(
     () => slots.filter((slot) => slotReservable(slot, ahora)),
@@ -390,6 +413,16 @@ export default function ClienteDashboard() {
       .catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idProfesional, seccionActual])
+
+  useEffect(() => {
+    if (!profesionalDetalle?.id) {
+      setResenasProfesional([])
+      return
+    }
+    void getResenasProfesional(profesionalDetalle.id)
+      .then(setResenasProfesional)
+      .catch(() => setResenasProfesional([]))
+  }, [profesionalDetalle?.id])
 
   // Carga de slots cuando hay profesional + fecha
   useEffect(() => {
@@ -561,10 +594,40 @@ export default function ClienteDashboard() {
     })
   }
 
+  const abrirModalResena = (turnoId: string | null) => {
+    if (!turnoId) return
+    setModalResena({ turnoId, calificacion: 5, comentario: '' })
+  }
+
+  const enviarResena = async (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault()
+    if (!modalResena || guardandoResena || resenaSinComentario || !usuario) return
+    setGuardandoResena(true)
+    try {
+      const nueva = await crearResena(modalResena)
+      setModalResena(null)
+      showToast('Gracias por dejar tu reseña', 'success')
+      const [notifs, turnosActualizados] = await Promise.all([
+        getNotificaciones(usuario.id),
+        usuario.perfilClienteId ? getTurnosCliente(usuario.perfilClienteId) : Promise.resolve(turnos),
+      ])
+      setNotificaciones(notifs)
+      setTurnos(turnosActualizados)
+      if (profesionalDetalle?.id === nueva.profesionalId) {
+        void getResenasProfesional(nueva.profesionalId).then(setResenasProfesional).catch(() => undefined)
+      }
+    } catch (e) {
+      showToast(extraerError(e), 'error')
+    } finally {
+      setGuardandoResena(false)
+    }
+  }
+
   const cancelar = async (id: string) => {
     try {
       const t = await cancelarTurno(id)
       setTurnos((actuales) => actuales.map((x) => (x.id === id ? t : x)))
+      setTurnoACancelar(null)
       showToast('Turno cancelado', 'success')
     } catch (e) {
       showToast(extraerError(e), 'error')
@@ -903,7 +966,7 @@ export default function ClienteDashboard() {
                       </div>
                     </div>
                     <div className="mt-6 flex justify-end">
-                      <button onClick={() => cancelar(t.id)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
+                      <button onClick={() => setTurnoACancelar(t)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
                     </div>
                     </div>
                 ))}
@@ -1136,16 +1199,29 @@ export default function ClienteDashboard() {
             <button
               type="button"
               onClick={() => navigate(`${basePath}/buscar`)}
-              className="mb-6 inline-flex items-center rounded-lg border border-borde bg-white px-4 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro hover:text-primario"
+              className="mb-6 inline-flex items-center gap-2 rounded-lg border border-borde bg-white px-4 py-2 text-sm font-bold text-texto-principal hover:bg-primario-claro hover:text-primario"
             >
-              Volver
+              <span aria-hidden="true" className="text-lg font-black leading-none">←</span>
+              <span>Volver</span>
             </button>
-            <div className="flex items-start justify-between gap-3 sm:gap-4">
-              <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+            <div className="flex items-center justify-between gap-3 sm:gap-4">
+              <div className="flex min-w-0 items-center gap-4 sm:gap-5">
                 <AvatarProfesional nombre={profesionalDetalle.nombreCompleto} urlAvatar={profesionalDetalle.urlAvatar} />
                 <div className="min-w-0">
                   <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-primario sm:text-xs">Perfil profesional</span>
-                  <h2 className="mt-1 text-2xl font-black leading-tight text-texto-principal sm:text-3xl">{profesionalDetalle.nombreCompleto}</h2>
+                  <h2 className="mt-1 text-xl font-black leading-tight text-texto-principal sm:text-2xl">{profesionalDetalle.nombreCompleto}</h2>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-bold">
+                    {resumenResenasProfesional.promedio !== null ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs text-amber-600 shadow-sm">
+                        <span className="text-xs leading-none">★</span>
+                        {resumenResenasProfesional.promedio.toFixed(1)} / 5
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-borde bg-fondo px-2.5 py-1 text-xs text-texto-secundario">
+                        Sin calificaciones todavía
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button
@@ -1189,6 +1265,44 @@ export default function ClienteDashboard() {
                     )}
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-xl font-black text-texto-principal">Reseñas de la Comunidad</h3>
+                {resenasProfesional.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarTodasResenas(true)}
+                    className="text-sm font-bold text-primario hover:underline"
+                  >
+                    Ver todas las reseñas →
+                  </button>
+                )}
+              </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                {resenasProfesional.slice(0, 2).map((resena, index) => (
+                  <article key={resena.id} className="rounded-2xl border border-borde bg-white p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black ${coloresAvatarResena[index % coloresAvatarResena.length]}`}>
+                        {resena.clienteIniciales}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-texto-principal">{resena.clienteNombre}</p>
+                        <p className="text-sm leading-none text-amber-400">{'★'.repeat(resena.calificacion)}<span className="text-borde">{'★'.repeat(5 - resena.calificacion)}</span></p>
+                      </div>
+                    </div>
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-texto-secundario">
+                      {resena.comentario || 'El cliente califico la atencion sin dejar comentario.'}
+                    </p>
+                  </article>
+                ))}
+                {resenasProfesional.length === 0 && (
+                  <p className="rounded-2xl border border-dashed border-borde bg-white p-5 text-sm text-texto-secundario lg:col-span-2">
+                    Este profesional todavia no tiene reseñas.
+                  </p>
+                )}
               </div>
             </section>
 
@@ -1358,8 +1472,17 @@ export default function ClienteDashboard() {
                       <IconCheck className="h-5 w-5" />
                       {enviandoReserva ? 'Procesando pago...' : turnoConfirmado ? 'Imprimir comprobante' : 'Confirmar y pagar'}
                     </BotonPrimario>
-                    <BotonSecundario type="button" onClick={() => setMostrarCheckout(false)}>
-                      Volver a editar
+                    <BotonSecundario
+                      type="button"
+                      onClick={() => {
+                        if (turnoConfirmado) {
+                          navigate(`${basePath}/buscar`)
+                        } else {
+                          setMostrarCheckout(false)
+                        }
+                      }}
+                    >
+                      {turnoConfirmado ? 'Buscar otro profesional' : 'Volver a editar'}
                     </BotonSecundario>
                   </div>
                 </>
@@ -1393,12 +1516,165 @@ export default function ClienteDashboard() {
                     <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-primario">{new Date(n.enviadaEn).toLocaleString('es-PY')}</span>
                   </div>
                   <p className="mt-2 text-sm text-texto-secundario">{n.cuerpo}</p>
+                  {n.recursoTipo === 'RESENA_TURNO' && !n.leida && (
+                    <button
+                      type="button"
+                      onClick={() => abrirModalResena(n.recursoId)}
+                      className="mt-3 rounded-lg bg-primario px-4 py-2 text-sm font-black text-white hover:bg-primario-hover"
+                    >
+                      Calificar
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </section>
         )}
       </main>
+
+      {mostrarTodasResenas && profesionalDetalle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <section className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-black text-texto-principal">Todas las reseñas</h2>
+                <p className="mt-1 text-sm text-texto-secundario">{profesionalDetalle.nombreCompleto}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMostrarTodasResenas(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-texto-secundario transition hover:bg-fondo-suave hover:text-texto-principal"
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              {resenasProfesional.map((resena, index) => (
+                <article key={resena.id} className="rounded-2xl border border-borde bg-fondo p-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black ${coloresAvatarResena[index % coloresAvatarResena.length]}`}>
+                      {resena.clienteIniciales}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-texto-principal">{resena.clienteNombre}</p>
+                      <p className="text-sm leading-none text-amber-400">{'★'.repeat(resena.calificacion)}<span className="text-borde">{'★'.repeat(5 - resena.calificacion)}</span></p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-texto-secundario">
+                    {resena.comentario || 'El cliente califico la atencion sin dejar comentario.'}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {modalResena && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-3 sm:p-4">
+          <form onSubmit={enviarResena} className="relative flex max-h-[92vh] w-full max-w-xl flex-col rounded-3xl bg-white p-5 shadow-2xl sm:p-8">
+            <button
+              type="button"
+              onClick={() => setModalResena(null)}
+              className="absolute left-5 top-5 flex h-9 w-9 items-center justify-center rounded-full text-2xl leading-none text-texto-secundario transition hover:bg-fondo-suave hover:text-texto-principal sm:left-6 sm:top-6"
+              aria-label="Cerrar"
+            >
+              ×
+            </button>
+            <div className="mx-auto max-w-md text-center">
+              <p className="text-sm font-black text-texto-principal">Calificar</p>
+              <h2 className="mt-8 text-2xl font-black leading-tight text-texto-principal sm:text-3xl">
+                ¿Cómo fue tu experiencia?
+              </h2>
+              <p className="mt-3 text-base leading-7 text-texto-secundario">
+                Tu opinión ayuda a otros clientes a elegir mejor.
+              </p>
+            </div>
+            <div className="mt-7">
+              <Label>Calificación</Label>
+              <div className="mt-3 grid grid-cols-5 gap-2 sm:flex sm:justify-center sm:gap-3">
+                {[1, 2, 3, 4, 5].map((valor) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => setModalResena({ ...modalResena, calificacion: valor })}
+                    className={`flex h-12 min-w-0 items-center justify-center gap-1 rounded-xl border text-sm font-black transition sm:h-14 sm:w-16 ${
+                      valor <= modalResena.calificacion
+                        ? 'border-amber-300 bg-amber-100 text-amber-500'
+                        : 'border-borde bg-white text-texto-suave'
+                    }`}
+                    aria-label={`${valor} estrellas`}
+                  >
+                    <span className="text-xl leading-none">★</span>
+                    <span>{valor}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <Label>Comentario</Label>
+              <Textarea
+                rows={6}
+                value={modalResena.comentario}
+                onChange={(e) => setModalResena({ ...modalResena, comentario: e.target.value })}
+                placeholder="Contanos como fue tu experiencia..."
+                maxLength={600}
+                className="mt-2 resize-none"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <BotonSecundario type="button" onClick={() => setModalResena(null)} className="w-full sm:w-auto">
+                Cancelar
+              </BotonSecundario>
+              <span
+                className={`inline-flex w-full sm:w-auto ${resenaSinComentario || guardandoResena ? 'cursor-not-allowed' : ''}`}
+                title={resenaSinComentario ? 'Escribí un comentario para enviar la reseña' : undefined}
+              >
+                <BotonPrimario
+                  type="submit"
+                  disabled={guardandoResena || resenaSinComentario}
+                  className={`w-full sm:w-auto ${resenaSinComentario || guardandoResena ? 'pointer-events-none' : ''}`}
+                >
+                  {guardandoResena ? 'Guardando...' : 'Enviar reseña'}
+                </BotonPrimario>
+              </span>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {turnoACancelar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <h2 className="text-xl font-black text-texto-principal">Cancelar turno</h2>
+            <p className="mt-5 text-base leading-7 text-texto-secundario">
+              ¿Querés cancelar este turno?
+              <br />
+              El turno quedará marcado como cancelado.
+            </p>
+            <div className="mt-8 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setTurnoACancelar(null)}
+                className="rounded-xl border border-borde bg-white px-6 py-3 text-sm font-black text-texto-principal shadow-sm hover:bg-fondo"
+              >
+                Conservar
+              </button>
+              <button
+                type="button"
+                onClick={() => cancelar(turnoACancelar.id)}
+                className="rounded-xl bg-peligro px-6 py-3 text-sm font-black text-white shadow-sm hover:bg-red-600"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div id="toast-container">
         <Toast toast={toast} />
