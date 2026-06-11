@@ -249,3 +249,7 @@ export type SeleccionRolRequest = {
   precio?: number
   servicios?: string[]
 }
+
+export type ActivarRolRequest = {
+  rol: Extract<Rol, 'CLIENTE' | 'ASISTENTE'>
+}

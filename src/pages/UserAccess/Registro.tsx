@@ -35,7 +35,7 @@ export default function Registro() {
     const esProfesional = location.pathname.startsWith('/profesional')
     const esAsistente   = location.pathname.startsWith('/asistente')
     const rolActual = esProfesional ? 'profesional' : esAsistente ? 'asistente' : 'cliente'
-    const rolBack: Rol  = esProfesional ? 'PROFESIONAL' : esAsistente ? 'ASISTENTE' : 'CLIENTE'
+    const rolBack: Extract<Rol, 'CLIENTE' | 'PROFESIONAL' | 'ASISTENTE'> = esProfesional ? 'PROFESIONAL' : esAsistente ? 'ASISTENTE' : 'CLIENTE'
 
     const onChange = (e: ChangeEvent<HTMLInputElement>) =>
         setForm({ ...form, [e.target.name]: e.target.value })
@@ -76,7 +76,7 @@ export default function Registro() {
                 precio: esProfesional ? precioProfesional : undefined,
                 servicios: esProfesional ? [form.especialidad.trim()] : undefined,
             })
-            iniciar(auth)
+            iniciar(auth, rolBack)
             showToast(
                 esProfesional ? 'Cuenta creada. Ya podes administrar tu agenda.'
               : esAsistente   ? 'Cuenta creada. Ya podes operar agendas asignadas.'

@@ -1,5 +1,6 @@
 import { api } from './client'
 import type {
+  ActivarRolRequest,
   AuthResponse,
   GoogleLoginRequest,
   LoginRequest,
@@ -24,6 +25,11 @@ export async function loginConGoogle(req: GoogleLoginRequest): Promise<AuthRespo
 
 export async function seleccionarRol(req: SeleccionRolRequest): Promise<AuthResponse> {
   const { data } = await api.post<AuthResponse>('/auth/select-role', req)
+  return data
+}
+
+export async function activarRol(req: ActivarRolRequest): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/activate-role', req)
   return data
 }
 

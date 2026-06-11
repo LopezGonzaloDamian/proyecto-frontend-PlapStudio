@@ -1,12 +1,13 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { getSession } from '../lib/storage/session'
+import { getSession, resolverRolActivo } from '../lib/storage/session'
 
 function destinoPorRol() {
   const usuario = getSession()
   if (!usuario) return '/login'
   if (usuario.requiereSeleccionRol || usuario.roles.includes('SIN_DEFINIR')) return '/seleccionar-rol'
-  if (usuario.roles.includes('PROFESIONAL')) return '/profesional'
-  if (usuario.roles.includes('ASISTENTE')) return '/asistente'
+  const rolActivo = resolverRolActivo(usuario)
+  if (rolActivo === 'PROFESIONAL') return '/profesional'
+  if (rolActivo === 'ASISTENTE') return '/asistente'
   return '/cliente'
 }
 

@@ -9,12 +9,14 @@ import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
 import type { AuthResponse } from '../../api/types'
+import { resolverRolActivo } from '../../lib/storage/session'
 
 function destinoPorUsuario(auth: AuthResponse) {
   const roles = auth.usuario.roles
   if (auth.usuario.requiereSeleccionRol || roles.includes('SIN_DEFINIR')) return '/seleccionar-rol'
-  if (roles.includes('PROFESIONAL')) return '/profesional'
-  if (roles.includes('ASISTENTE')) return '/asistente'
+  const rolActivo = resolverRolActivo(auth.usuario)
+  if (rolActivo === 'PROFESIONAL') return '/profesional'
+  if (rolActivo === 'ASISTENTE') return '/asistente'
   return '/cliente'
 }
 

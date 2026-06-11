@@ -59,7 +59,7 @@ export default function SeleccionRol() {
         precio: requiereEspecialidad ? precioProfesional : undefined,
         servicios: requiereEspecialidad ? [perfilProfesional.especialidad.trim()] : undefined,
       })
-      iniciar(auth)
+      iniciar(auth, rol)
       showToast('Rol configurado correctamente.', 'success')
       setTimeout(() => navigate(destinoPorUsuarioRoles(auth.usuario.roles)), 300)
     } catch (error) {
