@@ -140,6 +140,7 @@ export default function AsistenteDashboard() {
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
   const [perfilForm, setPerfilForm] = useState({ nombreCompleto: '', telefono: '', urlAvatar: '' })
   const [activandoPerfil, setActivandoPerfil] = useState(false)
+  const [mostrandoCambioPerfil, setMostrandoCambioPerfil] = useState(false)
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
@@ -532,6 +533,7 @@ export default function AsistenteDashboard() {
   const irAPerfilCliente = async () => {
     if (!usuario) return
     if (usuario.roles.includes('CLIENTE') && usuario.perfilClienteId != null) {
+      setMostrandoCambioPerfil(false)
       cambiarRolActivo('CLIENTE')
       navigate('/cliente')
       return
@@ -542,6 +544,7 @@ export default function AsistenteDashboard() {
       const auth = await activarRol({ rol: 'CLIENTE' })
       iniciar(auth, 'CLIENTE')
       showToast('Perfil cliente activado.', 'success')
+      setMostrandoCambioPerfil(false)
       navigate('/cliente')
     } catch (err) {
       showToast(extraerError(err), 'error')
@@ -1229,7 +1232,7 @@ export default function AsistenteDashboard() {
                     Podes cambiar al perfil cliente cuando necesites reservar turnos.
                   </p>
                 </div>
-                <BotonPrimario type="button" onClick={irAPerfilCliente} disabled={activandoPerfil} className="mt-8 w-full">
+                <BotonPrimario type="button" onClick={() => setMostrandoCambioPerfil(true)} disabled={activandoPerfil} className="mt-8 w-full">
                   {usuario.roles.includes('CLIENTE') && usuario.perfilClienteId != null ? 'Cambiar a cliente' : 'Activar cliente'}
                 </BotonPrimario>
               </aside>
@@ -1348,6 +1351,39 @@ export default function AsistenteDashboard() {
         )}
 
       </main>
+
+      {mostrandoCambioPerfil && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-black text-texto-principal">
+              {usuario.roles.includes('CLIENTE') && usuario.perfilClienteId != null ? 'Cambiar a cliente' : 'Activar cliente'}
+            </h2>
+            <p className="mt-4 text-sm leading-6 text-texto-secundario">
+              {usuario.roles.includes('CLIENTE') && usuario.perfilClienteId != null
+                ? '¿Estas seguro de cambiar al perfil cliente?'
+                : '¿Estas seguro de activar el perfil cliente?'}
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <BotonSecundario
+                type="button"
+                className="h-12 w-28"
+                onClick={() => setMostrandoCambioPerfil(false)}
+                disabled={activandoPerfil}
+              >
+                Cancelar
+              </BotonSecundario>
+              <BotonPrimario
+                type="button"
+                className="h-12 w-28"
+                onClick={irAPerfilCliente}
+                disabled={activandoPerfil}
+              >
+                Aceptar
+              </BotonPrimario>
+            </div>
+          </div>
+        </div>
+      )}
 
       {turnoACancelar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

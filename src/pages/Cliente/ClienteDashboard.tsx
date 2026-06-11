@@ -312,6 +312,7 @@ export default function ClienteDashboard() {
   const [guardandoResena, setGuardandoResena] = useState(false)
   const [turnoACancelar, setTurnoACancelar] = useState<Turno | null>(null)
   const [activandoPerfil, setActivandoPerfil] = useState(false)
+  const [mostrandoCambioPerfil, setMostrandoCambioPerfil] = useState(false)
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
   const menuUsuarioRef = useRef<HTMLDivElement>(null)
   const cerrandoSesionRef = useRef(false)
@@ -663,6 +664,7 @@ export default function ClienteDashboard() {
   const irAPerfilAsistente = async () => {
     if (!usuario) return
     if (usuario.roles.includes('ASISTENTE')) {
+      setMostrandoCambioPerfil(false)
       cambiarRolActivo('ASISTENTE')
       navigate('/asistente')
       return
@@ -673,6 +675,7 @@ export default function ClienteDashboard() {
       const auth = await activarRol({ rol: 'ASISTENTE' })
       iniciar(auth, 'ASISTENTE')
       showToast('Perfil asistente activado.', 'success')
+      setMostrandoCambioPerfil(false)
       navigate('/asistente')
     } catch (e) {
       showToast(extraerError(e), 'error')
@@ -1163,7 +1166,7 @@ export default function ClienteDashboard() {
                     Podes cambiar al perfil asistente cuando necesites gestionar turnos.
                   </p>
                 </div>
-                <BotonPrimario type="button" onClick={irAPerfilAsistente} disabled={activandoPerfil} className="mt-8 w-full">
+                <BotonPrimario type="button" onClick={() => setMostrandoCambioPerfil(true)} disabled={activandoPerfil} className="mt-8 w-full">
                   {usuario.roles.includes('ASISTENTE') ? 'Cambiar a asistente' : 'Activar asistente'}
                 </BotonPrimario>
               </aside>
@@ -1574,6 +1577,39 @@ export default function ClienteDashboard() {
           </section>
         )}
       </main>
+
+      {mostrandoCambioPerfil && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <h2 className="text-xl font-black text-texto-principal">
+              {usuario.roles.includes('ASISTENTE') ? 'Cambiar a asistente' : 'Activar asistente'}
+            </h2>
+            <p className="mt-5 text-base leading-7 text-texto-secundario">
+              {usuario.roles.includes('ASISTENTE')
+                ? '¿Estas seguro de cambiar al perfil asistente?'
+                : '¿Estas seguro de activar el perfil asistente?'}
+            </p>
+            <div className="mt-8 flex justify-end gap-3">
+              <BotonSecundario
+                type="button"
+                onClick={() => setMostrandoCambioPerfil(false)}
+                disabled={activandoPerfil}
+                className="h-12 w-28"
+              >
+                Cancelar
+              </BotonSecundario>
+              <BotonPrimario
+                type="button"
+                onClick={irAPerfilAsistente}
+                disabled={activandoPerfil}
+                className="h-12 w-28"
+              >
+                Aceptar
+              </BotonPrimario>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mostrarTodasResenas && profesionalDetalle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
