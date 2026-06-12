@@ -27,6 +27,11 @@ export type AgendaResumen = {
   activa: boolean
 }
 
+export type ServicioProfesional = {
+  nombre: string
+  precio: number
+}
+
 export type Profesional = {
   id: number
   nombreCompleto: string
@@ -44,6 +49,7 @@ export type Profesional = {
   matriculaNacional: string
   matriculaProvincial: string
   servicios: string[]
+  serviciosConPrecio: ServicioProfesional[]
   agendas: AgendaResumen[]
 }
 
@@ -56,6 +62,7 @@ export type ProfesionalSummary = {
   precio: number
   destacado: boolean
   servicios: string[]
+  serviciosConPrecio: ServicioProfesional[]
 }
 
 export type ProfesionalUpdate = {
@@ -69,6 +76,7 @@ export type ProfesionalUpdate = {
   matriculaNacional: string
   matriculaProvincial: string
   servicios: string[]
+  serviciosConPrecio?: ServicioProfesional[]
 }
 
 export type Resena = {
@@ -161,6 +169,7 @@ export type Turno = {
   iniciaEn: string  // ISO datetime
   duracionMinutos: number
   estado: EstadoTurno
+  precio: number
   notas: string
   pago: Pago | null
 }
@@ -175,6 +184,7 @@ export type TurnoCreate = {
   iniciaEn: string
   duracionMinutos: number
   notas?: string
+  precioServicio?: number
   pagarAlReservar?: boolean
   medioPago?: string
 }
@@ -232,6 +242,7 @@ export type RegistroRequest = {
   direccion?: string
   precio?: number
   servicios?: string[]
+  serviciosConPrecio?: ServicioProfesional[]
 }
 
 export type UsuarioUpdate = {
@@ -248,6 +259,7 @@ export type SeleccionRolRequest = {
   direccion?: string
   precio?: number
   servicios?: string[]
+  serviciosConPrecio?: ServicioProfesional[]
 }
 
 export type ActivarRolRequest = {
