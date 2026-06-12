@@ -32,6 +32,7 @@ import type {
   DiaSemana,
   Notificacion,
   Profesional,
+  ServicioProfesional,
   Slot,
   Turno,
 } from '../../api/types'
@@ -82,6 +83,31 @@ const diasOrden = Object.keys(diasLabels) as DiaSemana[]
 
 const formatPrecio = (precio: number) =>
   `$ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(precio)}`
+
+const serviciosEditablesDe = (perfil: Profesional): ServicioProfesional[] => {
+  if (perfil.serviciosConPrecio.length > 0) {
+    return perfil.serviciosConPrecio.map((servicio) => ({
+      nombre: servicio.nombre,
+      precio: servicio.precio,
+    }))
+  }
+
+  return perfil.servicios.map((nombre) => ({
+    nombre,
+    precio: perfil.precio,
+  }))
+}
+
+const serviciosNormalizados = (servicios: ServicioProfesional[]) =>
+  servicios
+    .map((servicio) => ({
+      nombre: servicio.nombre.trim(),
+      precio: Number(servicio.precio) || 0,
+    }))
+    .filter((servicio) => servicio.nombre || servicio.precio > 0)
+
+const serviciosIguales = (a: ServicioProfesional[], b: ServicioProfesional[]) =>
+  JSON.stringify(serviciosNormalizados(a)) === JSON.stringify(serviciosNormalizados(b))
 
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
@@ -226,7 +252,7 @@ export default function ProfesionalDashboard() {
     biografia: '',
     localidad: '',
     direccion: '',
-    precio: '',
+    serviciosConPrecio: [] as ServicioProfesional[],
   })
 
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false)
@@ -263,12 +289,13 @@ export default function ProfesionalDashboard() {
       biografia: perfil.biografia,
       localidad: perfil.localidad,
       direccion: perfil.direccion,
-      precio: String(perfil.precio || ''),
+      serviciosConPrecio: serviciosEditablesDe(perfil),
     })
   }, [usuario, perfil])
 
   const perfilTieneCambios = useMemo(() => {
     if (!usuario || !perfil) return false
+    const serviciosOriginales = serviciosEditablesDe(perfil)
     return (
       perfilForm.nombreCompleto.trim() !== usuario.nombreCompleto ||
       perfilForm.telefono.trim() !== usuario.telefono ||
@@ -277,13 +304,15 @@ export default function ProfesionalDashboard() {
       perfilForm.biografia.trim() !== perfil.biografia ||
       perfilForm.localidad.trim() !== perfil.localidad ||
       perfilForm.direccion.trim() !== perfil.direccion ||
-      Number(perfilForm.precio) !== Number(perfil.precio)
+      !serviciosIguales(perfilForm.serviciosConPrecio, serviciosOriginales)
     )
   }, [perfilForm, usuario, perfil])
 
   const refrescarDatosOperativos = () => {
     if (!profesionalId) return
-    void getProfesional(profesionalId).then(setPerfil).catch(() => undefined)
+    if (seccionActual !== 'perfil') {
+      void getProfesional(profesionalId).then(setPerfil).catch(() => undefined)
+    }
     void getTurnosProfesional(profesionalId).then(setTurnos).catch(() => undefined)
     void getClientesDeProfesional(profesionalId).then(setClientes).catch(() => undefined)
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
@@ -294,7 +323,7 @@ export default function ProfesionalDashboard() {
 
     const intervalo = window.setInterval(refrescarDatosOperativos, 1500)
     return () => window.clearInterval(intervalo)
-  }, [profesionalId, usuario])
+  }, [profesionalId, usuario, seccionActual])
 
   const agendaPrincipal = agendas[0] ?? null
 
@@ -792,6 +821,8 @@ export default function ProfesionalDashboard() {
     if (!usuario || !sesion || !perfil || !profesionalId) return
     if (!perfilTieneCambios) return
     try {
+      const serviciosConPrecio = serviciosNormalizados(perfilForm.serviciosConPrecio)
+      const precioCompatibilidad = serviciosConPrecio[0]?.precio ?? 0
       const usuarioActualizado = await actualizarUsuario(usuario.id, {
         nombreCompleto: perfilForm.nombreCompleto.trim(),
         telefono: perfilForm.telefono.trim(),
@@ -803,11 +834,12 @@ export default function ProfesionalDashboard() {
         urlAvatar: perfilForm.urlAvatar.trim(),
         localidad: perfilForm.localidad.trim(),
         direccion: perfilForm.direccion.trim(),
-        precio: Number(perfilForm.precio) || 0,
+        precio: precioCompatibilidad,
         cobertura: perfil.cobertura,
         matriculaNacional: perfil.matriculaNacional,
         matriculaProvincial: perfil.matriculaProvincial,
-        servicios: perfil.servicios,
+        servicios: serviciosConPrecio.map((servicio) => servicio.nombre),
+        serviciosConPrecio,
       })
       iniciar({ token: sesion.token, usuario: usuarioActualizado })
       setPerfil(profesionalActualizado)
@@ -1613,7 +1645,78 @@ export default function ProfesionalDashboard() {
                 <div><Label>Nombre completo</Label><Input value={perfilForm.nombreCompleto} onChange={(e) => setPerfilForm({ ...perfilForm, nombreCompleto: e.target.value })} /></div>
                 <div><Label>Teléfono</Label><Input value={perfilForm.telefono} onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })} /></div>
                 <div><Label>Rubro</Label><Input value={perfilForm.especialidad} onChange={(e) => setPerfilForm({ ...perfilForm, especialidad: e.target.value })} /></div>
-                <div><Label>Valor del turno</Label><Input type="number" min="0" step="1" value={perfilForm.precio} onChange={(e) => setPerfilForm({ ...perfilForm, precio: e.target.value })} /></div>
+              </div>
+
+              <section className="rounded-xl border border-borde bg-fondo p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-black text-texto-principal">Servicios y precios</h3>
+                    <p className="mt-1 text-sm text-texto-secundario">Edita los servicios que ofreces y el precio de cada uno.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-primario bg-white px-4 py-2 text-sm font-bold text-primario hover:bg-primario-claro"
+                    onClick={() => setPerfilForm({
+                      ...perfilForm,
+                      serviciosConPrecio: [...perfilForm.serviciosConPrecio, { nombre: '', precio: 0 }],
+                    })}
+                  >
+                    Agregar servicio
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  {perfilForm.serviciosConPrecio.map((servicio, index) => (
+                    <div key={index} className="grid gap-3 rounded-lg border border-borde bg-white p-3 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
+                      <div>
+                        <Label>Servicio</Label>
+                        <Input
+                          value={servicio.nombre}
+                          onChange={(e) => {
+                            const servicios = [...perfilForm.serviciosConPrecio]
+                            servicios[index] = { ...servicio, nombre: e.target.value }
+                            setPerfilForm({ ...perfilForm, serviciosConPrecio: servicios })
+                          }}
+                          placeholder="Ej: Corte y barba"
+                        />
+                      </div>
+                      <div>
+                        <Label>Precio</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={servicio.precio || ''}
+                          onChange={(e) => {
+                            const servicios = [...perfilForm.serviciosConPrecio]
+                            servicios[index] = { ...servicio, precio: Number(e.target.value) || 0 }
+                            setPerfilForm({ ...perfilForm, serviciosConPrecio: servicios })
+                          }}
+                          placeholder="Ej: 13000"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="h-10 rounded-lg border border-peligro-suave bg-white px-4 text-sm font-bold text-peligro hover:bg-red-50"
+                        onClick={() => setPerfilForm({
+                          ...perfilForm,
+                          serviciosConPrecio: perfilForm.serviciosConPrecio.filter((_, servicioIndex) => servicioIndex !== index),
+                        })}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ))}
+
+                  {perfilForm.serviciosConPrecio.length === 0 && (
+                    <p className="rounded-lg border border-dashed border-borde bg-white px-4 py-5 text-sm text-texto-secundario">
+                      Todavia no cargaste servicios. Agrega al menos uno para que los clientes puedan elegirlo al reservar.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              <div className="grid gap-4 lg:grid-cols-2">
                 <div><Label>Localidad</Label><Input value={perfilForm.localidad} onChange={(e) => setPerfilForm({ ...perfilForm, localidad: e.target.value })} placeholder="Ej: Villa Maipu" /></div>
                 <div><Label>Dirección</Label><Input value={perfilForm.direccion} onChange={(e) => setPerfilForm({ ...perfilForm, direccion: e.target.value })} /></div>
               </div>
@@ -1623,9 +1726,11 @@ export default function ProfesionalDashboard() {
                 <Textarea rows={4} value={perfilForm.biografia} onChange={(e) => setPerfilForm({ ...perfilForm, biografia: e.target.value })} />
               </div>
 
-              <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
-                <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
-              </span>
+              <div className="flex justify-end">
+                <span className={`inline-flex ${!perfilTieneCambios ? 'cursor-not-allowed' : ''}`} title={!perfilTieneCambios ? 'Realiza al menos un cambio para guardar' : undefined}>
+                  <BotonPrimario type="submit" disabled={!perfilTieneCambios} className={!perfilTieneCambios ? 'pointer-events-none' : ''}>Guardar cambios</BotonPrimario>
+                </span>
+              </div>
             </form>
           </section>
         )}

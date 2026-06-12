@@ -11,7 +11,7 @@ import { Toast } from '../../components/common/toast'
 import { useSesion } from '../../customHooks/useSesion'
 import { registro as registroApi } from '../../api/auth'
 import { extraerError } from '../../api/client'
-import type { Rol } from '../../api/types'
+import type { Rol, ServicioProfesional } from '../../api/types'
 
 export default function Registro() {
     const [form, setForm] = useState({
@@ -24,7 +24,7 @@ export default function Registro() {
         biografia: '',
         localidad: '',
         direccion: '',
-        precio: '',
+        serviciosConPrecio: [{ nombre: '', precio: 0 }] as ServicioProfesional[],
     })
     const [enviando, setEnviando] = useState(false)
 
@@ -40,7 +40,16 @@ export default function Registro() {
     const onChange = (e: ChangeEvent<HTMLInputElement>) =>
         setForm({ ...form, [e.target.name]: e.target.value })
 
-    const precioProfesional = Number(form.precio)
+    const serviciosProfesional = form.serviciosConPrecio
+        .map((servicio) => ({
+            nombre: servicio.nombre.trim(),
+            precio: Number(servicio.precio) || 0,
+        }))
+        .filter((servicio) => servicio.nombre.length > 0 || servicio.precio > 0)
+    const serviciosProfesionalCompletos =
+        serviciosProfesional.length > 0 &&
+        serviciosProfesional.every((servicio) => servicio.nombre.length > 0 && servicio.precio > 0)
+    const precioCompatibilidad = serviciosProfesional[0]?.precio ?? 0
     const puedeEnviar =
         form.nombre.trim().length > 0 &&
         form.apellido.trim().length > 0 &&
@@ -52,8 +61,7 @@ export default function Registro() {
             form.biografia.trim().length > 0 &&
             form.localidad.trim().length > 0 &&
             form.direccion.trim().length > 0 &&
-            Number.isFinite(precioProfesional) &&
-            precioProfesional > 0
+            serviciosProfesionalCompletos
         )) &&
         !enviando
 
@@ -73,8 +81,9 @@ export default function Registro() {
                 biografia: esProfesional ? form.biografia.trim() : undefined,
                 localidad: esProfesional ? form.localidad.trim() : undefined,
                 direccion: esProfesional ? form.direccion.trim() : undefined,
-                precio: esProfesional ? precioProfesional : undefined,
-                servicios: esProfesional ? [form.especialidad.trim()] : undefined,
+                precio: esProfesional ? precioCompatibilidad : undefined,
+                servicios: esProfesional ? serviciosProfesional.map((servicio) => servicio.nombre) : undefined,
+                serviciosConPrecio: esProfesional ? serviciosProfesional : undefined,
             })
             iniciar(auth, rolBack)
             showToast(
@@ -197,27 +206,80 @@ export default function Registro() {
                             type="text"
                         />
 
-                        <InputGenerico
-                            label="Valor del turno"
-                            name="precio"
-                            value={form.precio}
-                            onChange={onChange}
-                            placeholder="Ej: 70000"
-                            type="number"
-                            min="1"
-                            step="1"
-                        />
+                        <section className="rounded-2xl border border-borde bg-fondo p-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h3 className="text-sm font-black text-texto-principal">Servicios y precios</h3>
+                                    <p className="mt-1 text-xs text-texto-secundario">Agrega los servicios que vas a ofrecer.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="shrink-0 rounded-lg border border-primario bg-white px-3 py-2 text-xs font-bold text-primario hover:bg-primario-claro"
+                                    onClick={() => setForm({
+                                        ...form,
+                                        serviciosConPrecio: [...form.serviciosConPrecio, { nombre: '', precio: 0 }],
+                                    })}
+                                >
+                                    Agregar
+                                </button>
+                            </div>
+
+                            <div className="mt-3 grid gap-3">
+                                {form.serviciosConPrecio.map((servicio, index) => (
+                                    <div key={index} className="grid gap-2 rounded-xl border border-borde bg-white p-3">
+                                        <InputGenerico
+                                            label="Servicio"
+                                            value={servicio.nombre}
+                                            onChange={(e) => {
+                                                const servicios = [...form.serviciosConPrecio]
+                                                servicios[index] = { ...servicio, nombre: e.target.value }
+                                                setForm({ ...form, serviciosConPrecio: servicios })
+                                            }}
+                                            placeholder="Ej: Corte"
+                                            type="text"
+                                        />
+                                        <InputGenerico
+                                            label="Precio"
+                                            value={servicio.precio || ''}
+                                            onChange={(e) => {
+                                                const servicios = [...form.serviciosConPrecio]
+                                                servicios[index] = { ...servicio, precio: Number(e.target.value) || 0 }
+                                                setForm({ ...form, serviciosConPrecio: servicios })
+                                            }}
+                                            placeholder="Ej: 13000"
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                        />
+                                        {form.serviciosConPrecio.length > 1 && (
+                                            <button
+                                                type="button"
+                                                className="justify-self-end rounded-lg border border-peligro-suave bg-white px-3 py-2 text-xs font-bold text-peligro hover:bg-red-50"
+                                                onClick={() => setForm({
+                                                    ...form,
+                                                    serviciosConPrecio: form.serviciosConPrecio.filter((_, servicioIndex) => servicioIndex !== index),
+                                                })}
+                                            >
+                                                Eliminar
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
                     </>
                 )}
 
-                <BotonPrimario
-                    type="submit"
-                    fullWidth
-                    disabled={!puedeEnviar}
-                    className="py-4 text-base rounded-xl"
-                >
-                    {enviando ? 'Registrando...' : 'Registrarse'}
-                </BotonPrimario>
+                <span className={`${!puedeEnviar ? 'cursor-not-allowed' : ''}`} title={!puedeEnviar ? 'Completa los campos requeridos para registrarte' : undefined}>
+                    <BotonPrimario
+                        type="submit"
+                        fullWidth
+                        disabled={!puedeEnviar}
+                        className={`py-4 text-base rounded-xl ${!puedeEnviar ? 'pointer-events-none' : ''}`}
+                    >
+                        {enviando ? 'Registrando...' : 'Registrarse'}
+                    </BotonPrimario>
+                </span>
             </form>
 
             <p className="text-xs text-texto-secundario text-center">

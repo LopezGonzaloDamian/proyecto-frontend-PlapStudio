@@ -326,7 +326,14 @@ export default function ClienteDashboard() {
     item.seccion === 'dashboard' ? basePath : `${basePath}/${item.seccion}`
   const pathNotificaciones = `${basePath}/notificaciones`
   const cantidadNotificaciones = notificaciones.length > 9 ? '9+' : String(notificaciones.length)
-  const precioTurno = profesionalDetalle?.precio ?? 0
+  const serviciosProfesional = useMemo(() => {
+    if (!profesionalDetalle) return []
+    const serviciosConPrecio = profesionalDetalle.serviciosConPrecio ?? []
+    if (serviciosConPrecio.length > 0) return serviciosConPrecio
+    return profesionalDetalle.servicios.map((nombre) => ({ nombre, precio: profesionalDetalle.precio }))
+  }, [profesionalDetalle])
+  const servicioSeleccionado = serviciosProfesional.find((item) => item.nombre === servicio) ?? null
+  const precioTurno = servicioSeleccionado?.precio ?? 0
   const resumenResenasProfesional = useMemo(() => {
     const cantidad = resenasProfesional.length
     if (cantidad === 0) {
@@ -335,7 +342,7 @@ export default function ClienteDashboard() {
     const total = resenasProfesional.reduce((sum, resena) => sum + resena.calificacion, 0)
     return { cantidad, promedio: total / cantidad }
   }, [resenasProfesional])
-  const senaReserva = Math.max(Math.round(precioTurno * 0.5), 500)
+  const senaReserva = servicioSeleccionado ? Math.max(Math.round(precioTurno * 0.5), 500) : 0
   const slotsReservables = useMemo(
     () => slots.filter((slot) => slotReservable(slot, ahora)),
     [slots, ahora],
@@ -411,7 +418,7 @@ export default function ClienteDashboard() {
     void getProfesional(Number(idProfesional))
       .then((p) => {
         setProfesionalDetalle(p)
-        if (p.servicios.length > 0) setServicio(p.servicios[0])
+        setServicio('')
       })
       .catch((e) => showToast(extraerError(e), 'error'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -547,6 +554,10 @@ export default function ClienteDashboard() {
       showToast('Selecciona un horario disponible', 'error')
       return
     }
+    if (!servicioSeleccionado) {
+      showToast('Selecciona un servicio', 'error')
+      return
+    }
     setTurnoConfirmado(null)
     setMostrarCheckout(true)
   }
@@ -558,6 +569,10 @@ export default function ClienteDashboard() {
       showToast('Selecciona un horario disponible', 'error')
       return
     }
+    if (!servicioSeleccionado) {
+      showToast('Selecciona un servicio', 'error')
+      return
+    }
     setEnviandoReserva(true)
     try {
       const slot = slots.find((s) => s.iniciaEn === horarioSeleccionado)
@@ -567,6 +582,7 @@ export default function ClienteDashboard() {
         iniciaEn:        horarioSeleccionado,
         duracionMinutos: slot?.duracionMinutos ?? 45,
         notas:           [servicio, observaciones].filter(Boolean).join(' - '),
+        precioServicio:  precioTurno,
         pagarAlReservar: true,
         medioPago,
       })
@@ -1285,14 +1301,27 @@ export default function ClienteDashboard() {
 
             <section className="mt-8 rounded-[18px] border border-borde bg-fondo p-5">
               <h3 className="text-lg font-black text-texto-principal">Detalles</h3>
-              <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-6">
+              <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Rubro</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.especialidad}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Telefono</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.telefono}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Mail</span><p className="mt-2 text-sm font-semibold break-all">{profesionalDetalle.email}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Localidad</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.localidad}</p></div>
                 <div><span className="text-[11px] font-bold uppercase text-texto-suave">Direccion</span><p className="mt-2 text-sm font-semibold">{profesionalDetalle.direccion}</p></div>
-                <div><span className="text-[11px] font-bold uppercase text-texto-suave">Valor del turno</span><p className="mt-2 text-sm font-semibold">{formatPrecio(profesionalDetalle.precio)}</p></div>
-                <div className="sm:col-span-2 xl:col-span-6">
+                <div className="sm:col-span-2 xl:col-span-5">
+                  <span className="text-[11px] font-bold uppercase text-texto-suave">Servicios y precios</span>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {serviciosProfesional.map((item) => (
+                      <div key={item.nombre} className="flex items-center justify-between gap-3 rounded-xl border border-borde bg-white px-3 py-2">
+                        <span className="min-w-0 text-sm font-semibold text-texto-principal">{item.nombre}</span>
+                        <span className="shrink-0 text-sm font-black text-primario">{formatPrecio(item.precio)}</span>
+                      </div>
+                    ))}
+                    {serviciosProfesional.length === 0 && (
+                      <span className="text-sm text-texto-secundario">Sin servicios cargados.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="sm:col-span-2 xl:col-span-5">
                   <span className="text-[11px] font-bold uppercase text-texto-suave">Turnos disponibles para:</span>
                   <div className="mt-3 flex items-center gap-2 mb-3">
                     <Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} className="max-w-[180px]" />
@@ -1387,8 +1416,18 @@ export default function ClienteDashboard() {
                   <p className="mt-1 text-sm font-black text-texto-principal">{profesionalDetalle.localidad}</p>
                 </div>
                 <div className="rounded-2xl bg-fondo p-4">
-                  <span className="text-[11px] font-bold uppercase text-texto-suave">Valor del turno</span>
-                  <p className="mt-1 text-sm font-black text-texto-principal">{formatPrecio(profesionalDetalle.precio)}</p>
+                  <span className="text-[11px] font-bold uppercase text-texto-suave">Servicios y precios</span>
+                  <div className="mt-2 grid gap-2">
+                    {serviciosProfesional.map((item) => (
+                      <div key={item.nombre} className="flex items-center justify-between gap-3 rounded-lg border border-borde bg-white px-3 py-2">
+                        <span className="min-w-0 text-sm font-semibold text-texto-principal">{item.nombre}</span>
+                        <span className="shrink-0 text-sm font-black text-primario">{formatPrecio(item.precio)}</span>
+                      </div>
+                    ))}
+                    {serviciosProfesional.length === 0 && (
+                      <span className="text-sm text-texto-secundario">Sin servicios cargados.</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </aside>
@@ -1401,7 +1440,17 @@ export default function ClienteDashboard() {
                   <div className="mt-6 grid gap-4 xl:grid-cols-2">
                     <div>
                       <Label>Motivo</Label>
-                      <Input value={servicio} onChange={(e) => setServicio(e.target.value)} placeholder="Ej: Consulta inicial" />
+                      <Select value={servicio} onChange={(e) => setServicio(e.target.value)}>
+                        <option value="">Selecciona un servicio</option>
+                        {serviciosProfesional.map((item) => (
+                          <option key={item.nombre} value={item.nombre}>
+                            {item.nombre}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="mt-2 text-sm font-semibold text-texto-secundario">
+                        Precio: <span className="text-texto-principal">{servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : '-'}</span>
+                      </p>
                     </div>
                     <div>
                       <Label>Fecha</Label>
@@ -1435,7 +1484,7 @@ export default function ClienteDashboard() {
                     </div>
                   </div>
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <BotonPrimario type="submit" className="w-full sm:w-auto" disabled={enviandoReserva || !horarioSeleccionado}>
+                    <BotonPrimario type="submit" className="w-full sm:w-auto" disabled={enviandoReserva || !horarioSeleccionado || !servicioSeleccionado}>
                       <IconCheck className="h-5 w-5" />
                       Registrar turno
                     </BotonPrimario>
