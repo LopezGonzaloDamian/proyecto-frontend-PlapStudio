@@ -18,12 +18,15 @@ import {
   reservarTurnoAsistente,
 } from '../../api/asistentes'
 import { buscarClientePorEmail, getClientesDeProfesional } from '../../api/clientes'
+import { getProfesional } from '../../api/profesionales'
 import { actualizarUsuario } from '../../api/usuarios'
 import { activarRol, login as validarLogin } from '../../api/auth'
 import type {
   Agenda,
   AsistenteAsignacion,
   Cliente,
+  Profesional,
+  ServicioProfesional,
   Slot,
   Turno,
 } from '../../api/types'
@@ -64,6 +67,21 @@ const estadoAsignacionLabel: Record<AsistenteAsignacion['estado'], string> = {
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
 const abrirCalendario = (input: HTMLInputElement) => input.showPicker?.()
+const formatPrecio = (precio: number) =>
+  `$ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(precio)}`
+const serviciosDeProfesional = (perfil: Profesional): ServicioProfesional[] => {
+  if (perfil.serviciosConPrecio.length > 0) {
+    return perfil.serviciosConPrecio.map((servicio) => ({
+      nombre: servicio.nombre,
+      precio: servicio.precio,
+    }))
+  }
+
+  return perfil.servicios.map((nombre) => ({
+    nombre,
+    precio: perfil.precio,
+  }))
+}
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
 const turnoAccionable = (turno: Turno) =>
@@ -105,7 +123,9 @@ export default function AsistenteDashboard() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [agendaPorProfesional, setAgendaPorProfesional] = useState<Record<number, Agenda | null>>({})
+  const [perfilPorProfesional, setPerfilPorProfesional] = useState<Record<number, Profesional>>({})
   const [slotsTurnoNuevo, setSlotsTurnoNuevo] = useState<Slot[]>([])
+  const [slotsTurnoEditar, setSlotsTurnoEditar] = useState<Slot[]>([])
 
   const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', clienteEmail: '', fechaDesde: '', fechaHasta: '' })
   const [turnoNuevo, setTurnoNuevo] = useState({
@@ -183,22 +203,12 @@ export default function AsistenteDashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario?.id])
 
-  useEffect(() => {
-    if (!usuario) return
-
-    const refrescarTurnos = () => {
-      void getTurnosDeAsistente(usuario.id).then(setTurnos).catch(() => undefined)
-    }
-
-    const intervalo = window.setInterval(refrescarTurnos, 1500)
-    return () => window.clearInterval(intervalo)
-  }, [usuario])
-
   // Cuando hay profesionales, cargar clientes y agendas de los asignados
   useEffect(() => {
     if (profesionalesAceptados.length === 0) {
       setClientes([])
       setAgendaPorProfesional({})
+      setPerfilPorProfesional({})
       setFiltrosAgenda((f) => ({ ...f, profesionalId: '' }))
       setTurnoNuevo((n) => ({ ...n, profesionalId: '' }))
       return
@@ -221,6 +231,9 @@ export default function AsistenteDashboard() {
       getAgendasDeProfesional(a.profesionalId)
         .then((ags) => setAgendaPorProfesional((m) => ({ ...m, [a.profesionalId]: ags[0] ?? null })))
         .catch(() => {})
+      getProfesional(a.profesionalId)
+        .then((perfil) => setPerfilPorProfesional((m) => ({ ...m, [a.profesionalId]: perfil })))
+        .catch(() => {})
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profesionalesAceptados])
@@ -229,6 +242,30 @@ export default function AsistenteDashboard() {
     () => slotsTurnoNuevo.filter(slotReservable),
     [slotsTurnoNuevo],
   )
+  const perfilTurnoNuevo = turnoNuevo.profesionalId
+    ? perfilPorProfesional[Number(turnoNuevo.profesionalId)] ?? null
+    : null
+  const serviciosTurnoNuevo = useMemo(
+    () => (perfilTurnoNuevo ? serviciosDeProfesional(perfilTurnoNuevo) : []),
+    [perfilTurnoNuevo],
+  )
+  const servicioTurnoNuevoSeleccionado =
+    serviciosTurnoNuevo.find((servicio) => servicio.nombre === turnoNuevo.notas) ?? null
+  const turnoSeleccionadoEditar = useMemo(
+    () => turnos.find((t) => t.id === turnoEditarId) ?? null,
+    [turnos, turnoEditarId],
+  )
+  const horariosTurnoEditar = useMemo(() => {
+    const horarios = slotsTurnoEditar.filter(slotReservable).map(horaDe)
+    if (
+      turnoSeleccionadoEditar &&
+      turnoAccionable(turnoSeleccionadoEditar) &&
+      fechaIsoDe(turnoSeleccionadoEditar) === turnoEditar.fecha
+    ) {
+      horarios.push(horaDe(turnoSeleccionadoEditar))
+    }
+    return Array.from(new Set(horarios)).sort((a, b) => a.localeCompare(b))
+  }, [slotsTurnoEditar, turnoSeleccionadoEditar, turnoEditar.fecha])
   const datosClienteTurnoNuevoCompletos = turnoNuevo.tipoCliente === 'externo'
     ? turnoNuevo.clienteExternoNombre.trim().length > 0 &&
       turnoNuevo.clienteExternoTelefono.trim().length > 0 &&
@@ -268,15 +305,64 @@ export default function AsistenteDashboard() {
   }, [turnoNuevo.profesionalId, turnoNuevo.fecha, agendaPorProfesional])
 
   useEffect(() => {
-    const t = turnos.find((x) => x.id === turnoEditarId)
-    if (!t) return
+    const t = turnoSeleccionadoEditar
+    if (!t) {
+      setTurnoEditar({ fecha: '', horario: '', duracion: '45', estado: 'CONFIRMADO', notas: '' })
+      setSlotsTurnoEditar([])
+      return
+    }
     setTurnoEditar({ fecha: fechaIsoDe(t), horario: horaDe(t), duracion: String(t.duracionMinutos), estado: t.estado, notas: t.notas })
-  }, [turnoEditarId, turnos])
+  }, [turnoSeleccionadoEditar])
 
-  const puedeModificarTurno =
+  useEffect(() => {
+    const agenda = turnoSeleccionadoEditar ? agendaPorProfesional[turnoSeleccionadoEditar.profesionalId] : null
+    if (!agenda || !turnoEditarId || !turnoEditar.fecha) {
+      setSlotsTurnoEditar([])
+      return
+    }
+
+    void getSlots(agenda.id, turnoEditar.fecha)
+      .then((slots) => {
+        const disponibles = slots.filter(slotReservable)
+        const horaActual =
+          turnoSeleccionadoEditar &&
+          turnoAccionable(turnoSeleccionadoEditar) &&
+          fechaIsoDe(turnoSeleccionadoEditar) === turnoEditar.fecha
+            ? horaDe(turnoSeleccionadoEditar)
+            : null
+        const horasValidas = new Set([
+          ...disponibles.map(horaDe),
+          ...(horaActual ? [horaActual] : []),
+        ])
+        setSlotsTurnoEditar(slots)
+        setTurnoEditar((actual) => {
+          if (actual.horario && horasValidas.has(actual.horario)) return actual
+          return { ...actual, horario: disponibles[0] ? horaDe(disponibles[0]) : (horaActual ?? '') }
+        })
+      })
+      .catch((e) => {
+        setSlotsTurnoEditar([])
+        setTurnoEditar((actual) => ({ ...actual, horario: '' }))
+        showToast(extraerError(e), 'error')
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turnoEditarId, turnoEditar.fecha, turnoSeleccionadoEditar, agendaPorProfesional])
+
+  const turnoEditarCamposCompletos =
     turnoEditarId.length > 0 &&
     turnoEditar.fecha.length > 0 &&
     turnoEditar.horario.length > 0
+  const turnoEditarTieneCambios = Boolean(turnoSeleccionadoEditar) && (
+    fechaIsoDe(turnoSeleccionadoEditar!) !== turnoEditar.fecha ||
+    horaDe(turnoSeleccionadoEditar!) !== turnoEditar.horario ||
+    (turnoSeleccionadoEditar!.notas ?? '') !== turnoEditar.notas
+  )
+  const puedeModificarTurno = turnoEditarCamposCompletos && turnoEditarTieneCambios
+  const mensajeModificarTurnoInhabilitado = !turnoEditarCamposCompletos
+    ? 'Necesitas completar todos los campos'
+    : !turnoEditarTieneCambios
+      ? 'Necesitas hacer al menos una modificacion'
+      : undefined
 
   useEffect(() => {
     const handleClickAfuera = (e: MouseEvent) => {
@@ -439,6 +525,7 @@ export default function AsistenteDashboard() {
         iniciaEn: `${turnoNuevo.fecha}T${turnoNuevo.horario}:00`,
         duracionMinutos: parseInt(turnoNuevo.duracion, 10),
         notas: turnoNuevo.notas,
+        precioServicio: servicioTurnoNuevoSeleccionado?.precio,
       })
       refrescarTurnos()
       setTurnoNuevo((n) => ({
@@ -458,8 +545,12 @@ export default function AsistenteDashboard() {
     e.preventDefault()
     const t = turnos.find((x) => x.id === turnoEditarId)
     if (!t) return
-    if (!puedeModificarTurno) {
+    if (!turnoEditarCamposCompletos) {
       showToast('Completa turno, fecha y horario', 'error')
+      return
+    }
+    if (!turnoEditarTieneCambios) {
+      showToast('Necesitas hacer al menos una modificacion', 'error')
       return
     }
     try {
@@ -888,7 +979,7 @@ export default function AsistenteDashboard() {
                 <div className="mt-6 grid gap-4 rounded-lg border border-borde bg-fondo p-4 lg:grid-cols-4">
                   <div className="lg:max-w-[270px]">
                     <Label>Profesional</Label>
-                    <Select value={turnoNuevo.profesionalId} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, profesionalId: e.target.value })}>
+                    <Select value={turnoNuevo.profesionalId} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, profesionalId: e.target.value, notas: '', horario: '' })}>
                       {profesionalesAceptados.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
                     </Select>
                   </div>
@@ -934,8 +1025,26 @@ export default function AsistenteDashboard() {
                     </>
                   )}
                   <div className={`lg:col-span-2 lg:max-w-[560px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}`}>
-                    <Label>Servicio (notas)</Label>
-                    <Input value={turnoNuevo.notas} onChange={(e) => setTurnoNuevo({ ...turnoNuevo, notas: e.target.value })} />
+                    <Label>Servicio</Label>
+                    <div className="rounded-xl border border-borde bg-white p-2">
+                      <Select
+                        value={turnoNuevo.notas}
+                        onChange={(e) => setTurnoNuevo({ ...turnoNuevo, notas: e.target.value })}
+                        disabled={serviciosTurnoNuevo.length === 0}
+                        className="border-0 bg-transparent focus:ring-0"
+                      >
+                        <option value="">{serviciosTurnoNuevo.length === 0 ? 'Sin servicios cargados' : 'Selecciona un servicio'}</option>
+                        {serviciosTurnoNuevo.map((servicio) => (
+                          <option key={servicio.nombre} value={servicio.nombre}>{servicio.nombre}</option>
+                        ))}
+                      </Select>
+                      <div className="mt-2 flex items-center justify-between rounded-lg bg-fondo px-3 py-2 text-sm">
+                        <span className="font-semibold text-texto-secundario">Precio del servicio</span>
+                        <span className={`font-black ${servicioTurnoNuevoSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                          {servicioTurnoNuevoSeleccionado ? formatPrecio(servicioTurnoNuevoSeleccionado.precio) : 'Selecciona un servicio'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <div className={`lg:max-w-[270px] ${turnoNuevo.tipoCliente === 'registrado' ? 'lg:row-start-5' : 'lg:row-start-6'}`}>
                     <Label>Fecha</Label>
@@ -999,10 +1108,34 @@ export default function AsistenteDashboard() {
                       </Select>
                     </div>
                     <div className="lg:max-w-[270px]"><Label>Fecha</Label><Input type="date" value={turnoEditar.fecha} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} /></div>
-                    <div className="lg:max-w-[270px]"><Label>Horario</Label><Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} /></div>
+                    <div className="lg:col-span-2">
+                      <Label>Horario</Label>
+                      <div className="mt-2 flex min-h-[52px] flex-wrap gap-2">
+                        {!turnoEditar.fecha && (
+                          <span className="px-2 py-2 text-sm text-texto-secundario">Selecciona una fecha</span>
+                        )}
+                        {turnoEditar.fecha && horariosTurnoEditar.length === 0 && (
+                          <span className="px-2 py-2 text-sm text-texto-secundario">Sin horarios disponibles.</span>
+                        )}
+                        {horariosTurnoEditar.map((hora) => (
+                          <button
+                            key={hora}
+                            type="button"
+                            onClick={() => setTurnoEditar({ ...turnoEditar, horario: hora })}
+                            className={`rounded-lg border px-3 py-2 text-sm font-bold ${
+                              turnoEditar.horario === hora
+                                ? 'border-primario bg-primario text-white'
+                                : 'border-primario-suave bg-primario-claro text-primario'
+                            }`}
+                          >
+                            {hora}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="lg:col-span-2 lg:max-w-[560px]"><Label>Notas</Label><Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} /></div>
                     <div className="flex justify-end lg:col-span-4">
-                      <span className={!puedeModificarTurno ? 'cursor-not-allowed' : ''} title={!puedeModificarTurno ? 'Necesitas completar todos los campos' : undefined}>
+                      <span className={!puedeModificarTurno ? 'cursor-not-allowed' : ''} title={mensajeModificarTurnoInhabilitado}>
                         <BotonPrimario
                           type="submit"
                           className={`min-w-[220px] ${!puedeModificarTurno ? 'pointer-events-none' : ''}`}

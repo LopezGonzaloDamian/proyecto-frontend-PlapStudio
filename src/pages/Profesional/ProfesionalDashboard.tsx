@@ -205,6 +205,7 @@ export default function ProfesionalDashboard() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [slotsNuevoTurno, setSlotsNuevoTurno] = useState<Slot[]>([])
+  const [slotsTurnoEditar, setSlotsTurnoEditar] = useState<Slot[]>([])
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([])
   const [asistentes, setAsistentes] = useState<AsistenteAsignacion[]>([])
 
@@ -319,13 +320,6 @@ export default function ProfesionalDashboard() {
     if (usuario) void getNotificaciones(usuario.id).then(setNotificaciones).catch(() => undefined)
   }
 
-  useEffect(() => {
-    if (!profesionalId || !usuario) return
-
-    const intervalo = window.setInterval(refrescarDatosOperativos, 1500)
-    return () => window.clearInterval(intervalo)
-  }, [profesionalId, usuario, seccionActual])
-
   const agendaPrincipal = agendas[0] ?? null
 
   const configuracionesPorDia = useMemo(() => {
@@ -349,6 +343,27 @@ export default function ProfesionalDashboard() {
     () => slotsNuevoTurno.filter(slotReservable),
     [slotsNuevoTurno],
   )
+  const serviciosNuevoTurno = useMemo(
+    () => (perfil ? serviciosEditablesDe(perfil) : []),
+    [perfil],
+  )
+  const servicioNuevoTurnoSeleccionado =
+    serviciosNuevoTurno.find((servicio) => servicio.nombre === nuevoTurno.servicio) ?? null
+  const turnoSeleccionadoEditar = useMemo(
+    () => turnos.find((t) => t.id === turnoEditarId) ?? null,
+    [turnos, turnoEditarId],
+  )
+  const horariosTurnoEditar = useMemo(() => {
+    const horarios = slotsTurnoEditar.filter(slotReservable).map(horaDe)
+    if (
+      turnoSeleccionadoEditar &&
+      turnoAccionable(turnoSeleccionadoEditar) &&
+      fechaIsoDe(turnoSeleccionadoEditar) === turnoEditar.fecha
+    ) {
+      horarios.push(horaDe(turnoSeleccionadoEditar))
+    }
+    return Array.from(new Set(horarios)).sort((a, b) => a.localeCompare(b))
+  }, [slotsTurnoEditar, turnoSeleccionadoEditar, turnoEditar.fecha])
   const datosClienteNuevoTurnoCompletos = nuevoTurno.tipoCliente === 'externo'
     ? nuevoTurno.clienteExternoNombre.trim().length > 0 &&
       nuevoTurno.clienteExternoTelefono.trim().length > 0 &&
@@ -386,19 +401,67 @@ export default function ProfesionalDashboard() {
   }, [agendaPrincipal?.id, nuevoTurno.fecha])
 
   useEffect(() => {
-    const turno = turnos.find((t) => t.id === turnoEditarId)
-    if (!turno) return
+    const turno = turnoSeleccionadoEditar
+    if (!turno) {
+      setTurnoEditar({ fecha: '', horario: '', notas: '' })
+      setSlotsTurnoEditar([])
+      return
+    }
     setTurnoEditar({
       fecha: fechaIsoDe(turno),
       horario: horaDe(turno),
       notas: turno.notas,
     })
-  }, [turnoEditarId, turnos])
+  }, [turnoSeleccionadoEditar])
 
-  const puedeModificarTurno =
+  useEffect(() => {
+    if (!agendaPrincipal || !turnoEditarId || !turnoEditar.fecha) {
+      setSlotsTurnoEditar([])
+      return
+    }
+
+    void getSlots(agendaPrincipal.id, turnoEditar.fecha)
+      .then((slots) => {
+        const disponibles = slots.filter(slotReservable)
+        const horaActual =
+          turnoSeleccionadoEditar &&
+          turnoAccionable(turnoSeleccionadoEditar) &&
+          fechaIsoDe(turnoSeleccionadoEditar) === turnoEditar.fecha
+            ? horaDe(turnoSeleccionadoEditar)
+            : null
+        const horasValidas = new Set([
+          ...disponibles.map(horaDe),
+          ...(horaActual ? [horaActual] : []),
+        ])
+        setSlotsTurnoEditar(slots)
+        setTurnoEditar((actual) => {
+          if (actual.horario && horasValidas.has(actual.horario)) return actual
+          return { ...actual, horario: disponibles[0] ? horaDe(disponibles[0]) : (horaActual ?? '') }
+        })
+      })
+      .catch((e) => {
+        setSlotsTurnoEditar([])
+        setTurnoEditar((actual) => ({ ...actual, horario: '' }))
+        showToast(extraerError(e), 'error')
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agendaPrincipal?.id, turnoEditarId, turnoEditar.fecha, turnoSeleccionadoEditar])
+
+  const turnoEditarCamposCompletos =
     turnoEditarId.length > 0 &&
     turnoEditar.fecha.length > 0 &&
     turnoEditar.horario.length > 0
+  const turnoEditarTieneCambios = Boolean(turnoSeleccionadoEditar) && (
+    fechaIsoDe(turnoSeleccionadoEditar!) !== turnoEditar.fecha ||
+    horaDe(turnoSeleccionadoEditar!) !== turnoEditar.horario ||
+    (turnoSeleccionadoEditar!.notas ?? '') !== turnoEditar.notas
+  )
+  const puedeModificarTurno = turnoEditarCamposCompletos && turnoEditarTieneCambios
+  const mensajeModificarTurnoInhabilitado = !turnoEditarCamposCompletos
+    ? 'Necesitas completar todos los campos'
+    : !turnoEditarTieneCambios
+      ? 'Necesitas hacer al menos una modificacion'
+      : undefined
 
   const turnosFiltrados = useMemo(() =>
     turnos.filter((t) => {
@@ -651,6 +714,7 @@ export default function ProfesionalDashboard() {
         iniciaEn: `${nuevoTurno.fecha}T${nuevoTurno.horario}:00`,
         duracionMinutos: 45,
         notas: nuevoTurno.servicio,
+        precioServicio: servicioNuevoTurnoSeleccionado?.precio,
       })
       setTurnos((act) => [turno, ...act])
       refrescarDatosOperativos()
@@ -710,8 +774,12 @@ export default function ProfesionalDashboard() {
     e.preventDefault()
     const turno = turnos.find((t) => t.id === turnoEditarId)
     if (!turno) return
-    if (!puedeModificarTurno) {
+    if (!turnoEditarCamposCompletos) {
       showToast('Completa turno, fecha y horario', 'error')
+      return
+    }
+    if (!turnoEditarTieneCambios) {
+      showToast('Necesitas hacer al menos una modificacion', 'error')
       return
     }
     try {
@@ -1189,7 +1257,27 @@ export default function ProfesionalDashboard() {
                     <div className="lg:row-start-3"><Label>Email opcional</Label><Input value={nuevoTurno.clienteExternoEmail} onChange={(e) => setNuevoTurno({ ...nuevoTurno, clienteExternoEmail: e.target.value })} /></div>
                   </>
                 )}
-                <div className={`lg:col-span-2 ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-3' : 'lg:row-start-4'}`}><Label>Servicio (notas)</Label><Input value={nuevoTurno.servicio} onChange={(e) => setNuevoTurno({ ...nuevoTurno, servicio: e.target.value })} /></div>
+                <div className={`lg:col-span-2 lg:max-w-[560px] ${nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-3' : 'lg:row-start-4'}`}>
+                  <Label>Servicio</Label>
+                  <div className="rounded-xl border border-borde bg-white p-2">
+                    <Select
+                      value={nuevoTurno.servicio}
+                      onChange={(e) => setNuevoTurno({ ...nuevoTurno, servicio: e.target.value })}
+                      className="border-0 bg-transparent focus:ring-0"
+                    >
+                      <option value="">Selecciona un servicio</option>
+                      {serviciosNuevoTurno.map((servicio) => (
+                        <option key={servicio.nombre} value={servicio.nombre}>{servicio.nombre}</option>
+                      ))}
+                    </Select>
+                    <div className="mt-2 flex items-center justify-between rounded-lg bg-fondo px-3 py-2 text-sm">
+                      <span className="font-semibold text-texto-secundario">Precio del servicio</span>
+                      <span className={`font-black ${servicioNuevoTurnoSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                        {servicioNuevoTurnoSeleccionado ? formatPrecio(servicioNuevoTurnoSeleccionado.precio) : 'Selecciona un servicio'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div className={nuevoTurno.tipoCliente === 'registrado' ? 'lg:row-start-4' : 'lg:row-start-5'}>
                   <Label>Fecha</Label>
                   <div className="relative">
@@ -1254,16 +1342,37 @@ export default function ProfesionalDashboard() {
                   <Label>Fecha</Label>
                   <Input type="date" value={turnoEditar.fecha} onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })} />
                 </div>
-                <div className="lg:max-w-[270px]">
+                <div className="lg:col-span-2">
                   <Label>Horario</Label>
-                  <Input type="time" value={turnoEditar.horario} onChange={(e) => setTurnoEditar({ ...turnoEditar, horario: e.target.value })} />
+                  <div className="mt-2 flex min-h-[52px] flex-wrap gap-2">
+                    {!turnoEditar.fecha && (
+                      <span className="px-2 py-2 text-sm text-texto-secundario">Selecciona una fecha</span>
+                    )}
+                    {turnoEditar.fecha && horariosTurnoEditar.length === 0 && (
+                      <span className="px-2 py-2 text-sm text-texto-secundario">Sin horarios disponibles.</span>
+                    )}
+                    {horariosTurnoEditar.map((hora) => (
+                      <button
+                        key={hora}
+                        type="button"
+                        onClick={() => setTurnoEditar({ ...turnoEditar, horario: hora })}
+                        className={`rounded-lg border px-3 py-2 text-sm font-bold ${
+                          turnoEditar.horario === hora
+                            ? 'border-primario bg-primario text-white'
+                            : 'border-primario-suave bg-primario-claro text-primario'
+                        }`}
+                      >
+                        {hora}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="lg:col-span-2 lg:max-w-[560px]">
                   <Label>Notas</Label>
                   <Textarea rows={3} value={turnoEditar.notas} onChange={(e) => setTurnoEditar({ ...turnoEditar, notas: e.target.value })} />
                 </div>
                 <div className="flex justify-end lg:col-span-4">
-                  <span className={!puedeModificarTurno ? 'cursor-not-allowed' : ''} title={!puedeModificarTurno ? 'Necesitas completar todos los campos' : undefined}>
+                  <span className={!puedeModificarTurno ? 'cursor-not-allowed' : ''} title={mensajeModificarTurnoInhabilitado}>
                     <BotonPrimario
                       type="submit"
                       className={`min-w-[220px] ${!puedeModificarTurno ? 'pointer-events-none' : ''}`}

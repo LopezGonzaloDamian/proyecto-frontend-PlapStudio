@@ -69,12 +69,18 @@ function LoginPanel({ onCrearCuenta }: { onCrearCuenta: () => void }) {
 
       <form onSubmit={enviar} className="mt-8 grid gap-4">
         <input
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="Correo electrónico"
           className="w-full rounded-[22px] border border-borde bg-white px-5 py-4 text-base font-semibold text-texto-principal outline-none placeholder:text-texto-secundario focus:border-primario focus:ring-2 focus:ring-primario/20"
         />
         <input
+          name="password"
+          autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="Contraseña"
