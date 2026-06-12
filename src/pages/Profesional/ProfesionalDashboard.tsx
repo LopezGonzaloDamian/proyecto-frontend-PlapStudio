@@ -236,6 +236,7 @@ export default function ProfesionalDashboard() {
   const [pidiendoPasswordDesasignacion, setPidiendoPasswordDesasignacion] = useState(false)
   const [passwordDesasignacionAsistente, setPasswordDesasignacionAsistente] = useState('')
   const [desasignandoAsistente, setDesasignandoAsistente] = useState(false)
+  const [servicioAEliminar, setServicioAEliminar] = useState<{ index: number; nombre: string } | null>(null)
 
   const [nuevaAgenda, setNuevaAgenda] = useState({ nombre: 'Agenda principal', descripcion: 'Atencion presencial' })
   const [disponibilidad, setDisponibilidad] = useState({
@@ -1698,10 +1699,7 @@ export default function ProfesionalDashboard() {
                       <button
                         type="button"
                         className="h-10 rounded-lg border border-peligro-suave bg-white px-4 text-sm font-bold text-peligro hover:bg-red-50"
-                        onClick={() => setPerfilForm({
-                          ...perfilForm,
-                          serviciosConPrecio: perfilForm.serviciosConPrecio.filter((_, servicioIndex) => servicioIndex !== index),
-                        })}
+                        onClick={() => setServicioAEliminar({ index, nombre: servicio.nombre.trim() || 'este servicio' })}
                       >
                         Eliminar
                       </button>
@@ -1867,6 +1865,35 @@ export default function ProfesionalDashboard() {
           </section>
         )}
       </main>
+
+      {servicioAEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-black text-texto-principal">Eliminar servicio</h2>
+            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+              <p>¿Querés eliminar este servicio?</p>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <BotonSecundario type="button" className="h-12 w-28" onClick={() => setServicioAEliminar(null)}>
+                Conservar
+              </BotonSecundario>
+              <button
+                type="button"
+                onClick={() => {
+                  setPerfilForm({
+                    ...perfilForm,
+                    serviciosConPrecio: perfilForm.serviciosConPrecio.filter((_, servicioIndex) => servicioIndex !== servicioAEliminar.index),
+                  })
+                  setServicioAEliminar(null)
+                }}
+                className="h-12 w-28 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {turnoACancelar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

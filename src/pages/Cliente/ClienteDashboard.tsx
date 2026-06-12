@@ -334,6 +334,7 @@ export default function ClienteDashboard() {
   }, [profesionalDetalle])
   const servicioSeleccionado = serviciosProfesional.find((item) => item.nombre === servicio) ?? null
   const precioTurno = servicioSeleccionado?.precio ?? 0
+  const reservaIncompleta = enviandoReserva || !horarioSeleccionado || !servicioSeleccionado
   const resumenResenasProfesional = useMemo(() => {
     const cantidad = resenasProfesional.length
     if (cantidad === 0) {
@@ -1280,7 +1281,7 @@ export default function ClienteDashboard() {
                       </span>
                     ) : (
                       <span className="rounded-full border border-borde bg-fondo px-2.5 py-1 text-xs text-texto-secundario">
-                        Sin calificaciones todavía
+                        Sin calificación
                       </span>
                     )}
                   </div>
@@ -1440,17 +1441,22 @@ export default function ClienteDashboard() {
                   <div className="mt-6 grid gap-4 xl:grid-cols-2">
                     <div>
                       <Label>Motivo</Label>
-                      <Select value={servicio} onChange={(e) => setServicio(e.target.value)}>
-                        <option value="">Selecciona un servicio</option>
-                        {serviciosProfesional.map((item) => (
-                          <option key={item.nombre} value={item.nombre}>
-                            {item.nombre}
-                          </option>
-                        ))}
-                      </Select>
-                      <p className="mt-2 text-sm font-semibold text-texto-secundario">
-                        Precio: <span className="text-texto-principal">{servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : '-'}</span>
-                      </p>
+                      <div className="rounded-xl border border-borde bg-white p-2">
+                        <Select value={servicio} onChange={(e) => setServicio(e.target.value)} className="border-0 bg-transparent focus:ring-0">
+                          <option value="">Selecciona un servicio</option>
+                          {serviciosProfesional.map((item) => (
+                            <option key={item.nombre} value={item.nombre}>
+                              {item.nombre}
+                            </option>
+                          ))}
+                        </Select>
+                        <div className="mt-2 flex items-center justify-between rounded-lg bg-fondo px-3 py-2 text-sm">
+                          <span className="font-semibold text-texto-secundario">Precio del servicio</span>
+                          <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                            {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : 'Selecciona un servicio'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <Label>Fecha</Label>
@@ -1483,11 +1489,13 @@ export default function ClienteDashboard() {
                       <Textarea rows={4} value={observaciones} onChange={(e) => setObservaciones(e.target.value)} placeholder="Ej: Prefiero recordatorio por WhatsApp." />
                     </div>
                   </div>
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <BotonPrimario type="submit" className="w-full sm:w-auto" disabled={enviandoReserva || !horarioSeleccionado || !servicioSeleccionado}>
-                      <IconCheck className="h-5 w-5" />
-                      Registrar turno
-                    </BotonPrimario>
+                  <div className="mt-6 flex flex-wrap justify-end gap-3">
+                    <span className={`w-full sm:w-auto ${reservaIncompleta ? 'cursor-not-allowed' : ''}`} title={reservaIncompleta ? 'Selecciona un servicio y un horario para registrar el turno' : undefined}>
+                      <BotonPrimario type="submit" className={`w-full sm:w-auto ${reservaIncompleta ? 'pointer-events-none' : ''}`} disabled={reservaIncompleta}>
+                        <IconCheck className="h-5 w-5" />
+                        Registrar turno
+                      </BotonPrimario>
+                    </span>
                     <BotonSecundario type="button" onClick={() => verPerfilProfesional(profesionalDetalle)}>
                       Volver al perfil
                     </BotonSecundario>
