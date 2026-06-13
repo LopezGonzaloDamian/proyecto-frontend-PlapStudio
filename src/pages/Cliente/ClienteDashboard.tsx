@@ -1277,7 +1277,7 @@ export default function ClienteDashboard() {
                     {resumenResenasProfesional.promedio !== null ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs text-amber-600 shadow-sm">
                         <span className="text-xs leading-none">★</span>
-                        {resumenResenasProfesional.promedio.toFixed(1)} / 5
+                        {resumenResenasProfesional.promedio.toFixed(1)} / 5.0
                       </span>
                     ) : (
                       <span className="rounded-full border border-borde bg-fondo px-2.5 py-1 text-xs text-texto-secundario">
