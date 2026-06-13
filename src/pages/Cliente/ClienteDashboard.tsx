@@ -1000,7 +1000,7 @@ export default function ClienteDashboard() {
                         <p className="mt-2 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-bold uppercase text-texto-secundario">Motivo / servicio</p>
+                        <p className="text-xs font-bold uppercase text-texto-secundario">Servicio</p>
                         <p className="mt-2 text-sm font-semibold text-texto-principal">{t.notas || t.agendaNombre}</p>
                       </div>
                       <div>
@@ -1120,7 +1120,7 @@ export default function ClienteDashboard() {
                       <p className="mt-2 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-bold uppercase text-texto-secundario">Motivo / servicio</p>
+                      <p className="text-xs font-bold uppercase text-texto-secundario">Servicio</p>
                       <p className="mt-2 text-sm font-semibold text-texto-principal">{t.notas || t.agendaNombre}</p>
                     </div>
                     <div>

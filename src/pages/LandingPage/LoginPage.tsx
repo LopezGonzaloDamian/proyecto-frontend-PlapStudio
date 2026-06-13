@@ -233,8 +233,8 @@ export default function LoginPage() {
             <div className="grid flex-1 items-start gap-8 py-10 xl:grid-cols-[0.75fr_1.25fr]">
               <div className="max-w-lg pt-24 xl:pt-32">
                 <h1 className="max-w-md text-4xl font-bold leading-[1.14] tracking-normal text-white xl:text-5xl">
-                  Organiza tu agenda,
-                  <span className="block text-white/75">no tu caos.</span>
+                  <span className="block text-white">tu AGENDA,</span>
+                  <span className="block text-white">a otro NIVEL</span>
                 </h1>
               </div>
 
