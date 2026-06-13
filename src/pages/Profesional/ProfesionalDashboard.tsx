@@ -39,8 +39,15 @@ import type {
 
 type SeccionProfesional = 'agenda' | 'turnos' | 'clientes' | 'asistentes' | 'pagos' | 'historial' | 'perfil' | 'notificaciones'
 type ConfiguracionAgenda = Agenda['configuraciones'][number]
+type GrupoConfiguracionAgenda = {
+  diaSemana: DiaSemana
+  duracionSlotMinutos: number
+  configuraciones: ConfiguracionAgenda[]
+  horarios: Array<{ horario: string; configuracion: ConfiguracionAgenda }>
+}
 type EliminacionDisponibilidadPendiente =
   | { tipo: 'bloque'; configuracion: ConfiguracionAgenda }
+  | { tipo: 'grupo'; grupo: GrupoConfiguracionAgenda }
   | { tipo: 'horario'; configuracion: ConfiguracionAgenda; horario: string }
 
 const seccionesValidas: SeccionProfesional[] = ['agenda', 'turnos', 'asistentes', 'pagos', 'historial', 'perfil', 'notificaciones']
@@ -326,14 +333,36 @@ export default function ProfesionalDashboard() {
     const grupos = diasOrden.reduce((acc, dia) => {
       acc[dia] = []
       return acc
-    }, {} as Record<DiaSemana, Agenda['configuraciones']>)
+    }, {} as Record<DiaSemana, GrupoConfiguracionAgenda[]>)
+
+    const porDiaYDuracion = new Map<string, GrupoConfiguracionAgenda>()
 
     agendaPrincipal?.configuraciones.forEach((configuracion) => {
-      grupos[configuracion.diaSemana].push(configuracion)
+      const clave = `${configuracion.diaSemana}-${configuracion.duracionSlotMinutos}`
+      const grupo = porDiaYDuracion.get(clave) ?? {
+        diaSemana: configuracion.diaSemana,
+        duracionSlotMinutos: configuracion.duracionSlotMinutos,
+        configuraciones: [],
+        horarios: [],
+      }
+
+      grupo.configuraciones.push(configuracion)
+      horariosDeConfiguracion(configuracion).forEach((horario) => {
+        if (!grupo.horarios.some((item) => item.horario === horario)) {
+          grupo.horarios.push({ horario, configuracion })
+        }
+      })
+      porDiaYDuracion.set(clave, grupo)
+    })
+
+    porDiaYDuracion.forEach((grupo) => {
+      grupo.configuraciones.sort((a, b) => a.inicioSlot.localeCompare(b.inicioSlot))
+      grupo.horarios.sort((a, b) => a.horario.localeCompare(b.horario))
+      grupos[grupo.diaSemana].push(grupo)
     })
 
     diasOrden.forEach((dia) => {
-      grupos[dia].sort((a, b) => a.inicioSlot.localeCompare(b.inicioSlot))
+      grupos[dia].sort((a, b) => a.duracionSlotMinutos - b.duracionSlotMinutos)
     })
 
     return grupos
@@ -484,10 +513,13 @@ export default function ProfesionalDashboard() {
     [turnos, filtrosHistorial],
   )
 
-  const turnosDeHoy = useMemo(() => {
-    const hoy = new Date().toISOString().slice(0, 10)
-    return turnos.filter((t) => fechaIsoDe(t) === hoy && t.estado !== 'CANCELADO')
-  }, [turnos])
+  const turnosProximos = useMemo(() =>
+    turnos
+      .filter((t) => t.estado !== 'CANCELADO' && new Date(t.iniciaEn).getTime() > Date.now())
+      .sort(ordenarTurnosAsc)
+      .slice(0, 5),
+    [turnos],
+  )
 
   const turnosPorFecha = useMemo(
     () => turnos.reduce<Record<string, Turno[]>>((acc, t) => {
@@ -675,11 +707,28 @@ export default function ProfesionalDashboard() {
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
+  const onEliminarGrupoConfig = async (grupo: GrupoConfiguracionAgenda) => {
+    if (!agendaPrincipal) return
+    try {
+      let agendaActualizada: Agenda | null = null
+      for (const configuracion of grupo.configuraciones) {
+        if (!configuracion.id) continue
+        agendaActualizada = await eliminarConfiguracion(agendaPrincipal.id, configuracion.id)
+      }
+      if (agendaActualizada) {
+        setAgendas((act) => act.map((a) => (a.id === agendaActualizada.id ? agendaActualizada : a)))
+      }
+      showToast('Bloque eliminado', 'success')
+    } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
   const onConfirmarEliminarDisponibilidad = async () => {
     if (!eliminacionDisponibilidad) return
     if (eliminacionDisponibilidad.tipo === 'bloque') {
       const id = eliminacionDisponibilidad.configuracion.id
       if (id) await onEliminarConfig(id)
+    } else if (eliminacionDisponibilidad.tipo === 'grupo') {
+      await onEliminarGrupoConfig(eliminacionDisponibilidad.grupo)
     } else {
       await onEliminarHorarioConfig(eliminacionDisponibilidad.configuracion, eliminacionDisponibilidad.horario)
     }
@@ -997,16 +1046,16 @@ export default function ProfesionalDashboard() {
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7 xl:px-10">
         {seccionActual === 'dashboard' && (
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="grid items-start gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div>
                 <div>
-                  <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
-                  <p className="text-sm text-texto-secundario">Agenda operativa para hoy.</p>
+                  <h2 className="text-2xl font-black text-texto-principal">Proximos turnos</h2>
+                  <p className="text-sm text-texto-secundario">Agenda operativa con tus reservas futuras.</p>
                 </div>
               </div>
               <div className="mt-5 grid gap-4">
-                {turnosDeHoy.map((t) => (
+                {turnosProximos.map((t) => (
                   <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -1027,8 +1076,8 @@ export default function ProfesionalDashboard() {
                     </div>
                   </article>
                 ))}
-                {turnosDeHoy.length === 0 && (
-                  <p className="text-sm text-texto-secundario">Sin turnos para hoy.</p>
+                {turnosProximos.length === 0 && (
+                  <p className="text-sm text-texto-secundario">Sin proximos turnos.</p>
                 )}
               </div>
             </article>
@@ -1110,16 +1159,16 @@ export default function ProfesionalDashboard() {
                                 Sin horarios cargados.
                               </p>
                             )}
-                            {configuracionesDia.map((c) => (
-                              <div key={c.id ?? `${c.diaSemana}-${c.inicioSlot}-${c.finSlot}`} className="rounded-lg border border-borde bg-white p-3">
+                            {configuracionesDia.map((grupo) => (
+                              <div key={`${grupo.diaSemana}-${grupo.duracionSlotMinutos}`} className="rounded-lg border border-borde bg-white p-3">
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                   <p className="text-xs font-bold text-texto-secundario">
-                                    Cada {c.duracionSlotMinutos} min
+                                    Cada {grupo.duracionSlotMinutos} min
                                   </p>
-                                  {c.id && (
+                                  {grupo.configuraciones.some((configuracion) => configuracion.id) && (
                                     <button
                                       type="button"
-                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'bloque', configuracion: c })}
+                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'grupo', grupo })}
                                       className="w-fit text-xs font-bold text-peligro hover:underline"
                                     >
                                       Eliminar bloque
@@ -1127,11 +1176,11 @@ export default function ProfesionalDashboard() {
                                   )}
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  {horariosDeConfiguracion(c).map((horario) => (
+                                  {grupo.horarios.map(({ horario, configuracion }) => (
                                     <button
-                                      key={`${c.id}-${horario}`}
+                                      key={`${configuracion.id}-${horario}`}
                                       type="button"
-                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'horario', configuracion: c, horario })}
+                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'horario', configuracion, horario })}
                                       className="rounded-lg border border-primario-suave bg-primario-claro px-3 py-1.5 text-sm font-bold text-primario transition-colors hover:border-red-200 hover:bg-red-50 hover:text-peligro"
                                       title={`Eliminar horario ${horario}`}
                                     >
@@ -2188,7 +2237,7 @@ export default function ProfesionalDashboard() {
           <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
             <h2 className="text-xl font-black text-texto-principal">Eliminar disponibilidad</h2>
             <div className="mt-4 space-y-2 text-sm text-texto-secundario">
-              {eliminacionDisponibilidad.tipo === 'bloque' ? (
+              {eliminacionDisponibilidad.tipo === 'bloque' || eliminacionDisponibilidad.tipo === 'grupo' ? (
                 <>
                   <p>¿Querés eliminar este bloque de horarios?</p>
                   <p>Se eliminarán todos los horarios de ese bloque.</p>

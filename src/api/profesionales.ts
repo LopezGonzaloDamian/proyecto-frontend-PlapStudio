@@ -5,6 +5,7 @@ export async function buscarProfesionales(filtros: {
   query?: string
   especialidad?: string
   localidad?: string
+  fechaDeseada?: string
 } = {}): Promise<ProfesionalSummary[]> {
   const { data } = await api.get<ProfesionalSummary[]>('/profesionales', { params: filtros })
   return data
