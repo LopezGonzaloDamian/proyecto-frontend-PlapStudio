@@ -1416,11 +1416,19 @@ export default function ClienteDashboard() {
                             </option>
                           ))}
                         </Select>
-                        <div className="mt-2 flex items-center justify-between rounded-lg bg-fondo px-3 py-2 text-sm">
-                          <span className="font-semibold text-texto-secundario">Precio del servicio</span>
-                          <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
-                            {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : 'Selecciona un servicio'}
-                          </span>
+                        <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-semibold text-texto-secundario">Precio del servicio</span>
+                            <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                              {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : 'Selecciona un servicio'}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3 border-t border-borde-suave pt-2">
+                            <span className="font-semibold text-texto-secundario">Seña a pagar</span>
+                            <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                              {servicioSeleccionado ? formatPrecio(senaReserva) : '-'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1429,7 +1437,7 @@ export default function ClienteDashboard() {
                       <Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} />
                     </div>
                     <div className="xl:col-span-2 rounded-2xl bg-fondo p-4">
-                      <span className="text-xs font-bold uppercase text-texto-secundario">Seleccione un horario para la fecha {fechaDeseada}</span>
+                      <span className="text-xs font-bold uppercase text-texto-secundario">Seleccione un horario</span>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {slotsReservables.map((s) => (
                           <button

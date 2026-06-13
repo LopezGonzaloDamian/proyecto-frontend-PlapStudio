@@ -141,6 +141,8 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
     year: 'numeric',
   }).replace('.', '')
 
+const fechaDiaSeleccionado = (fechaIso: string) => fechaIso.split('-').reverse().join('-')
+
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
 const turnoAccionable = (turno: Turno) =>
@@ -252,6 +254,7 @@ export default function ProfesionalDashboard() {
   })
   const [asistenteEmail, setAsistenteEmail] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [vistaCalendario, setVistaCalendario] = useState<'dia' | 'semana' | 'mes'>('mes')
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
   const [perfilForm, setPerfilForm] = useState({
     nombreCompleto: '',
@@ -532,6 +535,16 @@ export default function ProfesionalDashboard() {
   )
 
   const fechaSeleccionada = useMemo(() => new Date(`${fechaCalendario}T00:00:00`), [fechaCalendario])
+  const diasSemana = useMemo(() => {
+    const dia = new Date(fechaSeleccionada)
+    const startOffset = (dia.getDay() + 6) % 7
+    dia.setDate(dia.getDate() - startOffset)
+    return Array.from({ length: 7 }, (_, i) => {
+      const fecha = new Date(dia)
+      fecha.setDate(dia.getDate() + i)
+      return fecha
+    })
+  }, [fechaSeleccionada])
   const diasMes = useMemo(() => {
     const year = fechaSeleccionada.getFullYear()
     const month = fechaSeleccionada.getMonth()
@@ -546,6 +559,7 @@ export default function ProfesionalDashboard() {
       return fecha
     })
   }, [fechaSeleccionada])
+  const turnosFechaSeleccionada = turnosPorFecha[fechaCalendario] ?? []
 
   const pagosTabla = useMemo(() =>
     turnos
@@ -1086,42 +1100,121 @@ export default function ProfesionalDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Calendario</h2>
-                  <p className="text-sm text-texto-secundario">Vista mensual de turnos asignados.</p>
+                  <p className="text-sm text-texto-secundario">Vista de turnos asignados.</p>
                 </div>
-                <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="max-w-[190px]" />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="inline-flex rounded-xl border border-borde bg-fondo p-1">
+                    {(['dia', 'semana', 'mes'] as const).map((vista) => (
+                      <button
+                        key={vista}
+                        type="button"
+                        onClick={() => setVistaCalendario(vista)}
+                        className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                          vistaCalendario === vista ? 'bg-white text-primario shadow-sm' : 'text-texto-secundario hover:text-texto-principal'
+                        }`}
+                      >
+                        {vista === 'dia' ? 'Dia' : vista === 'semana' ? 'Semana' : 'Mes'}
+                      </button>
+                    ))}
+                  </div>
+                  <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="sm:w-[190px]" />
+                </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
-                {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((dia) => <span key={dia}>{dia}</span>)}
-              </div>
-              <div className="mt-2 grid grid-cols-7 gap-2">
-                {diasMes.map((dia) => {
-                  const fechaIso = dia.toISOString().slice(0, 10)
-                  const turnosDia = turnosPorFecha[fechaIso] ?? []
-                  const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
-                  const seleccionado = fechaIso === fechaCalendario
-                  return (
-                    <button
-                      key={fechaIso}
-                      type="button"
-                      onClick={() => setFechaCalendario(fechaIso)}
-                      className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
-                        seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
-                      } ${esMes ? 'opacity-100' : 'opacity-45'}`}
-                    >
-                      <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
-                      <div className="mt-2 grid gap-1">
-                        {turnosDia.slice(0, 2).map((t) => (
-                          <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
-                            {horaDe(t)} {t.clienteNombre.split(' ')[0]}
-                          </span>
-                        ))}
-                        {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {vistaCalendario === 'mes' && (
+                <>
+                  <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
+                    {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((dia) => <span key={dia}>{dia}</span>)}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-2">
+                    {diasMes.map((dia) => {
+                      const fechaIso = dia.toISOString().slice(0, 10)
+                      const turnosDia = turnosPorFecha[fechaIso] ?? []
+                      const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
+                      const seleccionado = fechaIso === fechaCalendario
+                      return (
+                        <button
+                          key={fechaIso}
+                          type="button"
+                          onClick={() => setFechaCalendario(fechaIso)}
+                          className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
+                            seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                          } ${esMes ? 'opacity-100' : 'opacity-45'}`}
+                        >
+                          <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
+                          <div className="mt-2 grid gap-1">
+                            {turnosDia.slice(0, 2).map((t) => (
+                              <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
+                                {horaDe(t)} {t.clienteNombre.split(' ')[0]}
+                              </span>
+                            ))}
+                            {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {vistaCalendario === 'semana' && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+                  {diasSemana.map((dia) => {
+                    const fechaIso = dia.toISOString().slice(0, 10)
+                    const turnosDia = turnosPorFecha[fechaIso] ?? []
+                    return (
+                      <button
+                        key={fechaIso}
+                        type="button"
+                        onClick={() => setFechaCalendario(fechaIso)}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                          fechaIso === fechaCalendario ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                        }`}
+                      >
+                        <p className="text-xs font-bold uppercase text-texto-secundario">{dia.toLocaleDateString('es-PY', { weekday: 'short' })}</p>
+                        <p className="mt-1 text-2xl font-black text-texto-principal">{dia.getDate()}</p>
+                        <div className="mt-4 space-y-2">
+                          {turnosDia.length > 0 ? turnosDia.map((t) => (
+                            <div key={t.id} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-texto-principal">
+                              {horaDe(t)} - {t.clienteNombre.split(' ')[0]}
+                            </div>
+                          )) : <p className="text-xs text-texto-suave">Sin turnos</p>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {vistaCalendario === 'dia' && (
+                <div className="mt-5 rounded-2xl border border-borde bg-fondo p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Dia seleccionado</p>
+                  <h3 className="mt-1 text-2xl font-black text-texto-principal">{fechaDiaSeleccionado(fechaCalendario)}</h3>
+                  <div className="mt-5 space-y-3">
+                    {turnosFechaSeleccionada.length > 0 ? turnosFechaSeleccionada.map((t) => (
+                      <article key={t.id} className="rounded-2xl border border-borde bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Fecha y hora</p>
+                            <p className="mt-1 font-black text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                        </div>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Cliente</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.clienteNombre}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Motivo</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.notas || 'Sin notas'}</p>
+                          </div>
+                        </div>
+                      </article>
+                    )) : <p className="text-sm text-texto-secundario">Sin turnos para este dia.</p>}
+                  </div>
+                </div>
+              )}
             </article>
           </section>
         )}
