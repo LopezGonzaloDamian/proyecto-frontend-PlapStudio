@@ -404,13 +404,13 @@ export default function ClienteDashboard() {
   useEffect(() => {
     if (seccionActual !== 'buscar' && seccionActual !== 'dashboard') return
     const t = setTimeout(() => {
-      buscarProfesionales({ query: busqueda, especialidad: rubroServicio, localidad })
+      buscarProfesionales({ query: busqueda, especialidad: rubroServicio, localidad, fechaDeseada })
         .then(setResultados)
         .catch((e) => showToast(extraerError(e), 'error'))
     }, 250)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busqueda, rubroServicio, localidad, seccionActual])
+  }, [busqueda, rubroServicio, localidad, fechaDeseada, seccionActual])
 
   // Carga de profesional detallado
   useEffect(() => {
@@ -460,11 +460,6 @@ export default function ClienteDashboard() {
     document.addEventListener('mousedown', handleClickAfuera)
     return () => document.removeEventListener('mousedown', handleClickAfuera)
   }, [])
-
-  const turnosHoy = useMemo(() => {
-    const hoy = new Date().toISOString().slice(0, 10)
-    return turnos.filter((t) => fechaIsoDe(t) === hoy && t.estado !== 'CANCELADO')
-  }, [turnos])
 
   const turnosProximos = useMemo(() =>
     turnos
@@ -806,44 +801,55 @@ export default function ClienteDashboard() {
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
         {seccionActual === 'dashboard' && (
           <>
-            <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-              <article className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <span className="text-sm font-bold uppercase tracking-[0.12em] text-primario">Hoy</span>
-                    <h2 className="mt-2 text-3xl font-black text-texto-principal">Turnos del dia</h2>
-                  </div>
-                </div>
+            <section className="grid items-start gap-5 xl:grid-cols-[250px_minmax(0,1fr)_280px] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+              <aside className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
+                <h2 className="text-2xl font-black text-texto-principal">Favoritos</h2>
+                <p className="text-sm text-texto-secundario">Profesionales guardados.</p>
                 <div className="mt-5 grid gap-4">
-                  {turnosHoy.length > 0 ? turnosHoy.map((t) => (
-                    <div key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
-                      <div className="flex items-start justify-between gap-4">
+                  {favoritos.map((f) => (
+                    <article key={f.id} className="rounded-2xl border border-borde bg-fondo p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha y hora</span>
-                          <p className="mt-1 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                          <h3 className="text-base font-black text-texto-principal">{f.profesional.nombreCompleto}</h3>
+                          <p className="mt-1 text-sm font-semibold text-texto-secundario">{f.profesional.especialidad}</p>
                         </div>
-                        <div className="text-right">
-                          <span className={`inline-flex rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                        <button
+                          onClick={() => toggleFavorito(f.profesional.id)}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-amber-500 transition-colors hover:bg-amber-100"
+                          aria-label={`Quitar ${f.profesional.nombreCompleto} de favoritos`}
+                        >
+                          <IconStar className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid gap-3">
+                        <div>
+                          <span className="text-[11px] font-bold uppercase text-texto-suave">Localidad</span>
+                          <p className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.localidad}</p>
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-bold uppercase text-texto-suave">Desde</span>
+                          <p className="mt-1 text-sm font-semibold text-texto-principal">{formatPrecio(f.profesional.precio)}</p>
                         </div>
                       </div>
-                      <div className="mt-5 space-y-4">
-                        <div>
-                          <span className="text-[11px] font-bold uppercase text-texto-suave">Profesional</span>
-                          <p className="mt-1 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-bold uppercase text-texto-suave">Motivo</span>
-                          <p className="mt-1 text-sm font-semibold text-texto-principal">{t.notas || t.agendaNombre}</p>
-                        </div>
+
+                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                        <button type="button" onClick={() => verPerfilProfesional(f.profesional)} className="text-sm font-bold text-texto-secundario hover:text-primario">
+                          Ver perfil
+                        </button>
+                        <button type="button" onClick={() => irAReservarProfesional(f.profesional)} className="text-sm font-black text-primario hover:text-primario-hover">
+                          Reservar
+                        </button>
                       </div>
-                    </div>
-                  )) : (
+                    </article>
+                  ))}
+                  {favoritos.length === 0 && (
                     <div className="rounded-2xl border border-dashed border-borde bg-fondo px-4 py-8 text-sm text-texto-secundario">
-                      No tenes turnos para hoy.
+                      Aun no agregaste favoritos.
                     </div>
                   )}
                 </div>
-              </article>
+              </aside>
 
               <section className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -973,98 +979,47 @@ export default function ClienteDashboard() {
                   </div>
                 </div>
               )}
-            </section>
-            </section>
+              </section>
 
-            <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-              <h2 className="text-2xl font-black text-texto-principal">Turnos proximos</h2>
-              <p className="text-sm text-texto-secundario">Reservas futuras confirmadas.</p>
-              <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                {turnosProximos.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-borde px-4 py-8 text-sm text-texto-secundario md:col-span-2 2xl:col-span-3">
-                    No tenes turnos proximos.
-                  </div>
-                )}
-                {turnosProximos.map((t) => (
-                  <div key={t.id} className="rounded-2xl border border-borde bg-fondo p-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs font-bold uppercase text-texto-secundario">Fecha y hora</p>
-                        <p className="mt-2 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
-                      </div>
-                      <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+              <aside className="rounded-[28px] border border-primario-suave bg-white p-6 shadow-sm xl:p-7">
+                <h2 className="text-2xl font-black text-texto-principal">Turnos proximos</h2>
+                <p className="text-sm text-texto-secundario">Reservas futuras confirmadas.</p>
+                <div className="mt-5 grid gap-4">
+                  {turnosProximos.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-borde bg-fondo px-4 py-8 text-sm text-texto-secundario">
+                      No tenes turnos proximos.
                     </div>
-                    <div className="mt-5 grid gap-5">
-                      <div>
-                        <p className="text-xs font-bold uppercase text-texto-secundario">Profesional</p>
-                        <p className="mt-2 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
+                  )}
+                  {turnosProximos.map((t) => (
+                    <div key={t.id} className="rounded-2xl border border-borde bg-fondo p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-bold uppercase text-texto-secundario">Fecha y hora</p>
+                          <p className="mt-2 text-sm font-semibold text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                        </div>
+                        <span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase text-texto-secundario">Servicio</p>
-                        <p className="mt-2 text-sm font-semibold text-texto-principal">{t.notas || t.agendaNombre}</p>
+                      <div className="mt-5 grid gap-5">
+                        <div>
+                          <p className="text-xs font-bold uppercase text-texto-secundario">Profesional</p>
+                          <p className="mt-2 text-sm font-semibold text-texto-principal">{t.profesionalNombre}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase text-texto-secundario">Servicio</p>
+                          <p className="mt-2 text-sm font-semibold text-texto-principal">{t.notas || t.agendaNombre}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase text-texto-secundario">Monto</p>
+                          <p className="mt-2 text-sm font-semibold text-texto-principal">{t.pago ? formatPrecio(t.pago.monto) : '-'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold uppercase text-texto-secundario">Monto</p>
-                        <p className="mt-2 text-sm font-semibold text-texto-principal">{t.pago ? formatPrecio(t.pago.monto) : '-'}</p>
-                      </div>
-                    </div>
-                    <div className="mt-6 flex justify-end">
-                      <button onClick={() => setTurnoACancelar(t)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
-                    </div>
-                    </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
-              <h2 className="text-2xl font-black text-texto-principal">Favoritos</h2>
-              <p className="text-sm text-texto-secundario">Profesionales guardados.</p>
-              <div className="mt-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                {favoritos.map((f) => (
-                  <article key={f.id} className="rounded-lg border border-borde bg-white p-5 shadow-sm">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span className="text-[11px] font-bold uppercase text-texto-suave">Profesional</span>
-                        <h3 className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.nombreCompleto}</h3>
-                      </div>
-                      <button
-                        onClick={() => toggleFavorito(f.profesional.id)}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-amber-500 transition-colors hover:bg-amber-100"
-                        aria-label={`Quitar ${f.profesional.nombreCompleto} de favoritos`}
-                      >
-                        <IconStar className="h-5 w-5" />
-                      </button>
-                    </div>
-
-                    <div className="mt-6 grid gap-4">
-                      <div>
-                        <span className="text-[11px] font-bold uppercase text-texto-suave">Especialidad</span>
-                        <p className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.especialidad}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-bold uppercase text-texto-suave">Localidad</span>
-                        <p className="mt-1 text-sm font-semibold text-texto-principal">{f.profesional.localidad}</p>
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-bold uppercase text-texto-suave">Servicio base</span>
-                        <p className="mt-1 text-sm font-semibold text-texto-principal">{formatPrecio(f.profesional.precio)}</p>
+                      <div className="mt-6 flex justify-end">
+                        <button onClick={() => setTurnoACancelar(t)} className="rounded-lg border border-peligro-suave bg-white px-4 py-2 text-xs font-bold text-peligro hover:bg-peligro-suave">Cancelar turno</button>
                       </div>
                     </div>
-
-                    <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-                      <BotonSecundario type="button" onClick={() => verPerfilProfesional(f.profesional)}>
-                        Ver perfil
-                      </BotonSecundario>
-                      <BotonSecundario type="button" onClick={() => irAReservarProfesional(f.profesional)}>
-                        Reservar turno
-                      </BotonSecundario>
-                    </div>
-                  </article>
-                ))}
-                {favoritos.length === 0 && (
-                  <p className="text-sm text-texto-secundario">Aun no agregaste favoritos.</p>
-                )}
-              </div>
+                  ))}
+                </div>
+              </aside>
             </section>
           </>
         )}
@@ -1198,11 +1153,22 @@ export default function ClienteDashboard() {
                 <h2 className="text-2xl font-black text-texto-principal">Buscar profesional o servicio</h2>
                 <p className="text-sm text-texto-secundario">Filtra por nombre, palabra clave, rubro y localidad.</p>
               </div>
-              <div className="grid gap-4 xl:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto] xl:items-end">
                 <div><Label>Nombre</Label><Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Ej: Martina Rios" /></div>
                 <div><Label>Servicio</Label><Input value={rubroServicio} onChange={(e) => setRubroServicio(e.target.value)} placeholder="Ej: barberia, peluqueria" /></div>
                 <div><Label>Localidad</Label><Input value={localidad} onChange={(e) => setLocalidad(e.target.value)} placeholder="Ej: Villa Maipu" /></div>
                 <div><Label>Fecha deseada</Label><Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} /></div>
+                <BotonSecundario
+                  type="button"
+                  className="h-[52px] whitespace-nowrap"
+                  onClick={() => {
+                    setBusqueda('')
+                    setRubroServicio('')
+                    setLocalidad('')
+                  }}
+                >
+                  Limpiar filtros
+                </BotonSecundario>
               </div>
               <div className="mt-6 grid gap-4">
                 {resultados.map((p) => (
@@ -1450,11 +1416,19 @@ export default function ClienteDashboard() {
                             </option>
                           ))}
                         </Select>
-                        <div className="mt-2 flex items-center justify-between rounded-lg bg-fondo px-3 py-2 text-sm">
-                          <span className="font-semibold text-texto-secundario">Precio del servicio</span>
-                          <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
-                            {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : 'Selecciona un servicio'}
-                          </span>
+                        <div className="mt-2 rounded-lg bg-fondo px-3 py-2 text-sm">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-semibold text-texto-secundario">Precio del servicio</span>
+                            <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                              {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : 'Selecciona un servicio'}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3 border-t border-borde-suave pt-2">
+                            <span className="font-semibold text-texto-secundario">Seña a pagar</span>
+                            <span className={`font-black ${servicioSeleccionado ? 'text-primario' : 'text-texto-suave'}`}>
+                              {servicioSeleccionado ? formatPrecio(senaReserva) : '-'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1463,7 +1437,7 @@ export default function ClienteDashboard() {
                       <Input type="date" value={fechaDeseada} onChange={(e) => setFechaDeseada(e.target.value)} />
                     </div>
                     <div className="xl:col-span-2 rounded-2xl bg-fondo p-4">
-                      <span className="text-xs font-bold uppercase text-texto-secundario">Seleccione un horario para la fecha {fechaDeseada}</span>
+                      <span className="text-xs font-bold uppercase text-texto-secundario">Seleccione un horario</span>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {slotsReservables.map((s) => (
                           <button

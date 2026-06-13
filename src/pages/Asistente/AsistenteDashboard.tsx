@@ -6,7 +6,7 @@ import { useSesion } from '../../customHooks/useSesion'
 import { useToast } from '../../customHooks/useToast'
 import { Toast } from '../../components/common/toast'
 import { extraerError } from '../../api/client'
-import { getAgendasDeProfesional, getSlots } from '../../api/agendas'
+import { agregarConfiguracion, eliminarConfiguracion, getAgendasDeProfesional, getSlots } from '../../api/agendas'
 import {
   aceptarProfesionalAsistente,
   cancelarTurnoAsistente,
@@ -25,6 +25,7 @@ import type {
   Agenda,
   AsistenteAsignacion,
   Cliente,
+  DiaSemana,
   Profesional,
   ServicioProfesional,
   Slot,
@@ -32,6 +33,16 @@ import type {
 } from '../../api/types'
 
 type SeccionAsistente = 'agenda' | 'turnos' | 'clientes' | 'profesionales' | 'historial' | 'perfil'
+type ConfiguracionAgenda = Agenda['configuraciones'][number]
+type GrupoConfiguracionAgenda = {
+  diaSemana: DiaSemana
+  duracionSlotMinutos: number
+  configuraciones: ConfiguracionAgenda[]
+  horarios: Array<{ horario: string; configuracion: ConfiguracionAgenda }>
+}
+type EliminacionDisponibilidadPendiente =
+  | { tipo: 'grupo'; grupo: GrupoConfiguracionAgenda }
+  | { tipo: 'horario'; configuracion: ConfiguracionAgenda; horario: string }
 const seccionesValidas: SeccionAsistente[] = ['agenda', 'turnos', 'profesionales', 'historial', 'perfil']
 
 const navItems: Array<{ label: string; seccion: SeccionAsistente | 'dashboard' }> = [
@@ -64,9 +75,30 @@ const estadoAsignacionLabel: Record<AsistenteAsignacion['estado'], string> = {
   RECHAZADA: 'Rechazado',
 }
 
+const diasLabels: Record<DiaSemana, string> = {
+  MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miercoles', THURSDAY: 'Jueves',
+  FRIDAY: 'Viernes', SATURDAY: 'Sabado', SUNDAY: 'Domingo',
+}
+const diasOrden = Object.keys(diasLabels) as DiaSemana[]
+
 const fechaIsoDe = (t: { iniciaEn: string }) => t.iniciaEn.slice(0, 10)
 const horaDe     = (t: { iniciaEn: string }) => t.iniciaEn.slice(11, 16)
 const abrirCalendario = (input: HTMLInputElement) => input.showPicker?.()
+const minutosDeHora = (hora: string) => {
+  const [horas, minutos] = hora.slice(0, 5).split(':').map(Number)
+  return horas * 60 + minutos
+}
+const horaDeMinutos = (total: number) =>
+  `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+const horariosDeConfiguracion = (configuracion: Agenda['configuraciones'][number]) => {
+  const inicio = minutosDeHora(configuracion.inicioSlot)
+  const fin = minutosDeHora(configuracion.finSlot)
+  const horarios: string[] = []
+  for (let minuto = inicio; minuto < fin; minuto += configuracion.duracionSlotMinutos) {
+    horarios.push(horaDeMinutos(minuto))
+  }
+  return horarios
+}
 const formatPrecio = (precio: number) =>
   `$ ${new Intl.NumberFormat('es-PY', { maximumFractionDigits: 0 }).format(precio)}`
 const serviciosDeProfesional = (perfil: Profesional): ServicioProfesional[] => {
@@ -109,6 +141,8 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
     year: 'numeric',
   }).replace('.', '')
 
+const fechaDiaSeleccionado = (fechaIso: string) => fechaIso.split('-').reverse().join('-')
+
 export default function AsistenteDashboard() {
   const { seccion } = useParams()
   const navigate = useNavigate()
@@ -128,6 +162,13 @@ export default function AsistenteDashboard() {
   const [slotsTurnoEditar, setSlotsTurnoEditar] = useState<Slot[]>([])
 
   const [filtrosAgenda, setFiltrosAgenda] = useState({ profesionalId: '', clienteEmail: '', fechaDesde: '', fechaHasta: '' })
+  const [disponibilidad, setDisponibilidad] = useState({
+    diaSemana: 'MONDAY' as DiaSemana,
+    inicio: '09:00',
+    fin: '18:00',
+    duracion: '30',
+  })
+  const [eliminacionDisponibilidad, setEliminacionDisponibilidad] = useState<EliminacionDisponibilidadPendiente | null>(null)
   const [turnoNuevo, setTurnoNuevo] = useState({
     profesionalId: '',
     tipoCliente: 'registrado' as 'registrado' | 'externo',
@@ -157,6 +198,7 @@ export default function AsistenteDashboard() {
   const [desvinculandoProfesional, setDesvinculandoProfesional] = useState(false)
   const [busquedaCliente, setBusquedaCliente] = useState('')
   const [filtrosHistorial, setFiltrosHistorial] = useState({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' as 'Todos' | Turno['estado'] })
+  const [vistaCalendario, setVistaCalendario] = useState<'dia' | 'semana' | 'mes'>('mes')
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
   const [perfilForm, setPerfilForm] = useState({ nombreCompleto: '', telefono: '', urlAvatar: '' })
   const [activandoPerfil, setActivandoPerfil] = useState(false)
@@ -251,6 +293,48 @@ export default function AsistenteDashboard() {
   )
   const servicioTurnoNuevoSeleccionado =
     serviciosTurnoNuevo.find((servicio) => servicio.nombre === turnoNuevo.notas) ?? null
+  const profesionalAgendaSeleccionadoId = Number(filtrosAgenda.profesionalId)
+  const agendaSeleccionada = Number.isFinite(profesionalAgendaSeleccionadoId)
+    ? agendaPorProfesional[profesionalAgendaSeleccionadoId] ?? null
+    : null
+  const configuracionesPorDia = useMemo(() => {
+    const grupos = diasOrden.reduce((acc, dia) => {
+      acc[dia] = []
+      return acc
+    }, {} as Record<DiaSemana, GrupoConfiguracionAgenda[]>)
+
+    const porDiaYDuracion = new Map<string, GrupoConfiguracionAgenda>()
+
+    agendaSeleccionada?.configuraciones.forEach((configuracion) => {
+      const clave = `${configuracion.diaSemana}-${configuracion.duracionSlotMinutos}`
+      const grupo = porDiaYDuracion.get(clave) ?? {
+        diaSemana: configuracion.diaSemana,
+        duracionSlotMinutos: configuracion.duracionSlotMinutos,
+        configuraciones: [],
+        horarios: [],
+      }
+
+      grupo.configuraciones.push(configuracion)
+      horariosDeConfiguracion(configuracion).forEach((horario) => {
+        if (!grupo.horarios.some((item) => item.horario === horario)) {
+          grupo.horarios.push({ horario, configuracion })
+        }
+      })
+      porDiaYDuracion.set(clave, grupo)
+    })
+
+    porDiaYDuracion.forEach((grupo) => {
+      grupo.configuraciones.sort((a, b) => a.inicioSlot.localeCompare(b.inicioSlot))
+      grupo.horarios.sort((a, b) => a.horario.localeCompare(b.horario))
+      grupos[grupo.diaSemana].push(grupo)
+    })
+
+    diasOrden.forEach((dia) => {
+      grupos[dia].sort((a, b) => a.duracionSlotMinutos - b.duracionSlotMinutos)
+    })
+
+    return grupos
+  }, [agendaSeleccionada?.configuraciones])
   const turnoSeleccionadoEditar = useMemo(
     () => turnos.find((t) => t.id === turnoEditarId) ?? null,
     [turnos, turnoEditarId],
@@ -449,10 +533,13 @@ export default function AsistenteDashboard() {
     [turnos, filtrosHistorial],
   )
 
-  const turnosDelDia = useMemo(() => {
-    const hoy = new Date().toISOString().slice(0, 10)
-    return turnos.filter((t) => fechaIsoDe(t) === hoy && t.estado !== 'CANCELADO')
-  }, [turnos])
+  const turnosProximos = useMemo(() =>
+    turnos
+      .filter((t) => t.estado !== 'CANCELADO' && new Date(t.iniciaEn).getTime() > Date.now())
+      .sort(ordenarTurnosAsc)
+      .slice(0, 5),
+    [turnos],
+  )
 
   const turnosPorFecha = useMemo(
     () => turnos.reduce<Record<string, Turno[]>>((acc, t) => {
@@ -465,6 +552,16 @@ export default function AsistenteDashboard() {
   )
 
   const fechaSeleccionada = useMemo(() => new Date(`${fechaCalendario}T00:00:00`), [fechaCalendario])
+  const diasSemana = useMemo(() => {
+    const dia = new Date(fechaSeleccionada)
+    const startOffset = (dia.getDay() + 6) % 7
+    dia.setDate(dia.getDate() - startOffset)
+    return Array.from({ length: 7 }, (_, i) => {
+      const f = new Date(dia)
+      f.setDate(dia.getDate() + i)
+      return f
+    })
+  }, [fechaSeleccionada])
   const diasMes = useMemo(() => {
     const year = fechaSeleccionada.getFullYear()
     const month = fechaSeleccionada.getMonth()
@@ -478,6 +575,7 @@ export default function AsistenteDashboard() {
       return f
     })
   }, [fechaSeleccionada])
+  const turnosFechaSeleccionada = turnosPorFecha[fechaCalendario] ?? []
 
   const cerrarSesion = () => {
     cerrandoSesionRef.current = true
@@ -492,6 +590,91 @@ export default function AsistenteDashboard() {
 
   const refrescarTurnos = () => {
     if (usuario) void getTurnosDeAsistente(usuario.id).then(setTurnos)
+  }
+
+  const actualizarAgendaSeleccionada = (agendaActualizada: Agenda) => {
+    setAgendaPorProfesional((actual) => ({
+      ...actual,
+      [agendaActualizada.profesionalId]: agendaActualizada,
+    }))
+  }
+
+  const onAgregarDisponibilidad = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!agendaSeleccionada) {
+      showToast('El profesional no tiene agenda activa', 'error')
+      return
+    }
+    try {
+      const actualizada = await agregarConfiguracion(agendaSeleccionada.id, {
+        id: null,
+        diaSemana: disponibilidad.diaSemana,
+        inicioSlot: disponibilidad.inicio,
+        finSlot: disponibilidad.fin,
+        duracionSlotMinutos: parseInt(disponibilidad.duracion, 10),
+      })
+      actualizarAgendaSeleccionada(actualizada)
+      showToast('Disponibilidad agregada', 'success')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
+    }
+  }
+
+  const onEliminarHorarioConfig = async (configuracion: ConfiguracionAgenda, horario: string) => {
+    if (!agendaSeleccionada || !configuracion.id) return
+    try {
+      const inicioBloque = minutosDeHora(configuracion.inicioSlot)
+      const finBloque = minutosDeHora(configuracion.finSlot)
+      const inicioHorario = minutosDeHora(horario)
+      const finHorario = inicioHorario + configuracion.duracionSlotMinutos
+
+      const bloquesRestantes = [
+        { inicioSlot: horaDeMinutos(inicioBloque), finSlot: horaDeMinutos(inicioHorario) },
+        { inicioSlot: horaDeMinutos(finHorario), finSlot: horaDeMinutos(finBloque) },
+      ].filter((bloque) => minutosDeHora(bloque.finSlot) - minutosDeHora(bloque.inicioSlot) >= configuracion.duracionSlotMinutos)
+
+      let agendaActualizada = await eliminarConfiguracion(agendaSeleccionada.id, configuracion.id)
+      for (const bloque of bloquesRestantes) {
+        agendaActualizada = await agregarConfiguracion(agendaSeleccionada.id, {
+          id: null,
+          diaSemana: configuracion.diaSemana,
+          inicioSlot: bloque.inicioSlot,
+          finSlot: bloque.finSlot,
+          duracionSlotMinutos: configuracion.duracionSlotMinutos,
+        })
+      }
+      actualizarAgendaSeleccionada(agendaActualizada)
+      showToast('Horario eliminado', 'success')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
+    }
+  }
+
+  const onEliminarGrupoConfig = async (grupo: GrupoConfiguracionAgenda) => {
+    if (!agendaSeleccionada) return
+    try {
+      let agendaActualizada: Agenda | null = null
+      for (const configuracion of grupo.configuraciones) {
+        if (!configuracion.id) continue
+        agendaActualizada = await eliminarConfiguracion(agendaSeleccionada.id, configuracion.id)
+      }
+      if (agendaActualizada) {
+        actualizarAgendaSeleccionada(agendaActualizada)
+      }
+      showToast('Bloque eliminado', 'success')
+    } catch (err) {
+      showToast(extraerError(err), 'error')
+    }
+  }
+
+  const onConfirmarEliminarDisponibilidad = async () => {
+    if (!eliminacionDisponibilidad) return
+    if (eliminacionDisponibilidad.tipo === 'grupo') {
+      await onEliminarGrupoConfig(eliminacionDisponibilidad.grupo)
+    } else {
+      await onEliminarHorarioConfig(eliminacionDisponibilidad.configuracion, eliminacionDisponibilidad.horario)
+    }
+    setEliminacionDisponibilidad(null)
   }
 
   const onCrearTurno = async (e: FormEvent<HTMLFormElement>) => {
@@ -796,16 +979,16 @@ export default function AsistenteDashboard() {
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7 xl:px-10">
         {seccionActual === 'dashboard' && (
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="grid items-start gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div>
                 <div>
-                  <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
-                  <p className="text-sm text-texto-secundario">Agenda operativa para hoy.</p>
+                  <h2 className="text-2xl font-black text-texto-principal">Proximos turnos</h2>
+                  <p className="text-sm text-texto-secundario">Agenda operativa con tus reservas futuras.</p>
                 </div>
               </div>
               <div className="mt-5 grid gap-4">
-                {turnosDelDia.map((t) => (
+                {turnosProximos.map((t) => (
                   <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -830,7 +1013,7 @@ export default function AsistenteDashboard() {
                     </div>
                   </article>
                 ))}
-                {turnosDelDia.length === 0 && <p className="text-sm text-texto-secundario">Sin turnos para hoy.</p>}
+                {turnosProximos.length === 0 && <p className="text-sm text-texto-secundario">Sin proximos turnos.</p>}
               </div>
             </article>
 
@@ -838,41 +1021,125 @@ export default function AsistenteDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Calendario</h2>
-                  <p className="text-sm text-texto-secundario">Vista mensual de turnos asignados.</p>
+                  <p className="text-sm text-texto-secundario">Vista de turnos asignados.</p>
                 </div>
-                <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="max-w-[190px]" />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="inline-flex rounded-xl border border-borde bg-fondo p-1">
+                    {(['dia', 'semana', 'mes'] as const).map((vista) => (
+                      <button
+                        key={vista}
+                        type="button"
+                        onClick={() => setVistaCalendario(vista)}
+                        className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                          vistaCalendario === vista ? 'bg-white text-primario shadow-sm' : 'text-texto-secundario hover:text-texto-principal'
+                        }`}
+                      >
+                        {vista === 'dia' ? 'Dia' : vista === 'semana' ? 'Semana' : 'Mes'}
+                      </button>
+                    ))}
+                  </div>
+                  <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="sm:w-[190px]" />
+                </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
-                {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((d) => <span key={d}>{d}</span>)}
-              </div>
-              <div className="mt-2 grid grid-cols-7 gap-2">
-                {diasMes.map((dia) => {
-                  const fechaIso = dia.toISOString().slice(0, 10)
-                  const turnosDia = turnosPorFecha[fechaIso] ?? []
-                  const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
-                  const sel = fechaIso === fechaCalendario
-                  return (
-                    <button
-                      key={fechaIso}
-                      onClick={() => setFechaCalendario(fechaIso)}
-                      className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
-                        sel ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
-                      } ${esMes ? 'opacity-100' : 'opacity-45'}`}
-                    >
-                      <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
-                      <div className="mt-2 grid gap-1">
-                        {turnosDia.slice(0, 2).map((t) => (
-                          <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
-                            {horaDe(t)} {t.profesionalNombre.split(' ')[0]}
-                          </span>
-                        ))}
-                        {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {vistaCalendario === 'mes' && (
+                <>
+                  <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
+                    {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((d) => <span key={d}>{d}</span>)}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-2">
+                    {diasMes.map((dia) => {
+                      const fechaIso = dia.toISOString().slice(0, 10)
+                      const turnosDia = turnosPorFecha[fechaIso] ?? []
+                      const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
+                      const sel = fechaIso === fechaCalendario
+                      return (
+                        <button
+                          key={fechaIso}
+                          type="button"
+                          onClick={() => setFechaCalendario(fechaIso)}
+                          className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
+                            sel ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                          } ${esMes ? 'opacity-100' : 'opacity-45'}`}
+                        >
+                          <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
+                          <div className="mt-2 grid gap-1">
+                            {turnosDia.slice(0, 2).map((t) => (
+                              <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
+                                {horaDe(t)} {t.profesionalNombre.split(' ')[0]}
+                              </span>
+                            ))}
+                            {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {vistaCalendario === 'semana' && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+                  {diasSemana.map((dia) => {
+                    const fechaIso = dia.toISOString().slice(0, 10)
+                    const turnosDia = turnosPorFecha[fechaIso] ?? []
+                    return (
+                      <button
+                        key={fechaIso}
+                        type="button"
+                        onClick={() => setFechaCalendario(fechaIso)}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                          fechaIso === fechaCalendario ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                        }`}
+                      >
+                        <p className="text-xs font-bold uppercase text-texto-secundario">{dia.toLocaleDateString('es-PY', { weekday: 'short' })}</p>
+                        <p className="mt-1 text-2xl font-black text-texto-principal">{dia.getDate()}</p>
+                        <div className="mt-4 space-y-2">
+                          {turnosDia.length > 0 ? turnosDia.map((t) => (
+                            <div key={t.id} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-texto-principal">
+                              {horaDe(t)} - {t.profesionalNombre.split(' ')[0]}
+                            </div>
+                          )) : <p className="text-xs text-texto-suave">Sin turnos</p>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {vistaCalendario === 'dia' && (
+                <div className="mt-5 rounded-2xl border border-borde bg-fondo p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Dia seleccionado</p>
+                  <h3 className="mt-1 text-2xl font-black text-texto-principal">{fechaDiaSeleccionado(fechaCalendario)}</h3>
+                  <div className="mt-5 space-y-3">
+                    {turnosFechaSeleccionada.length > 0 ? turnosFechaSeleccionada.map((t) => (
+                      <article key={t.id} className="rounded-2xl border border-borde bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Fecha y hora</p>
+                            <p className="mt-1 font-black text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                        </div>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Profesional</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.profesionalNombre}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Cliente</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.clienteNombre}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Motivo</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.notas || 'Sin notas'}</p>
+                          </div>
+                        </div>
+                      </article>
+                    )) : <p className="text-sm text-texto-secundario">Sin turnos para este dia.</p>}
+                  </div>
+                </div>
+              )}
 
             </article>
           </section>
@@ -880,6 +1147,137 @@ export default function AsistenteDashboard() {
 
         {seccionActual === 'agenda' && (
           <>
+            <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+              <article className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-texto-principal">Configuraciones horarias</h2>
+                    <p className="text-sm text-texto-secundario">Administra la disponibilidad del profesional seleccionado.</p>
+                  </div>
+                  <div className="w-full sm:max-w-[260px]">
+                    <Label>Profesional</Label>
+                    <Select value={filtrosAgenda.profesionalId} onChange={(e) => setFiltrosAgenda({ ...filtrosAgenda, profesionalId: e.target.value })}>
+                      {profesionalesAceptados.map((p) => <option key={p.profesionalId} value={p.profesionalId}>{p.profesionalNombre}</option>)}
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {!agendaSeleccionada && (
+                    <p className="rounded-lg border border-dashed border-borde bg-fondo px-4 py-6 text-center text-sm text-texto-secundario">
+                      El profesional seleccionado no tiene agenda activa.
+                    </p>
+                  )}
+                  {agendaSeleccionada && diasOrden.map((dia) => {
+                    const configuracionesDia = configuracionesPorDia[dia]
+                    return (
+                      <details key={dia} className="group rounded-lg border border-borde bg-fondo">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                          <span className="text-sm font-black text-texto-principal">{diasLabels[dia]}</span>
+                          <span className="text-xs font-bold text-primario group-open:hidden">Ver horarios</span>
+                          <span className="hidden text-xs font-bold text-primario group-open:inline">Ocultar</span>
+                        </summary>
+                        <div className="space-y-3 border-t border-borde px-4 py-3">
+                          {configuracionesDia.length === 0 && (
+                            <p className="rounded-lg border border-dashed border-borde bg-white px-3 py-2 text-sm text-texto-secundario">
+                              Sin horarios cargados.
+                            </p>
+                          )}
+                          {configuracionesDia.map((grupo) => (
+                            <div key={`${grupo.diaSemana}-${grupo.duracionSlotMinutos}`} className="rounded-lg border border-borde bg-white p-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-xs font-bold text-texto-secundario">
+                                  Cada {grupo.duracionSlotMinutos} min
+                                </p>
+                                {grupo.configuraciones.some((configuracion) => configuracion.id) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEliminacionDisponibilidad({ tipo: 'grupo', grupo })}
+                                    className="w-fit text-xs font-bold text-peligro hover:underline"
+                                  >
+                                    Eliminar bloque
+                                  </button>
+                                )}
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {grupo.horarios.map(({ horario, configuracion }) => (
+                                  <button
+                                    key={`${configuracion.id}-${horario}`}
+                                    type="button"
+                                    onClick={() => setEliminacionDisponibilidad({ tipo: 'horario', configuracion, horario })}
+                                    className="rounded-lg border border-primario-suave bg-primario-claro px-3 py-1.5 text-sm font-bold text-primario transition-colors hover:border-red-200 hover:bg-red-50 hover:text-peligro"
+                                    title={`Eliminar horario ${horario}`}
+                                  >
+                                    {horario}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )
+                  })}
+                </div>
+              </article>
+
+              <form onSubmit={onAgregarDisponibilidad} className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
+                <h2 className="text-2xl font-black text-texto-principal">Agregar disponibilidad</h2>
+                <p className="text-sm text-texto-secundario">Suma nuevos bloques horarios al profesional seleccionado.</p>
+                <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                  <div className="lg:col-span-2">
+                    <Label>Dia</Label>
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {diasOrden.map((dia) => (
+                        <button
+                          key={dia}
+                          type="button"
+                          onClick={() => setDisponibilidad({ ...disponibilidad, diaSemana: dia })}
+                          className={`rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${
+                            disponibilidad.diaSemana === dia
+                              ? 'border-primario bg-primario text-white shadow-sm'
+                              : 'border-borde bg-white text-texto-secundario hover:bg-primario-claro hover:text-primario'
+                          }`}
+                        >
+                          {diasLabels[dia]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="lg:col-span-2">
+                    <Label>Duracion</Label>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {['30', '45', '60'].map((duracion) => (
+                        <button
+                          key={duracion}
+                          type="button"
+                          onClick={() => setDisponibilidad({ ...disponibilidad, duracion })}
+                          className={`rounded-lg border px-3 py-2.5 text-sm font-bold transition-colors ${
+                            disponibilidad.duracion === duracion
+                              ? 'border-primario bg-primario text-white shadow-sm'
+                              : 'border-borde bg-white text-texto-secundario hover:bg-primario-claro hover:text-primario'
+                          }`}
+                        >
+                          {duracion} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Hora inicio</Label>
+                    <Input type="time" value={disponibilidad.inicio} onChange={(e) => setDisponibilidad({ ...disponibilidad, inicio: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label>Hora fin</Label>
+                    <Input type="time" value={disponibilidad.fin} onChange={(e) => setDisponibilidad({ ...disponibilidad, fin: e.target.value })} />
+                  </div>
+                  <BotonPrimario type="submit" className="w-fit justify-self-end md:col-span-2" disabled={!agendaSeleccionada}>
+                    Agregar
+                  </BotonPrimario>
+                </div>
+              </form>
+            </section>
+
             <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div className="flex flex-col gap-5">
                 <div>
@@ -1714,6 +2112,39 @@ export default function AsistenteDashboard() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {eliminacionDisponibilidad && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
+            <h2 className="text-xl font-black text-texto-principal">Eliminar disponibilidad</h2>
+            <div className="mt-4 space-y-2 text-sm text-texto-secundario">
+              {eliminacionDisponibilidad.tipo === 'grupo' ? (
+                <>
+                  <p>¿Querés eliminar este bloque de horarios?</p>
+                  <p>Se eliminarán todos los horarios de ese bloque.</p>
+                </>
+              ) : (
+                <>
+                  <p>¿Querés eliminar el horario {eliminacionDisponibilidad.horario}?</p>
+                  <p>El resto de los horarios se mantendrá disponible.</p>
+                </>
+              )}
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <BotonSecundario type="button" className="h-12 w-20" onClick={() => setEliminacionDisponibilidad(null)}>
+                No
+              </BotonSecundario>
+              <button
+                type="button"
+                onClick={onConfirmarEliminarDisponibilidad}
+                className="h-12 w-20 rounded-lg border border-peligro bg-peligro text-sm font-bold text-white hover:bg-red-700"
+              >
+                Si
+              </button>
+            </div>
           </div>
         </div>
       )}

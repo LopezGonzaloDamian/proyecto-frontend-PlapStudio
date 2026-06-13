@@ -39,8 +39,15 @@ import type {
 
 type SeccionProfesional = 'agenda' | 'turnos' | 'clientes' | 'asistentes' | 'pagos' | 'historial' | 'perfil' | 'notificaciones'
 type ConfiguracionAgenda = Agenda['configuraciones'][number]
+type GrupoConfiguracionAgenda = {
+  diaSemana: DiaSemana
+  duracionSlotMinutos: number
+  configuraciones: ConfiguracionAgenda[]
+  horarios: Array<{ horario: string; configuracion: ConfiguracionAgenda }>
+}
 type EliminacionDisponibilidadPendiente =
   | { tipo: 'bloque'; configuracion: ConfiguracionAgenda }
+  | { tipo: 'grupo'; grupo: GrupoConfiguracionAgenda }
   | { tipo: 'horario'; configuracion: ConfiguracionAgenda; horario: string }
 
 const seccionesValidas: SeccionProfesional[] = ['agenda', 'turnos', 'asistentes', 'pagos', 'historial', 'perfil', 'notificaciones']
@@ -133,6 +140,8 @@ const fechaCortaDe = (t: { iniciaEn: string }) =>
     month: 'short',
     year: 'numeric',
   }).replace('.', '')
+
+const fechaDiaSeleccionado = (fechaIso: string) => fechaIso.split('-').reverse().join('-')
 
 const slotReservable = (slot: Slot) =>
   slot.disponible && new Date(slot.iniciaEn).getTime() > Date.now()
@@ -245,6 +254,7 @@ export default function ProfesionalDashboard() {
   })
   const [asistenteEmail, setAsistenteEmail] = useState('')
   const [busquedaCliente, setBusquedaCliente] = useState('')
+  const [vistaCalendario, setVistaCalendario] = useState<'dia' | 'semana' | 'mes'>('mes')
   const [fechaCalendario, setFechaCalendario] = useState(() => new Date().toISOString().slice(0, 10))
   const [perfilForm, setPerfilForm] = useState({
     nombreCompleto: '',
@@ -326,14 +336,36 @@ export default function ProfesionalDashboard() {
     const grupos = diasOrden.reduce((acc, dia) => {
       acc[dia] = []
       return acc
-    }, {} as Record<DiaSemana, Agenda['configuraciones']>)
+    }, {} as Record<DiaSemana, GrupoConfiguracionAgenda[]>)
+
+    const porDiaYDuracion = new Map<string, GrupoConfiguracionAgenda>()
 
     agendaPrincipal?.configuraciones.forEach((configuracion) => {
-      grupos[configuracion.diaSemana].push(configuracion)
+      const clave = `${configuracion.diaSemana}-${configuracion.duracionSlotMinutos}`
+      const grupo = porDiaYDuracion.get(clave) ?? {
+        diaSemana: configuracion.diaSemana,
+        duracionSlotMinutos: configuracion.duracionSlotMinutos,
+        configuraciones: [],
+        horarios: [],
+      }
+
+      grupo.configuraciones.push(configuracion)
+      horariosDeConfiguracion(configuracion).forEach((horario) => {
+        if (!grupo.horarios.some((item) => item.horario === horario)) {
+          grupo.horarios.push({ horario, configuracion })
+        }
+      })
+      porDiaYDuracion.set(clave, grupo)
+    })
+
+    porDiaYDuracion.forEach((grupo) => {
+      grupo.configuraciones.sort((a, b) => a.inicioSlot.localeCompare(b.inicioSlot))
+      grupo.horarios.sort((a, b) => a.horario.localeCompare(b.horario))
+      grupos[grupo.diaSemana].push(grupo)
     })
 
     diasOrden.forEach((dia) => {
-      grupos[dia].sort((a, b) => a.inicioSlot.localeCompare(b.inicioSlot))
+      grupos[dia].sort((a, b) => a.duracionSlotMinutos - b.duracionSlotMinutos)
     })
 
     return grupos
@@ -484,10 +516,13 @@ export default function ProfesionalDashboard() {
     [turnos, filtrosHistorial],
   )
 
-  const turnosDeHoy = useMemo(() => {
-    const hoy = new Date().toISOString().slice(0, 10)
-    return turnos.filter((t) => fechaIsoDe(t) === hoy && t.estado !== 'CANCELADO')
-  }, [turnos])
+  const turnosProximos = useMemo(() =>
+    turnos
+      .filter((t) => t.estado !== 'CANCELADO' && new Date(t.iniciaEn).getTime() > Date.now())
+      .sort(ordenarTurnosAsc)
+      .slice(0, 5),
+    [turnos],
+  )
 
   const turnosPorFecha = useMemo(
     () => turnos.reduce<Record<string, Turno[]>>((acc, t) => {
@@ -500,6 +535,16 @@ export default function ProfesionalDashboard() {
   )
 
   const fechaSeleccionada = useMemo(() => new Date(`${fechaCalendario}T00:00:00`), [fechaCalendario])
+  const diasSemana = useMemo(() => {
+    const dia = new Date(fechaSeleccionada)
+    const startOffset = (dia.getDay() + 6) % 7
+    dia.setDate(dia.getDate() - startOffset)
+    return Array.from({ length: 7 }, (_, i) => {
+      const fecha = new Date(dia)
+      fecha.setDate(dia.getDate() + i)
+      return fecha
+    })
+  }, [fechaSeleccionada])
   const diasMes = useMemo(() => {
     const year = fechaSeleccionada.getFullYear()
     const month = fechaSeleccionada.getMonth()
@@ -514,6 +559,7 @@ export default function ProfesionalDashboard() {
       return fecha
     })
   }, [fechaSeleccionada])
+  const turnosFechaSeleccionada = turnosPorFecha[fechaCalendario] ?? []
 
   const pagosTabla = useMemo(() =>
     turnos
@@ -675,11 +721,28 @@ export default function ProfesionalDashboard() {
     } catch (err) { showToast(extraerError(err), 'error') }
   }
 
+  const onEliminarGrupoConfig = async (grupo: GrupoConfiguracionAgenda) => {
+    if (!agendaPrincipal) return
+    try {
+      let agendaActualizada: Agenda | null = null
+      for (const configuracion of grupo.configuraciones) {
+        if (!configuracion.id) continue
+        agendaActualizada = await eliminarConfiguracion(agendaPrincipal.id, configuracion.id)
+      }
+      if (agendaActualizada) {
+        setAgendas((act) => act.map((a) => (a.id === agendaActualizada.id ? agendaActualizada : a)))
+      }
+      showToast('Bloque eliminado', 'success')
+    } catch (err) { showToast(extraerError(err), 'error') }
+  }
+
   const onConfirmarEliminarDisponibilidad = async () => {
     if (!eliminacionDisponibilidad) return
     if (eliminacionDisponibilidad.tipo === 'bloque') {
       const id = eliminacionDisponibilidad.configuracion.id
       if (id) await onEliminarConfig(id)
+    } else if (eliminacionDisponibilidad.tipo === 'grupo') {
+      await onEliminarGrupoConfig(eliminacionDisponibilidad.grupo)
     } else {
       await onEliminarHorarioConfig(eliminacionDisponibilidad.configuracion, eliminacionDisponibilidad.horario)
     }
@@ -997,16 +1060,16 @@ export default function ProfesionalDashboard() {
 
       <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-7 xl:px-10">
         {seccionActual === 'dashboard' && (
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="grid items-start gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <article className="order-2 rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
               <div>
                 <div>
-                  <h2 className="text-2xl font-black text-texto-principal">Turnos del dia</h2>
-                  <p className="text-sm text-texto-secundario">Agenda operativa para hoy.</p>
+                  <h2 className="text-2xl font-black text-texto-principal">Proximos turnos</h2>
+                  <p className="text-sm text-texto-secundario">Agenda operativa con tus reservas futuras.</p>
                 </div>
               </div>
               <div className="mt-5 grid gap-4">
-                {turnosDeHoy.map((t) => (
+                {turnosProximos.map((t) => (
                   <article key={t.id} className="rounded-2xl border border-borde bg-fondo p-5 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -1027,8 +1090,8 @@ export default function ProfesionalDashboard() {
                     </div>
                   </article>
                 ))}
-                {turnosDeHoy.length === 0 && (
-                  <p className="text-sm text-texto-secundario">Sin turnos para hoy.</p>
+                {turnosProximos.length === 0 && (
+                  <p className="text-sm text-texto-secundario">Sin proximos turnos.</p>
                 )}
               </div>
             </article>
@@ -1037,42 +1100,121 @@ export default function ProfesionalDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-texto-principal">Calendario</h2>
-                  <p className="text-sm text-texto-secundario">Vista mensual de turnos asignados.</p>
+                  <p className="text-sm text-texto-secundario">Vista de turnos asignados.</p>
                 </div>
-                <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="max-w-[190px]" />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="inline-flex rounded-xl border border-borde bg-fondo p-1">
+                    {(['dia', 'semana', 'mes'] as const).map((vista) => (
+                      <button
+                        key={vista}
+                        type="button"
+                        onClick={() => setVistaCalendario(vista)}
+                        className={`rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                          vistaCalendario === vista ? 'bg-white text-primario shadow-sm' : 'text-texto-secundario hover:text-texto-principal'
+                        }`}
+                      >
+                        {vista === 'dia' ? 'Dia' : vista === 'semana' ? 'Semana' : 'Mes'}
+                      </button>
+                    ))}
+                  </div>
+                  <Input type="date" value={fechaCalendario} onClick={(e) => abrirCalendario(e.currentTarget)} onChange={(e) => setFechaCalendario(e.target.value)} className="sm:w-[190px]" />
+                </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
-                {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((dia) => <span key={dia}>{dia}</span>)}
-              </div>
-              <div className="mt-2 grid grid-cols-7 gap-2">
-                {diasMes.map((dia) => {
-                  const fechaIso = dia.toISOString().slice(0, 10)
-                  const turnosDia = turnosPorFecha[fechaIso] ?? []
-                  const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
-                  const seleccionado = fechaIso === fechaCalendario
-                  return (
-                    <button
-                      key={fechaIso}
-                      type="button"
-                      onClick={() => setFechaCalendario(fechaIso)}
-                      className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
-                        seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
-                      } ${esMes ? 'opacity-100' : 'opacity-45'}`}
-                    >
-                      <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
-                      <div className="mt-2 grid gap-1">
-                        {turnosDia.slice(0, 2).map((t) => (
-                          <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
-                            {horaDe(t)} {t.clienteNombre.split(' ')[0]}
-                          </span>
-                        ))}
-                        {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              {vistaCalendario === 'mes' && (
+                <>
+                  <div className="mt-5 grid grid-cols-7 gap-2 text-center text-xs font-bold uppercase text-texto-secundario">
+                    {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((dia) => <span key={dia}>{dia}</span>)}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-2">
+                    {diasMes.map((dia) => {
+                      const fechaIso = dia.toISOString().slice(0, 10)
+                      const turnosDia = turnosPorFecha[fechaIso] ?? []
+                      const esMes = dia.getMonth() === fechaSeleccionada.getMonth()
+                      const seleccionado = fechaIso === fechaCalendario
+                      return (
+                        <button
+                          key={fechaIso}
+                          type="button"
+                          onClick={() => setFechaCalendario(fechaIso)}
+                          className={`min-h-[68px] rounded-lg border p-1.5 text-left sm:min-h-[86px] sm:p-2 ${
+                            seleccionado ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                          } ${esMes ? 'opacity-100' : 'opacity-45'}`}
+                        >
+                          <span className="text-xs font-black text-texto-principal sm:text-sm">{dia.getDate()}</span>
+                          <div className="mt-2 grid gap-1">
+                            {turnosDia.slice(0, 2).map((t) => (
+                              <span key={t.id} className="truncate rounded bg-white px-1 py-0.5 text-[10px] font-bold text-primario sm:px-1.5 sm:py-1 sm:text-[11px]">
+                                {horaDe(t)} {t.clienteNombre.split(' ')[0]}
+                              </span>
+                            ))}
+                            {turnosDia.length > 2 && <span className="text-[11px] font-bold text-texto-secundario">+{turnosDia.length - 2} mas</span>}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+
+              {vistaCalendario === 'semana' && (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+                  {diasSemana.map((dia) => {
+                    const fechaIso = dia.toISOString().slice(0, 10)
+                    const turnosDia = turnosPorFecha[fechaIso] ?? []
+                    return (
+                      <button
+                        key={fechaIso}
+                        type="button"
+                        onClick={() => setFechaCalendario(fechaIso)}
+                        className={`rounded-2xl border p-4 text-left transition-colors ${
+                          fechaIso === fechaCalendario ? 'border-primario bg-primario-claro' : 'border-borde bg-fondo hover:border-primario-suave hover:bg-white'
+                        }`}
+                      >
+                        <p className="text-xs font-bold uppercase text-texto-secundario">{dia.toLocaleDateString('es-PY', { weekday: 'short' })}</p>
+                        <p className="mt-1 text-2xl font-black text-texto-principal">{dia.getDate()}</p>
+                        <div className="mt-4 space-y-2">
+                          {turnosDia.length > 0 ? turnosDia.map((t) => (
+                            <div key={t.id} className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-texto-principal">
+                              {horaDe(t)} - {t.clienteNombre.split(' ')[0]}
+                            </div>
+                          )) : <p className="text-xs text-texto-suave">Sin turnos</p>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {vistaCalendario === 'dia' && (
+                <div className="mt-5 rounded-2xl border border-borde bg-fondo p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-texto-secundario">Dia seleccionado</p>
+                  <h3 className="mt-1 text-2xl font-black text-texto-principal">{fechaDiaSeleccionado(fechaCalendario)}</h3>
+                  <div className="mt-5 space-y-3">
+                    {turnosFechaSeleccionada.length > 0 ? turnosFechaSeleccionada.map((t) => (
+                      <article key={t.id} className="rounded-2xl border border-borde bg-white p-5 shadow-sm">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Fecha y hora</p>
+                            <p className="mt-1 font-black text-texto-principal">{fechaCortaDe(t)} - {horaDe(t)}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-lg border px-3 py-1 text-sm font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span>
+                        </div>
+                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Cliente</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.clienteNombre}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold uppercase text-texto-suave">Motivo</p>
+                            <p className="mt-1 font-bold text-texto-principal">{t.notas || 'Sin notas'}</p>
+                          </div>
+                        </div>
+                      </article>
+                    )) : <p className="text-sm text-texto-secundario">Sin turnos para este dia.</p>}
+                  </div>
+                </div>
+              )}
             </article>
           </section>
         )}
@@ -1110,16 +1252,16 @@ export default function ProfesionalDashboard() {
                                 Sin horarios cargados.
                               </p>
                             )}
-                            {configuracionesDia.map((c) => (
-                              <div key={c.id ?? `${c.diaSemana}-${c.inicioSlot}-${c.finSlot}`} className="rounded-lg border border-borde bg-white p-3">
+                            {configuracionesDia.map((grupo) => (
+                              <div key={`${grupo.diaSemana}-${grupo.duracionSlotMinutos}`} className="rounded-lg border border-borde bg-white p-3">
                                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                   <p className="text-xs font-bold text-texto-secundario">
-                                    Cada {c.duracionSlotMinutos} min
+                                    Cada {grupo.duracionSlotMinutos} min
                                   </p>
-                                  {c.id && (
+                                  {grupo.configuraciones.some((configuracion) => configuracion.id) && (
                                     <button
                                       type="button"
-                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'bloque', configuracion: c })}
+                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'grupo', grupo })}
                                       className="w-fit text-xs font-bold text-peligro hover:underline"
                                     >
                                       Eliminar bloque
@@ -1127,11 +1269,11 @@ export default function ProfesionalDashboard() {
                                   )}
                                 </div>
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  {horariosDeConfiguracion(c).map((horario) => (
+                                  {grupo.horarios.map(({ horario, configuracion }) => (
                                     <button
-                                      key={`${c.id}-${horario}`}
+                                      key={`${configuracion.id}-${horario}`}
                                       type="button"
-                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'horario', configuracion: c, horario })}
+                                      onClick={() => setEliminacionDisponibilidad({ tipo: 'horario', configuracion, horario })}
                                       className="rounded-lg border border-primario-suave bg-primario-claro px-3 py-1.5 text-sm font-bold text-primario transition-colors hover:border-red-200 hover:bg-red-50 hover:text-peligro"
                                       title={`Eliminar horario ${horario}`}
                                     >
@@ -2188,7 +2330,7 @@ export default function ProfesionalDashboard() {
           <div className="w-full max-w-md rounded-2xl border border-borde bg-white p-6 shadow-xl">
             <h2 className="text-xl font-black text-texto-principal">Eliminar disponibilidad</h2>
             <div className="mt-4 space-y-2 text-sm text-texto-secundario">
-              {eliminacionDisponibilidad.tipo === 'bloque' ? (
+              {eliminacionDisponibilidad.tipo === 'bloque' || eliminacionDisponibilidad.tipo === 'grupo' ? (
                 <>
                   <p>¿Querés eliminar este bloque de horarios?</p>
                   <p>Se eliminarán todos los horarios de ese bloque.</p>
