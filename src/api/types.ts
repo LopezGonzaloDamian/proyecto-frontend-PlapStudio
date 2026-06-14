@@ -44,7 +44,6 @@ export type Profesional = {
   localidad: string
   direccion: string
   precio: number
-  comisionPendientePorcentaje: number
   cobertura: string
   matriculaNacional: string
   matriculaProvincial: string
