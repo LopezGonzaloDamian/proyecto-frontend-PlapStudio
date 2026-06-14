@@ -1778,7 +1778,7 @@ export default function AsistenteDashboard() {
                 <h2 className="text-2xl font-black text-texto-principal">Historial de turnos</h2>
                 <p className="text-sm text-texto-secundario">Turnos pasados y actuales en agendas asignadas.</p>
               </div>
-              <div className="grid gap-3 lg:grid-cols-4 xl:max-w-5xl">
+              <div className="grid gap-3 lg:grid-cols-5 xl:max-w-6xl">
                 <div>
                   <Label>Profesional</Label>
                   <Select value={filtrosHistorial.profesionalId} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, profesionalId: e.target.value })}>
@@ -1799,6 +1799,13 @@ export default function AsistenteDashboard() {
                     <option value="CANCELADO">Cancelado</option>
                   </Select>
                 </div>
+                <BotonSecundario
+                  type="button"
+                  className="self-end whitespace-nowrap"
+                  onClick={() => setFiltrosHistorial({ profesionalId: 'Todos', clienteEmail: '', fecha: '', estado: 'Todos' })}
+                >
+                  Limpiar filtros
+                </BotonSecundario>
               </div>
             </div>
 
@@ -1817,7 +1824,7 @@ export default function AsistenteDashboard() {
                   <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
                     <div>
                       <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha</span>
-                      <p className="mt-0.5 text-sm font-black text-texto-principal">{fechaIsoDe(t)}</p>
+                      <p className="mt-0.5 text-sm font-black text-texto-principal">{fechaDiaSeleccionado(fechaIsoDe(t))}</p>
                     </div>
                     <div>
                       <span className="text-[11px] font-bold uppercase text-texto-suave">Horario</span>
@@ -1856,7 +1863,7 @@ export default function AsistenteDashboard() {
                     <th className="px-3 py-2">Horario</th>
                     <th className="px-3 py-2">Duracion</th>
                     <th className="px-3 py-2">Estado</th>
-                    <th className="px-3 py-2">Notas</th>
+                    <th className="px-3 py-2">Servicio</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1865,7 +1872,7 @@ export default function AsistenteDashboard() {
                       <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.profesionalNombre}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.clienteNombre}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
-                      <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{fechaDiaSeleccionado(fechaIsoDe(t))}</td>
                       <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.duracionMinutos} min</td>
                       <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>

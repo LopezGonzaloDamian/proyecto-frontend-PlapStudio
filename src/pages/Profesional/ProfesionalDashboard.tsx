@@ -568,7 +568,7 @@ export default function ProfesionalDashboard() {
         id: t.pago!.id,
         clienteNombre: t.clienteNombre,
         agendaNombre: t.agendaNombre,
-        fecha: fechaIsoDe(t),
+        fecha: fechaDiaSeleccionado(fechaIsoDe(t)),
         monto: t.pago!.monto,
         origen: t.pago!.origen,
         porcentajeComision: t.pago!.porcentajeComision,
@@ -1786,7 +1786,7 @@ export default function ProfesionalDashboard() {
                 <h2 className="text-2xl font-black text-texto-principal">Historial de turnos</h2>
                 <p className="text-sm text-texto-secundario">Turnos pasados y actuales de tu agenda.</p>
               </div>
-              <div className="grid gap-3 lg:grid-cols-3 xl:max-w-4xl">
+              <div className="grid gap-3 lg:grid-cols-4 xl:max-w-5xl">
                 <div>
                   <Label>Mail del cliente</Label>
                   <Input value={filtrosHistorial.clienteEmail} onChange={(e) => setFiltrosHistorial({ ...filtrosHistorial, clienteEmail: e.target.value })} placeholder="cliente@gmail.com" />
@@ -1799,6 +1799,13 @@ export default function ProfesionalDashboard() {
                   <Label>Estado</Label>
                   <FiltroEstado value={filtrosHistorial.estado} onChange={(estado) => setFiltrosHistorial({ ...filtrosHistorial, estado })} />
                 </div>
+                <BotonSecundario
+                  type="button"
+                  className="self-end whitespace-nowrap"
+                  onClick={() => setFiltrosHistorial({ clienteEmail: '', fecha: '', estado: 'Todos' })}
+                >
+                  Limpiar filtros
+                </BotonSecundario>
               </div>
             </div>
 
@@ -1814,7 +1821,7 @@ export default function ProfesionalDashboard() {
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-[11px] font-bold uppercase text-texto-suave">Fecha</span>
-                      <p className="mt-1 font-black text-texto-principal">{fechaIsoDe(t)}</p>
+                      <p className="mt-1 font-black text-texto-principal">{fechaDiaSeleccionado(fechaIsoDe(t))}</p>
                     </div>
                     <div>
                       <span className="text-[11px] font-bold uppercase text-texto-suave">Horario</span>
@@ -1849,7 +1856,7 @@ export default function ProfesionalDashboard() {
                     <th className="px-3 py-2">Horario</th>
                     <th className="px-3 py-2">Duracion</th>
                     <th className="px-3 py-2">Estado</th>
-                    <th className="px-3 py-2">Notas</th>
+                    <th className="px-3 py-2">Servicio</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1857,7 +1864,7 @@ export default function ProfesionalDashboard() {
                     <tr key={t.id} className="bg-fondo">
                       <td className="rounded-l-lg px-3 py-3 font-bold text-texto-principal">{t.clienteNombre}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.clienteEmail || 'Sin mail'}</td>
-                      <td className="px-3 py-3 text-texto-secundario">{fechaIsoDe(t)}</td>
+                      <td className="px-3 py-3 text-texto-secundario">{fechaDiaSeleccionado(fechaIsoDe(t))}</td>
                       <td className="px-3 py-3 text-texto-secundario">{horaDe(t)}</td>
                       <td className="px-3 py-3 text-texto-secundario">{t.duracionMinutos} min</td>
                       <td className="px-3 py-3"><span className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${estadoClass[t.estado]}`}>{estadoLabel[t.estado]}</span></td>
@@ -1987,22 +1994,12 @@ export default function ProfesionalDashboard() {
         {seccionActual === 'pagos' && (
           <section className="rounded-lg border border-borde-suave bg-white p-6 shadow-sm xl:p-7">
             <h2 className="text-2xl font-black text-texto-principal">Pagos</h2>
-            <p className="mt-1 text-sm text-texto-secundario">Agendify retiene 5% sobre pagos online y suma las comisiones pendientes de turnos asignados manualmente.</p>
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <p className="mt-1 text-sm text-texto-secundario">Agendify retiene 5% solamente sobre los pagos online realizados por clientes.</p>
+            <div className="mt-5 grid gap-4 md:max-w-md">
               <article className="rounded-lg border border-borde bg-fondo p-4">
-                <p className="text-xs font-bold uppercase text-texto-secundario">Comision pendiente</p>
-                <p className="mt-2 text-3xl font-black text-texto-principal">{perfil?.comisionPendientePorcentaje ?? 0}%</p>
-                <p className="mt-1 text-sm text-texto-secundario">Se suma al proximo pago online.</p>
-              </article>
-              <article className="rounded-lg border border-borde bg-fondo p-4">
-                <p className="text-xs font-bold uppercase text-texto-secundario">Comision base</p>
+                <p className="text-xs font-bold uppercase text-texto-secundario">Comision Agendify</p>
                 <p className="mt-2 text-3xl font-black text-texto-principal">5%</p>
-                <p className="mt-1 text-sm text-texto-secundario">Se aplica a cada pago online.</p>
-              </article>
-              <article className="rounded-lg border border-borde bg-fondo p-4">
-                <p className="text-xs font-bold uppercase text-texto-secundario">Proximo cobro online</p>
-                <p className="mt-2 text-3xl font-black text-texto-principal">{5 + (perfil?.comisionPendientePorcentaje ?? 0)}%</p>
-                <p className="mt-1 text-sm text-texto-secundario">Base mas acumulado pendiente.</p>
+                <p className="mt-1 text-sm text-texto-secundario">Se aplica a cada seña abonada online.</p>
               </article>
             </div>
             <div className="mt-5 grid gap-3 md:hidden">
@@ -2036,7 +2033,6 @@ export default function ProfesionalDashboard() {
                       <span className="text-[11px] font-bold uppercase text-texto-suave">Comision Agendify</span>
                       <p className="mt-1 font-bold text-texto-principal">
                         {formatPrecio(p.comisionAgendify)}
-                        {p.porcentajeComision > 0 && <span className="ml-2 text-xs text-texto-secundario">({p.porcentajeComision}%)</span>}
                       </p>
                     </div>
                   </div>
@@ -2067,12 +2063,7 @@ export default function ProfesionalDashboard() {
                       <td className="px-3 py-3 text-texto-secundario">{p.fecha}</td>
                       <td className="px-3 py-3 text-texto-secundario">{p.origen === 'ONLINE' ? 'Pago online' : 'Cobro externo'}</td>
                       <td className="px-3 py-3 font-bold text-primario">{formatPrecio(p.monto)}</td>
-                      <td className="px-3 py-3 font-semibold text-texto-secundario">
-                        <span>{formatPrecio(p.comisionAgendify)}</span>
-                        {p.porcentajeComision > 0 && (
-                          <span className="block text-xs font-bold text-texto-secundario">{p.porcentajeComision}%</span>
-                        )}
-                      </td>
+                      <td className="px-3 py-3 font-semibold text-texto-secundario">{formatPrecio(p.comisionAgendify)}</td>
                       <td className="rounded-r-lg px-3 py-3 font-black text-texto-principal">{formatPrecio(p.netoProfesional)}</td>
                     </tr>
                   ))}
