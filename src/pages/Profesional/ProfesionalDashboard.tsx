@@ -1856,7 +1856,7 @@ export default function ProfesionalDashboard() {
                     <th className="px-3 py-2">Horario</th>
                     <th className="px-3 py-2">Duracion</th>
                     <th className="px-3 py-2">Estado</th>
-                    <th className="px-3 py-2">Notas</th>
+                    <th className="px-3 py-2">Servicio</th>
                   </tr>
                 </thead>
                 <tbody>
